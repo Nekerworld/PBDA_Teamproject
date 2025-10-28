@@ -1,6 +1,9 @@
 # PBDA TeamProject
 2025년 2학기 빅데이터분석실무 과목의 팀 프로젝트에 대한 레포지토리입니다.
 
+# GPT로 대충 생성했습니다.
+## 추후 제대로 작성 예정입니다.
+
 이 레포지토리는 **RetailRocket 데이터셋**을 활용한 **온라인 쇼핑몰 고객 행동 분석 및 추천 시스템 구축** 프로젝트입니다.
 ## [데이터 링크](https://www.kaggle.com/datasets/retailrocket/ecommerce-dataset)
 
@@ -78,7 +81,7 @@
 
 2.  **필요한 패키지 설치**:
     ```bash
-    pip install pandas numpy matplotlib seaborn plotly networkx scikit-learn
+    pip install -r requirements.txt
     ```
 
 3.  **EDA 스크립트 실행**:
@@ -88,8 +91,7 @@
     ```
 
 4.  **결과 확인**:
-    - `EDA/retailrocket_eda_visualizations.html`: 인터랙티브 시각화
-    - `EDA/retailrocket_eda_report.html`: 종합 분석 리포트
+    - `retailrocket_recommendation_report`: 인터랙티브 시각화
 
 ---
 
@@ -102,7 +104,6 @@ PBDA_Teamproject/
 │   ├── item_properties_part1.csv   # 아이템 속성 (1부)
 │   ├── item_properties_part2.csv   # 아이템 속성 (2부)
 │   ├── category_tree.csv           # 카테고리 계층 구조
-│   └── online_shoppers_intention.csv # 구매 의도 데이터
 ├── EDA/                            # 탐색적 데이터 분석
 │   ├── EDA.py                      # 메인 분석 스크립트
 │   ├── retailrocket_eda_report.html      # 분석 리포트
