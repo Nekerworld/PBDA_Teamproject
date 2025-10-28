@@ -35,15 +35,15 @@ class RetailRocketEDA:
         print("데이터 로딩 중...")
         
         # Events 데이터 로딩
-        self.events_df = pd.read_csv('events.csv')
+        self.events_df = pd.read_csv('../data/events.csv')
         
         # Item properties 데이터 로딩 (part1, part2 합치기)
-        item_props1 = pd.read_csv('item_properties_part1.csv')
-        item_props2 = pd.read_csv('item_properties_part2.csv')
+        item_props1 = pd.read_csv('../data/item_properties_part1.csv')
+        item_props2 = pd.read_csv('../data/item_properties_part2.csv')
         self.item_properties_df = pd.concat([item_props1, item_props2], ignore_index=True)
         
         # Category tree 데이터 로딩
-        self.category_tree_df = pd.read_csv('category_tree.csv')
+        self.category_tree_df = pd.read_csv('../data/category_tree.csv')
         
         print("데이터 로딩 완료!")
         
@@ -519,7 +519,7 @@ class RetailRocketEDA:
         
         # 시각화 저장
         fig.write_html("retailrocket_eda_visualizations.html")
-        print("시각화가 'retailrocket_eda_visualizations.html'에 저장되었습니다.")
+        print("시각화가 'EDA/retailrocket_eda_visualizations.html'에 저장되었습니다.")
         
         return fig
     
@@ -691,7 +691,7 @@ class RetailRocketEDA:
         with open("retailrocket_eda_report.html", "w", encoding="utf-8") as f:
             f.write(html_content)
         
-        print("HTML 리포트가 'retailrocket_eda_report.html'에 저장되었습니다.")
+        print("HTML 리포트가 'EDA/retailrocket_eda_report.html'에 저장되었습니다.")
         
     def _generate_report_content(self):
         """리포트 내용 생성"""
@@ -852,8 +852,8 @@ class RetailRocketEDA:
         print("\n" + "="*60)
         print("EDA 완료!")
         print("생성된 파일:")
-        print("   - retailrocket_eda_visualizations.html (시각화)")
-        print("   - retailrocket_eda_report.html (종합 리포트)")
+        print("   - EDA/retailrocket_eda_visualizations.html (시각화)")
+        print("   - EDA/retailrocket_eda_report.html (종합 리포트)")
         print("="*60)
         
         return self.results
