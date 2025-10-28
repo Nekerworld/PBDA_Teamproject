@@ -1120,12 +1120,12 @@ class RetailRocketEDA:
         
         # 시각화를 리포트에 통합
         content_with_viz = content + f"""
-        <h2>📊 6. 상세 분석 결과</h2>
+        <h2>📊 5. 상세 분석 결과</h2>
         <div class="code-block">
             <pre>{detailed_analysis}</pre>
         </div>
         
-        <h2>📈 7. 통합 시각화</h2>
+        <h2>📈 6. 통합 시각화</h2>
         <div class="visualization-container">
             <h3>추천 시스템 분석 시각화</h3>
             <div class="insight-box">
@@ -1142,7 +1142,7 @@ class RetailRocketEDA:
             {visualization_html}
         </div>
         
-        <h2>🌳 8. 카테고리 트리 네트워크</h2>
+        <h2>🌳 7. 카테고리 트리 네트워크</h2>
         <div class="visualization-container">
             <h3>전체 카테고리 계층 구조</h3>
             <div class="insight-box">
@@ -1242,7 +1242,7 @@ class RetailRocketEDA:
             # 상위 인기 아이템
             content += "<h3>🏆 상위 인기 아이템 (Top 10)</h3>"
             content += "<table class='data-table'>"
-            content += "<tr><th>아이템 ID</th><th>인기도 점수</th><th>전환율 (%)</th><th>카테고리</th></tr>"
+            content += "<tr><th>아이템 ID</th><th>인기도 점수<br>(view:1, addtocart:3, transaction:10)</th><th>전환율 (%)</th><th>카테고리</th></tr>"
             
             for item in item_data['top_items'][:10]:
                 content += f"""
@@ -1259,6 +1259,7 @@ class RetailRocketEDA:
         if 'session_based_analysis' in self.results:
             session_data = self.results['session_based_analysis']
             content += "<h2>📊 4. 세션 기반 추천 분석</h2>"
+            content += "<p>Events.csv에서 30분 이내의 이벤트이면 같은 세션으로 간주<br>세션 패턴은 view_only, cart_only, conversion 3가지로 분류<br>View Only: view 이벤트만 있을 때<br>Cart Only: transaction은 없지만 addtocart 이벤트가 있을 때<br>Conversion: transaction 이벤트가 하나라도 있을 때</p>"
             
             content += "<div class='stats-grid'>"
             content += f"""
