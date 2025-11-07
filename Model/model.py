@@ -325,6 +325,8 @@ class ALSRecommender:
                 filter_already_liked_items=True,
             )
             for rank, (item_index, score) in enumerate(zip(item_indices, scores), start=1):
+                if item_index >= len(items) or item_index < 0:
+                    continue
                 records.append(
                     {
                         "visitorid": user_id,
@@ -944,6 +946,129 @@ class ReRanker:
         return np.dot(matrix, vector) / (matrix_norm * vector_norm)
 
 
+@dataclass
+class TestSetEvaluator:
+    processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
+    top_k: int = 20
+
+    def run(self) -> None:
+        final_rec_path = self.processed_dir / "final_recommendations.csv"
+        events_test_path = self.processed_dir / "events_test.csv"
+
+        if not final_rec_path.exists():
+            raise FileNotFoundError("final_recommendations.csv 파일이 없습니다. ReRanker를 먼저 실행해 주세요.")
+        if not events_test_path.exists():
+            raise FileNotFoundError("events_test.csv 파일이 없습니다. IsolationForestPreprocessor가 생성한 데이터를 확인해 주세요.")
+
+        recommendations = pd.read_csv(final_rec_path)
+        events_test = pd.read_csv(events_test_path)
+
+        test_users = events_test["visitorid"].dropna().astype(int).unique()
+        test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+        test_recommendations = (
+            test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(self.top_k)
+        )
+        test_recommendations.to_csv(self.processed_dir / "test_recommendations.csv", index=False)
+
+        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+        positives: Dict[int, set[int]] = (
+            positive_events.dropna(subset=["visitorid", "itemid"])
+            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            .groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+
+        metrics = {
+            "users_evaluated": 0,
+            "hit_users": 0,
+            "precision_sum": 0.0,
+            "recall_sum": 0.0,
+        }
+        y_true: List[int] = []
+        y_pred: List[int] = []
+        y_scores: List[float] = []
+
+        for visitor_id, recs in test_recommendations.groupby("visitorid"):
+            predicted_items = recs["itemid"].astype(int).tolist()
+            relevant_items = positives.get(visitor_id, set())
+            if not predicted_items:
+                continue
+
+            metrics["users_evaluated"] += 1
+
+            if not relevant_items:
+                y_true.append(0)
+                y_pred.append(0)
+                y_scores.append(0.0)
+                continue
+
+            hits = len(set(predicted_items) & relevant_items)
+            if hits > 0:
+                metrics["hit_users"] += 1
+
+            precision = hits / len(predicted_items)
+            recall = hits / len(relevant_items) if relevant_items else 0.0
+
+            metrics["precision_sum"] += precision
+            metrics["recall_sum"] += recall
+
+            y_true.append(1)
+            y_pred.append(1 if hits > 0 else 0)
+            y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+
+        evaluated = metrics["users_evaluated"]
+        hit_users = metrics["hit_users"]
+        mean_precision = metrics["precision_sum"] / evaluated if evaluated else 0.0
+        mean_recall = metrics["recall_sum"] / evaluated if evaluated else 0.0
+        hit_rate = hit_users / evaluated if evaluated else 0.0
+
+        confusion: Optional[np.ndarray] = None
+        accuracy = precision_score_value = recall_score_value = f1 = roc_auc = average_precision = 0.0
+
+        if y_true:
+            from sklearn.metrics import (
+                accuracy_score,
+                average_precision_score,
+                confusion_matrix,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
+
+            confusion = confusion_matrix(y_true, y_pred)
+            accuracy = accuracy_score(y_true, y_pred)
+            precision_score_value = precision_score(y_true, y_pred, zero_division=0)
+            recall_score_value = recall_score(y_true, y_pred, zero_division=0)
+            f1 = f1_score(y_true, y_pred, zero_division=0)
+            try:
+                roc_auc = roc_auc_score(y_true, y_scores)
+            except ValueError:
+                roc_auc = 0.0
+            average_precision = average_precision_score(y_true, y_scores)
+
+        logger.info(
+            "Test Evaluation - users: %d, hit@%d: %.4f, precision: %.4f, recall: %.4f",
+            evaluated,
+            self.top_k,
+            hit_rate,
+            mean_precision,
+            mean_recall,
+        )
+        if confusion is not None:
+            logger.info("Confusion Matrix:\\n%s", confusion)
+            logger.info(
+                "Accuracy: %.4f, Precision: %.4f, Recall: %.4f, F1: %.4f, ROC-AUC: %.4f, Average Precision: %.4f",
+                accuracy,
+                precision_score_value,
+                recall_score_value,
+                f1,
+                roc_auc,
+                average_precision,
+            )
+
+
 if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
@@ -953,4 +1078,6 @@ if __name__ == "__main__":
     gnn_generator.run()
     reranker = ReRanker()
     reranker.run()
+    evaluator = TestSetEvaluator()
+    evaluator.run()
 
