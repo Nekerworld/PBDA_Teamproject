@@ -1,7 +1,7 @@
-# 대용량 데이터 파일들 (GitHub 파일 크기 제한으로 인해 제외)
 data/events.csv
 data/item_properties_part1.csv
 data/item_properties_part2.csv
+data/
 
 # Python
 __pycache__/
