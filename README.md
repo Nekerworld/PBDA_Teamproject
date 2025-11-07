@@ -76,7 +76,7 @@
 
 1.  **레포지토리 클론**:
     ```bash
-    git clone [https://github.com/Nekerworld/PBDA_Teamproject.git]
+    git clone https://github.com/Nekerworld/PBDA_Teamproject.git
     ```
 
 2.  **필요한 패키지 설치**:
