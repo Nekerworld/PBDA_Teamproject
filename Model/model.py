@@ -317,9 +317,10 @@ class ALSRecommender:
     ) -> DataFrame:
         records: List[Dict[str, float]] = []
         for user_index, user_id in enumerate(users):
+            user_interactions = user_item_matrix[user_index]
             item_indices, scores = model.recommend(
                 user_index,
-                user_item_matrix,
+                user_interactions,
                 N=self.top_k,
                 filter_already_liked_items=True,
             )
