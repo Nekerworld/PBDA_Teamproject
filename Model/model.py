@@ -235,12 +235,13 @@ class IsolationForestPreprocessor:
 @dataclass
 class ALSRecommender:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
-    factors: int = 64
+    factors: int = 32
     regularization: float = 0.1
-    iterations: int = 20
+    iterations: int = 16
     alpha: float = 1.0
     top_k: int = 20
     random_state: int = 42
+    recommend_batch_size: int = 256
 
     def run(self) -> None:
         try:
@@ -316,25 +317,42 @@ class ALSRecommender:
         items: List[int],
     ) -> DataFrame:
         records: List[Dict[str, float]] = []
-        for user_index, user_id in enumerate(users):
-            user_interactions = user_item_matrix[user_index]
-            item_indices, scores = model.recommend(
-                user_index,
-                user_interactions,
+        max_users = min(
+            model.user_factors.shape[0] if hasattr(model, "user_factors") else len(users),
+            user_item_matrix.shape[0],
+            len(users),
+        )
+
+        user_ids_array = np.array(users[:max_users], dtype=int)
+
+        batch_size = max(self.recommend_batch_size, 1)
+        for start in range(0, max_users, batch_size):
+            end = min(start + batch_size, max_users)
+            batch_user_indices = np.arange(start, end, dtype=int)
+            batch_user_ids = user_ids_array[start:end]
+            batch_interactions = user_item_matrix[start:end]
+
+            item_idx_batch, score_batch = model.recommend(
+                batch_user_indices,
+                batch_interactions,
                 N=self.top_k,
                 filter_already_liked_items=True,
             )
-            for rank, (item_index, score) in enumerate(zip(item_indices, scores), start=1):
-                if item_index >= len(items) or item_index < 0:
-                    continue
-                records.append(
-                    {
-                        "visitorid": user_id,
-                        "itemid": items[item_index],
-                        "score": float(score),
-                        "rank": rank,
-                    }
-                )
+
+            for row, user_id in enumerate(batch_user_ids):
+                item_indices = item_idx_batch[row]
+                scores = score_batch[row]
+                for rank, (item_index, score) in enumerate(zip(item_indices, scores), start=1):
+                    if item_index >= len(items) or item_index < 0:
+                        continue
+                    records.append(
+                        {
+                            "visitorid": int(user_id),
+                            "itemid": int(items[item_index]),
+                            "score": float(score),
+                            "rank": rank,
+                        }
+                    )
 
         return pd.DataFrame(records)
 
@@ -362,10 +380,10 @@ class ALSRecommender:
 class GNNEmbeddingGenerator:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
-    embedding_dim: int = 64
+    embedding_dim: int = 8
     layers: int = 2
     epochs: int = 5
-    batch_size: int = 2048
+    batch_size: int = 8192
     learning_rate: float = 1e-3
     reg: float = 1e-4
     num_negative: int = 1
@@ -751,7 +769,7 @@ class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 20
-    candidate_k: int = 100
+    candidate_k: int = 32
     mmr_lambda: float = 0.7
     random_seed: Optional[int] = 42
 
@@ -1072,12 +1090,16 @@ class TestSetEvaluator:
 if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
+    
     als_recommender = ALSRecommender()
     als_recommender.run()
+    
     gnn_generator = GNNEmbeddingGenerator()
     gnn_generator.run()
+    print("GNN Completed")
+    
     reranker = ReRanker()
     reranker.run()
+    
     evaluator = TestSetEvaluator()
     evaluator.run()
-
