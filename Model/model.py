@@ -44,7 +44,7 @@ class IsolationForestPreprocessor:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     random_state: int = 42
-    test_size: float = 0.2
+    test_size: float = 0.35
     contamination: str | float = "auto"
     n_estimators: int = 200
 
@@ -54,6 +54,7 @@ class IsolationForestPreprocessor:
 
         logger.info("Building item-level feature table for anomaly detection…")
         feature_table = self._build_feature_table(datasets)
+        logger.info("Feature table prepared with %d items and %d features", feature_table.shape[0], feature_table.shape[1])
 
         logger.info("Splitting feature table into train(%.0f%%)/test(%.0f%%)…", (1 - self.test_size) * 100, self.test_size * 100)
         train_features, test_features = train_test_split(
@@ -62,6 +63,7 @@ class IsolationForestPreprocessor:
             random_state=self.random_state,
             shuffle=True,
         )
+        logger.info("Train set: %d items, Test set: %d items", len(train_features), len(test_features))
 
         logger.info("Training Isolation Forest on %d items…", len(train_features))
         isolation_forest = IsolationForest(
@@ -92,6 +94,7 @@ class IsolationForestPreprocessor:
             test_inliers=test_inliers,
             train_outliers=train_outliers,
         )
+        logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_inliers))
 
     def _load_raw(self) -> Dict[str, DataFrame]:
         events = pd.read_csv(
@@ -285,6 +288,7 @@ class ALSRecommender:
 
         logger.info("Generating top-%d recommendations per user…", self.top_k)
         recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
+        logger.info("ALS recommendation generation completed for %d users", len(recommendations.groupby("visitorid")))
 
         self._save_outputs(recommendations, users, items, model)
         logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
@@ -326,7 +330,15 @@ class ALSRecommender:
         user_ids_array = np.array(users[:max_users], dtype=int)
 
         batch_size = max(self.recommend_batch_size, 1)
-        for start in range(0, max_users, batch_size):
+        total_batches = int(np.ceil(max_users / batch_size)) if batch_size else 0
+        logger.info(
+            "ALS recommendations: %d users in %d batches (batch_size=%d)",
+            max_users,
+            total_batches,
+            batch_size,
+        )
+
+        for batch_idx, start in enumerate(range(0, max_users, batch_size), start=1):
             end = min(start + batch_size, max_users)
             batch_user_indices = np.arange(start, end, dtype=int)
             batch_user_ids = user_ids_array[start:end]
@@ -353,6 +365,16 @@ class ALSRecommender:
                             "rank": rank,
                         }
                     )
+
+            if batch_idx % 10 == 0 or batch_idx == total_batches:
+                percent = (end / max_users) * 100 if max_users else 100
+                logger.info(
+                    "ALS recommendations progress: batch %d/%d (processed users: %d, %.1f%%)",
+                    batch_idx,
+                    total_batches,
+                    end,
+                    percent,
+                )
 
         return pd.DataFrame(records)
 
@@ -411,11 +433,18 @@ class GNNEmbeddingGenerator:
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
 
+        logger.info("Preparing inputs for GNN embedding generation on device %s…", self.device)
         datasets = self._load_inputs()
         graph_data = self._prepare_graph_structures(datasets)
 
         adjacency = self._build_normalized_adjacency(
             graph_data["edge_sources"], graph_data["edge_targets"], graph_data["total_nodes"]
+        )
+
+        logger.info(
+            "Adjacency ready: nodes=%d, edges=%d (symmetric)",
+            graph_data["total_nodes"],
+            len(graph_data["edge_sources"]),
         )
 
         model = self._build_model(adjacency, torch)
@@ -455,6 +484,17 @@ class GNNEmbeddingGenerator:
                     torch,
                 )
                 epoch_loss += loss
+
+                if (batch_idx + 1) % 200 == 0 or (batch_idx + 1) == num_batches:
+                    progress = ((batch_idx + 1) / num_batches) * 100
+                    logger.info(
+                        "GNN training epoch %d/%d progress: batch %d/%d (%.1f%%)",
+                        epoch,
+                        self.epochs,
+                        batch_idx + 1,
+                        num_batches,
+                        progress,
+                    )
 
             logger.info("Epoch %d/%d - loss %.4f", epoch, self.epochs, epoch_loss / num_batches)
 
@@ -769,9 +809,9 @@ class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 20
-    candidate_k: int = 32
-    mmr_lambda: float = 0.7
+    candidate_k: int = 80
     random_seed: Optional[int] = 42
+    als_candidate_k: int = 200
 
     def __post_init__(self) -> None:
         if self.random_seed is not None:
@@ -788,53 +828,70 @@ class ReRanker:
 
         results: List[Dict[str, Any]] = []
 
-        item_id_array = np.array(als_item_ids)
+        item_id_array = np.array(als_item_ids, dtype=int)
+        gnn_index_lookup = np.array([
+            gnn_item_map.get(item_id, -1) for item_id in item_id_array
+        ])
+        valid_mask = gnn_index_lookup >= 0
+        if not valid_mask.any():
+            raise ValueError("GNN 임베딩과 교집합이 되는 아이템이 없습니다.")
 
-        for user_index, visitor_id in enumerate(als_user_ids):
+        valid_item_indices = np.where(valid_mask)[0]
+        als_item_valid = als_item_factors[valid_item_indices]
+        gnn_item_valid = gnn_item_embeddings[gnn_index_lookup[valid_mask]]
+        item_ids_valid = item_id_array[valid_mask]
+
+        total_users = min(len(als_user_ids), als_user_factors.shape[0])
+        logger.info("Reranking: processing %d users", total_users)
+
+        for user_index in range(total_users):
+            visitor_id = als_user_ids[user_index]
             if visitor_id not in gnn_user_map:
                 continue
 
             als_user_vector = als_user_factors[user_index]
             gnn_user_vector = gnn_user_embeddings[gnn_user_map[visitor_id]]
 
-            valid_pairs = [
-                (als_idx, gnn_item_map[item_id])
-                for als_idx, item_id in enumerate(item_id_array)
-                if item_id in gnn_item_map
-            ]
-            if not valid_pairs:
+            als_scores_full = als_user_vector @ als_item_valid.T
+
+            candidate_cutoff = min(self.als_candidate_k, als_scores_full.shape[0])
+            if candidate_cutoff <= 0:
                 continue
 
-            als_indices = np.array([pair[0] for pair in valid_pairs], dtype=np.int64)
-            gnn_indices = np.array([pair[1] for pair in valid_pairs], dtype=np.int64)
+            top_indices = np.argpartition(als_scores_full, -candidate_cutoff)[-candidate_cutoff:]
+            top_scores = als_scores_full[top_indices]
+            gnn_subset = gnn_item_valid[top_indices]
+            item_ids_subset = item_ids_valid[top_indices]
 
-            als_item_subset = als_item_factors[als_indices]
-            gnn_item_subset = gnn_item_embeddings[gnn_indices]
-            item_ids_valid = item_id_array[als_indices]
+            gnn_scores = gnn_subset @ gnn_user_vector
 
-            als_scores = als_user_vector @ als_item_subset.T
-            gnn_scores = gnn_item_subset @ gnn_user_vector
+            combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
 
-            combined_scores, weight_a = self._combine_scores(als_scores, gnn_scores)
+            order = np.argsort(combined_scores)[::-1][: self.top_k]
 
-            reranked_items = self._apply_mmr(
-                combined_scores,
-                gnn_item_subset,
-                item_ids_valid,
-            )
-
-            for rank, (item_id, score) in enumerate(reranked_items, start=1):
+            for rank, idx in enumerate(order, start=1):
+                item_id = int(item_ids_subset[idx])
+                score = float(combined_scores[idx])
                 final_score = score * (1.5 if availability.get(item_id, 0) == 1 else 1.0)
                 results.append(
                     {
                         "visitorid": visitor_id,
                         "itemid": item_id,
                         "rank": rank,
-                        "mmr_score": float(score),
+                        "combined_score": float(score),
                         "final_score": float(final_score),
                         "als_weight": float(weight_a),
                         "gnn_weight": float(1 - weight_a),
                     }
+                )
+
+            if (user_index + 1) % 10000 == 0 or (user_index + 1) == total_users:
+                percent = ((user_index + 1) / total_users) * 100 if total_users else 100
+                logger.info(
+                    "Reranking progress: processed %d/%d users (%.1f%%)",
+                    user_index + 1,
+                    total_users,
+                    percent,
                 )
 
         if not results:
@@ -910,53 +967,6 @@ class ReRanker:
         if np.isclose(max_val, min_val):
             return np.zeros_like(scores)
         return (scores - min_val) / (max_val - min_val)
-
-    def _apply_mmr(
-        self,
-        scores: np.ndarray,
-        item_embeddings: np.ndarray,
-        item_ids: np.ndarray,
-    ) -> List[Tuple[int, float]]:
-        candidate_indices = np.argsort(scores)[::-1][: self.candidate_k]
-        candidate_scores = scores[candidate_indices]
-        candidate_embeddings = item_embeddings[candidate_indices]
-        candidate_ids = item_ids[candidate_indices]
-
-        selected: List[int] = []
-        mmr_scores: Dict[int, float] = {}
-
-        while len(selected) < min(self.top_k, len(candidate_indices)):
-            mmr_values = []
-            for idx, score in enumerate(candidate_scores):
-                if idx in selected:
-                    mmr_values.append(-np.inf)
-                    continue
-
-                candidate_embedding = candidate_embeddings[idx]
-                if not selected:
-                    diversity_penalty = 0.0
-                else:
-                    selected_embeddings = candidate_embeddings[selected]
-                    cos_sim = self._cosine_similarity(candidate_embedding, selected_embeddings)
-                    diversity_penalty = float(np.max(cos_sim))
-
-                mmr_score = self.mmr_lambda * score - (1 - self.mmr_lambda) * diversity_penalty
-                mmr_values.append(mmr_score)
-
-            best_local_idx = int(np.argmax(mmr_values))
-            if best_local_idx in selected:
-                break
-
-            selected.append(best_local_idx)
-            mmr_scores[best_local_idx] = float(mmr_values[best_local_idx])
-
-        final_items: List[Tuple[int, float]] = []
-        for idx in selected:
-            item_id = int(candidate_ids[idx])
-            final_items.append((item_id, mmr_scores[idx]))
-
-        final_items.sort(key=lambda x: x[1], reverse=True)
-        return final_items
 
     def _cosine_similarity(self, vector: np.ndarray, matrix: np.ndarray) -> np.ndarray:
         vector_norm = np.linalg.norm(vector) + 1e-8
@@ -1075,7 +1085,7 @@ class TestSetEvaluator:
             mean_recall,
         )
         if confusion is not None:
-            logger.info("Confusion Matrix:\\n%s", confusion)
+            logger.info("\nConfusion Matrix:\n%s", confusion)
             logger.info(
                 "Accuracy: %.4f, Precision: %.4f, Recall: %.4f, F1: %.4f, ROC-AUC: %.4f, Average Precision: %.4f",
                 accuracy,
@@ -1088,15 +1098,15 @@ class TestSetEvaluator:
 
 
 if __name__ == "__main__":
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
     
-    als_recommender = ALSRecommender()
-    als_recommender.run()
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
     
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
-    print("GNN Completed")
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
+    # print("GNN Completed")
     
     reranker = ReRanker()
     reranker.run()
