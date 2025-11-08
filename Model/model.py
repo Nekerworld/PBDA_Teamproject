@@ -808,10 +808,11 @@ class GNNEmbeddingGenerator:
 class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
-    top_k: int = 20
-    candidate_k: int = 80
+    top_k: int = 50
     random_seed: Optional[int] = 42
-    als_candidate_k: int = 200
+    als_candidate_k: int = 500
+    gnn_candidate_k: int = 500
+    als_weight: float = 0.6
 
     def __post_init__(self) -> None:
         if self.random_seed is not None:
@@ -841,29 +842,34 @@ class ReRanker:
         gnn_item_valid = gnn_item_embeddings[gnn_index_lookup[valid_mask]]
         item_ids_valid = item_id_array[valid_mask]
 
-        total_users = min(len(als_user_ids), als_user_factors.shape[0])
+        total_users = len(als_user_ids)
         logger.info("Reranking: processing %d users", total_users)
-
-        for user_index in range(total_users):
-            visitor_id = als_user_ids[user_index]
+ 
+        for user_index, visitor_id in enumerate(als_user_ids):
             if visitor_id not in gnn_user_map:
                 continue
 
             als_user_vector = als_user_factors[user_index]
             gnn_user_vector = gnn_user_embeddings[gnn_user_map[visitor_id]]
-
+ 
             als_scores_full = als_user_vector @ als_item_valid.T
+            gnn_scores_full = gnn_item_valid @ gnn_user_vector
 
-            candidate_cutoff = min(self.als_candidate_k, als_scores_full.shape[0])
-            if candidate_cutoff <= 0:
+            als_cutoff = min(self.als_candidate_k, als_scores_full.shape[0])
+            gnn_cutoff = min(self.gnn_candidate_k, gnn_scores_full.shape[0])
+            if als_cutoff <= 0 and gnn_cutoff <= 0:
                 continue
 
-            top_indices = np.argpartition(als_scores_full, -candidate_cutoff)[-candidate_cutoff:]
-            top_scores = als_scores_full[top_indices]
-            gnn_subset = gnn_item_valid[top_indices]
-            item_ids_subset = item_ids_valid[top_indices]
+            als_top = np.argpartition(als_scores_full, -als_cutoff)[-als_cutoff:] if als_cutoff > 0 else np.array([], dtype=int)
+            gnn_top = np.argpartition(gnn_scores_full, -gnn_cutoff)[-gnn_cutoff:] if gnn_cutoff > 0 else np.array([], dtype=int)
+            candidate_indices = np.unique(np.concatenate([als_top, gnn_top]))
+            if candidate_indices.size == 0:
+                continue
 
-            gnn_scores = gnn_subset @ gnn_user_vector
+            top_scores = als_scores_full[candidate_indices]
+            gnn_subset = gnn_item_valid[candidate_indices]
+            gnn_scores = gnn_scores_full[candidate_indices]
+            item_ids_subset = item_ids_valid[candidate_indices]
 
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
 
@@ -954,8 +960,8 @@ class ReRanker:
     def _combine_scores(self, als_scores: np.ndarray, gnn_scores: np.ndarray) -> Tuple[np.ndarray, float]:
         als_norm = self._minmax_scale(als_scores)
         gnn_norm = self._minmax_scale(gnn_scores)
-
-        weight_a = float(np.random.rand())
+ 
+        weight_a = float(np.clip(self.als_weight, 0.0, 1.0))
         combined = weight_a * als_norm + (1 - weight_a) * gnn_norm
         return combined, weight_a
 
@@ -977,7 +983,7 @@ class ReRanker:
 @dataclass
 class TestSetEvaluator:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
-    top_k: int = 20
+    top_k: int = 50
 
     def run(self) -> None:
         final_rec_path = self.processed_dir / "final_recommendations.csv"
@@ -1098,15 +1104,14 @@ class TestSetEvaluator:
 
 
 if __name__ == "__main__":
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
     
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    als_recommender = ALSRecommender()
+    als_recommender.run()
     
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
-    # print("GNN Completed")
+    gnn_generator = GNNEmbeddingGenerator()
+    gnn_generator.run()
     
     reranker = ReRanker()
     reranker.run()
