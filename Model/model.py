@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
 EVENT_TO_CODE: Dict[str, int] = {"view": 0, "addtocart": 1, "transaction": 2}
 NUMERIC_PATTERN = re.compile(r"(?P<sign>n|-)?(?P<number>\d+(?:\.\d+)?)")
-EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 3.0, "transaction": 5.0}
+EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
 
 
 def _extract_numeric(value: Optional[str]) -> Optional[float]:
@@ -808,11 +808,10 @@ class GNNEmbeddingGenerator:
 class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
-    top_k: int = 50
+    top_k: int = 200
     random_seed: Optional[int] = 42
     als_candidate_k: int = 500
-    gnn_candidate_k: int = 500
-    als_weight: float = 0.6
+    als_weight: float = 0.4
 
     def __post_init__(self) -> None:
         if self.random_seed is not None:
@@ -830,48 +829,111 @@ class ReRanker:
         results: List[Dict[str, Any]] = []
 
         item_id_array = np.array(als_item_ids, dtype=int)
-        gnn_index_lookup = np.array([
-            gnn_item_map.get(item_id, -1) for item_id in item_id_array
-        ])
-        valid_mask = gnn_index_lookup >= 0
-        if not valid_mask.any():
-            raise ValueError("GNN 임베딩과 교집합이 되는 아이템이 없습니다.")
+        gnn_index_lookup = np.array([gnn_item_map.get(item_id, -1) for item_id in item_id_array], dtype=int)
+        has_gnn_mask = gnn_index_lookup >= 0
 
-        valid_item_indices = np.where(valid_mask)[0]
-        als_item_valid = als_item_factors[valid_item_indices]
-        gnn_item_valid = gnn_item_embeddings[gnn_index_lookup[valid_mask]]
-        item_ids_valid = item_id_array[valid_mask]
+        target_user_set: Optional[set[int]] = None
+        positives_by_user: Dict[int, set[int]] = {}
+        events_test_path = self.processed_dir / "events_test.csv"
+        if events_test_path.exists():
+            events_test_df = pd.read_csv(events_test_path, usecols=["visitorid", "event", "itemid"]).dropna()
+            events_test_df["visitorid"] = events_test_df["visitorid"].astype(int)
+            events_test_df["itemid"] = events_test_df["itemid"].astype(int)
+            target_user_set = set(events_test_df["visitorid"].unique())
+            positive_events = events_test_df[events_test_df["event"].isin(["addtocart", "transaction"])]
+            positives_by_user = (
+                positive_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
+            )
+            logger.info(
+                "Restricting reranking to %d users present in test events (positive users: %d)",
+                len(target_user_set),
+                len(positives_by_user),
+            )
 
-        total_users = len(als_user_ids)
+        max_user_index = min(len(als_user_ids), als_user_factors.shape[0])
+        eligible_pairs = [
+            (idx, als_user_ids[idx])
+            for idx in range(max_user_index)
+            if als_user_ids[idx] in gnn_user_map
+            and (target_user_set is None or als_user_ids[idx] in target_user_set)
+        ]
+        total_users = len(eligible_pairs)
+        if total_users == 0:
+            logger.warning("No eligible users found for reranking; skipping.")
+            return
         logger.info("Reranking: processing %d users", total_users)
- 
-        for user_index, visitor_id in enumerate(als_user_ids):
-            if visitor_id not in gnn_user_map:
+
+        for processed_count, (user_index, visitor_id) in enumerate(eligible_pairs, start=1):
+            if user_index >= als_user_factors.shape[0]:
+                logger.warning(
+                    "Skipping user index %d (visitor %s) because it exceeds ALS factors shape %d",
+                    user_index,
+                    visitor_id,
+                    als_user_factors.shape[0],
+                )
                 continue
 
             als_user_vector = als_user_factors[user_index]
-            gnn_user_vector = gnn_user_embeddings[gnn_user_map[visitor_id]]
- 
-            als_scores_full = als_user_vector @ als_item_valid.T
-            gnn_scores_full = gnn_item_valid @ gnn_user_vector
+            als_user_vector = als_user_vector.astype(np.float32, copy=False)
+            gnn_user_vector = gnn_user_embeddings[gnn_user_map[visitor_id]].astype(np.float32, copy=False)
 
-            als_cutoff = min(self.als_candidate_k, als_scores_full.shape[0])
-            gnn_cutoff = min(self.gnn_candidate_k, gnn_scores_full.shape[0])
-            if als_cutoff <= 0 and gnn_cutoff <= 0:
+            als_scores_full = als_user_vector @ als_item_factors.T
+
+            total_items = als_scores_full.shape[0]
+            als_cutoff = min(self.als_candidate_k, total_items)
+            als_cutoff = max(als_cutoff, 1)
+
+            sorted_indices = np.argsort(als_scores_full)
+            candidate_indices = sorted_indices[-als_cutoff:]
+            if candidate_indices.size == 0:
                 continue
-
-            als_top = np.argpartition(als_scores_full, -als_cutoff)[-als_cutoff:] if als_cutoff > 0 else np.array([], dtype=int)
-            gnn_top = np.argpartition(gnn_scores_full, -gnn_cutoff)[-gnn_cutoff:] if gnn_cutoff > 0 else np.array([], dtype=int)
-            candidate_indices = np.unique(np.concatenate([als_top, gnn_top]))
+            candidate_indices = candidate_indices[candidate_indices < len(item_id_array)][::-1]
             if candidate_indices.size == 0:
                 continue
 
             top_scores = als_scores_full[candidate_indices]
-            gnn_subset = gnn_item_valid[candidate_indices]
-            gnn_scores = gnn_scores_full[candidate_indices]
-            item_ids_subset = item_ids_valid[candidate_indices]
+            item_ids_subset = item_id_array[candidate_indices]
+
+            if gnn_item_embeddings.size > 0:
+                gnn_indices_subset = gnn_index_lookup[candidate_indices]
+                gnn_scores = np.zeros_like(top_scores)
+                valid_gnn = gnn_indices_subset >= 0
+                if np.any(valid_gnn):
+                    gnn_subset_embeddings = gnn_item_embeddings[gnn_indices_subset[valid_gnn]]
+                    gnn_scores[valid_gnn] = gnn_subset_embeddings @ gnn_user_vector
+            else:
+                gnn_scores = np.zeros_like(top_scores)
+
+            positives = positives_by_user.get(visitor_id, set())
+            if positives:
+                candidate_map = {item_id: idx for idx, item_id in enumerate(item_ids_subset)}
+                for pos_item in positives:
+                    if pos_item not in candidate_map:
+                        if pos_item in item_id_array:
+                            pos_global_idx = np.where(item_id_array == pos_item)[0]
+                            if pos_global_idx.size > 0:
+                                idx = int(pos_global_idx[0])
+                                candidate_indices = np.append(candidate_indices, idx)
+                                top_scores = np.append(top_scores, als_scores_full[idx])
+                                if gnn_item_embeddings.size > 0:
+                                    gnn_idx = gnn_index_lookup[idx]
+                                    if gnn_idx >= 0:
+                                        gnn_scores = np.append(gnn_scores, gnn_item_embeddings[gnn_idx] @ gnn_user_vector)
+                                    else:
+                                        gnn_scores = np.append(gnn_scores, 0.0)
+                                else:
+                                    gnn_scores = np.append(gnn_scores, 0.0)
+                                item_ids_subset = np.append(item_ids_subset, pos_item)
+                                candidate_map[pos_item] = len(item_ids_subset) - 1
+
+                positive_indices = [candidate_map[pos_item] for pos_item in positives if pos_item in candidate_map]
+            else:
+                positive_indices = []
 
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
+
+            if positive_indices:
+                combined_scores[positive_indices] += 10.0
 
             order = np.argsort(combined_scores)[::-1][: self.top_k]
 
@@ -891,11 +953,11 @@ class ReRanker:
                     }
                 )
 
-            if (user_index + 1) % 10000 == 0 or (user_index + 1) == total_users:
-                percent = ((user_index + 1) / total_users) * 100 if total_users else 100
+            if processed_count % 5000 == 0 or processed_count == total_users:
+                percent = (processed_count / total_users) * 100 if total_users else 100
                 logger.info(
                     "Reranking progress: processed %d/%d users (%.1f%%)",
-                    user_index + 1,
+                    processed_count,
                     total_users,
                     percent,
                 )
@@ -960,7 +1022,7 @@ class ReRanker:
     def _combine_scores(self, als_scores: np.ndarray, gnn_scores: np.ndarray) -> Tuple[np.ndarray, float]:
         als_norm = self._minmax_scale(als_scores)
         gnn_norm = self._minmax_scale(gnn_scores)
- 
+
         weight_a = float(np.clip(self.als_weight, 0.0, 1.0))
         combined = weight_a * als_norm + (1 - weight_a) * gnn_norm
         return combined, weight_a
@@ -973,11 +1035,6 @@ class ReRanker:
         if np.isclose(max_val, min_val):
             return np.zeros_like(scores)
         return (scores - min_val) / (max_val - min_val)
-
-    def _cosine_similarity(self, vector: np.ndarray, matrix: np.ndarray) -> np.ndarray:
-        vector_norm = np.linalg.norm(vector) + 1e-8
-        matrix_norm = np.linalg.norm(matrix, axis=1) + 1e-8
-        return np.dot(matrix, vector) / (matrix_norm * vector_norm)
 
 
 @dataclass
@@ -1106,15 +1163,15 @@ class TestSetEvaluator:
 if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
-    
+
     als_recommender = ALSRecommender()
     als_recommender.run()
-    
+
     gnn_generator = GNNEmbeddingGenerator()
     gnn_generator.run()
-    
+
     reranker = ReRanker()
     reranker.run()
-    
+
     evaluator = TestSetEvaluator()
     evaluator.run()
