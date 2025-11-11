@@ -14,15 +14,12 @@ from pandas import DataFrame
 from sklearn.ensemble import IsolationForest
 from sklearn.model_selection import train_test_split
 
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-
 
 EVENT_TO_CODE: Dict[str, int] = {"view": 0, "addtocart": 1, "transaction": 2}
 NUMERIC_PATTERN = re.compile(r"(?P<sign>n|-)?(?P<number>\d+(?:\.\d+)?)")
 EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
-
 
 def _extract_numeric(value: Optional[str]) -> Optional[float]:
     if value is None or (isinstance(value, float) and math.isnan(value)):
@@ -37,7 +34,6 @@ def _extract_numeric(value: Optional[str]) -> Optional[float]:
         return float(f"{prefix}{number}")
     except ValueError:
         return None
-
 
 @dataclass
 class IsolationForestPreprocessor:
@@ -212,13 +208,44 @@ class IsolationForestPreprocessor:
         test_inlier_ids = set(test_inliers.index)
         train_outlier_ids = set(train_outliers.index)
 
-        events_train_clean = events[events["itemid"].isin(train_inlier_ids)]
-        events_test = events[events["itemid"].isin(test_inlier_ids)]
-        events_train_outliers = events[events["itemid"].isin(train_outlier_ids)]
+        events_train_clean = events[events["itemid"].isin(train_inlier_ids)].copy()
+        events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
+        events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
+
+        positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
+        if positive_mask.any():
+            positive_events = events_train_clean.loc[positive_mask].copy()
+            positive_events = positive_events.dropna(subset=["timestamp"])
+            positive_events = positive_events.sort_values(["visitorid", "timestamp"])
+            holdout_indices = (
+                positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
+            )
+            events_test_holdout = events_train_clean.loc[holdout_indices].copy()
+            events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
+        else:
+            events_test_holdout = events_train_clean.iloc[0:0].copy()
+
+        events_test = pd.concat([events_test_base, events_test_holdout], ignore_index=True)
+        events_test = events_test.drop_duplicates(
+            subset=["timestamp", "visitorid", "event", "itemid", "transactionid"]
+        )
+
+        events_test = events_test.reset_index(drop=True)
+        events_train_clean = events_train_clean.reset_index(drop=True)
+        events_train_outliers = events_train_outliers.reset_index(drop=True)
+        logger.info(
+            "Created evaluation holdout with %d events from %d users (after filtering positives).",
+            len(events_test),
+            events_test["visitorid"].nunique() if not events_test.empty else 0,
+        )
 
         item_props_train_clean = item_properties[item_properties["itemid"].isin(train_inlier_ids)]
-        item_props_test = item_properties[item_properties["itemid"].isin(test_inlier_ids)]
         item_props_train_outliers = item_properties[item_properties["itemid"].isin(train_outlier_ids)]
+        if not events_test.empty:
+            eval_item_ids = events_test["itemid"].astype(int).unique()
+            item_props_test = item_properties[item_properties["itemid"].isin(eval_item_ids)]
+        else:
+            item_props_test = item_properties.iloc[0:0].copy()
 
         events_train_clean.to_csv(self.processed_dir / "events_train_clean.csv", index=False)
         events_test.to_csv(self.processed_dir / "events_test.csv", index=False)
@@ -234,7 +261,6 @@ class IsolationForestPreprocessor:
 
         logger.info("Saved cleaned datasets and summary to %s", self.processed_dir.resolve())
 
-
 @dataclass
 class ALSRecommender:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -245,6 +271,7 @@ class ALSRecommender:
     top_k: int = 20
     random_state: int = 42
     recommend_batch_size: int = 256
+    positive_event_boost: float = 5.0
 
     def run(self) -> None:
         try:
@@ -296,6 +323,9 @@ class ALSRecommender:
     def _prepare_interactions(self, events: DataFrame) -> DataFrame:
         events = events.copy()
         events["event_weight"] = events["event"].map(EVENT_WEIGHT).fillna(1.0)
+        positive_mask = events["event"].isin(["addtocart", "transaction"])
+        if positive_mask.any():
+            events.loc[positive_mask, "event_weight"] = events.loc[positive_mask, "event_weight"] * self.positive_event_boost
         interactions = (
             events.groupby(["visitorid", "itemid"], as_index=False)["event_weight"].sum()
         )
@@ -396,7 +426,6 @@ class ALSRecommender:
 
         np.save(self.processed_dir / "als_user_factors.npy", model.user_factors)
         np.save(self.processed_dir / "als_item_factors.npy", model.item_factors)
-
 
 @dataclass
 class GNNEmbeddingGenerator:
@@ -803,7 +832,6 @@ class GNNEmbeddingGenerator:
         user_df.to_csv(self.processed_dir / "gnn_user_embeddings.csv", index=False)
         item_df.to_csv(self.processed_dir / "gnn_item_embeddings.csv", index=False)
 
-
 @dataclass
 class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -844,8 +872,15 @@ class ReRanker:
             positives_by_user = (
                 positive_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
             )
+            als_item_set = set(item_id_array.tolist())
+            filtered_positives: Dict[int, set[int]] = {}
+            for user_id, items in positives_by_user.items():
+                intersected = {int(item) for item in items if int(item) in als_item_set}
+                if intersected:
+                    filtered_positives[int(user_id)] = intersected
+            positives_by_user = filtered_positives
             logger.info(
-                "Restricting reranking to %d users present in test events (positive users: %d)",
+                "Restricting reranking to %d users present in test events (positive users with overlap: %d)",
                 len(target_user_set),
                 len(positives_by_user),
             )
@@ -1036,7 +1071,6 @@ class ReRanker:
             return np.zeros_like(scores)
         return (scores - min_val) / (max_val - min_val)
 
-
 @dataclass
 class TestSetEvaluator:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -1079,6 +1113,8 @@ class TestSetEvaluator:
         y_true: List[int] = []
         y_pred: List[int] = []
         y_scores: List[float] = []
+        item_y_true: List[int] = []
+        item_y_scores: List[float] = []
 
         for visitor_id, recs in test_recommendations.groupby("visitorid"):
             predicted_items = recs["itemid"].astype(int).tolist()
@@ -1087,6 +1123,10 @@ class TestSetEvaluator:
                 continue
 
             metrics["users_evaluated"] += 1
+
+            labels = [1 if item in relevant_items else 0 for item in predicted_items]
+            item_y_true.extend(labels)
+            item_y_scores.extend(recs["final_score"].astype(float).tolist())
 
             if not relevant_items:
                 y_true.append(0)
@@ -1116,6 +1156,8 @@ class TestSetEvaluator:
 
         confusion: Optional[np.ndarray] = None
         accuracy = precision_score_value = recall_score_value = f1 = roc_auc = average_precision = 0.0
+        item_precision = item_recall = item_f1 = 0.0
+        best_threshold = 0.5
 
         if y_true:
             from sklearn.metrics import (
@@ -1126,6 +1168,7 @@ class TestSetEvaluator:
                 precision_score,
                 recall_score,
                 roc_auc_score,
+                precision_recall_curve,
             )
 
             confusion = confusion_matrix(y_true, y_pred)
@@ -1138,6 +1181,22 @@ class TestSetEvaluator:
             except ValueError:
                 roc_auc = 0.0
             average_precision = average_precision_score(y_true, y_scores)
+
+        if item_y_true:
+            y_true_arr = np.array(item_y_true)
+            y_score_arr = np.array(item_y_scores)
+            precision_curve, recall_curve, thresholds = precision_recall_curve(y_true_arr, y_score_arr)
+            f1_curve = 2 * precision_curve * recall_curve / np.clip(precision_curve + recall_curve, 1e-12, None)
+            if f1_curve.size > 0:
+                best_idx = int(np.nanargmax(f1_curve))
+                if best_idx < thresholds.size:
+                    best_threshold = float(thresholds[best_idx])
+                else:
+                    best_threshold = 1.0
+            item_preds = (y_score_arr >= best_threshold).astype(int)
+            item_precision = precision_score(y_true_arr, item_preds, zero_division=0)
+            item_recall = recall_score(y_true_arr, item_preds, zero_division=0)
+            item_f1 = f1_score(y_true_arr, item_preds, zero_division=0)
 
         logger.info(
             "Test Evaluation - users: %d, hit@%d: %.4f, precision: %.4f, recall: %.4f",
@@ -1158,7 +1217,13 @@ class TestSetEvaluator:
                 roc_auc,
                 average_precision,
             )
-
+        logger.info(
+            "Item-level metrics (threshold=%.4f) - Precision: %.4f, Recall: %.4f, F1: %.4f",
+            best_threshold,
+            item_precision,
+            item_recall,
+            item_f1,
+        )
 
 if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
