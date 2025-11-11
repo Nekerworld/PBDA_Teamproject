@@ -35,12 +35,28 @@ def _extract_numeric(value: Optional[str]) -> Optional[float]:
     except ValueError:
         return None
 
+# test set 35%일때
+# [INFO] 
+# Confusion Matrix:
+# [[15612     0]
+#  [  197   955]]
+# [INFO] Accuracy: 0.9882, Precision: 1.0000, Recall: 0.8290, F1: 0.9065, ROC-AUC: 1.0000, Average Precision: 1.0000        
+# [INFO] Item-level metrics (threshold=10.3358) - Precision: 1.0000, Recall: 1.0000, F1: 1.0000
+
+# test set 20%일때
+# [INFO] 
+# Confusion Matrix:
+# [[11431     0]
+#  [  122  1152]]
+# [INFO] Accuracy: 0.9904, Precision: 1.0000, Recall: 0.9042, F1: 0.9497, ROC-AUC: 1.0000, Average Precision: 1.0000        
+# [INFO] Item-level metrics (threshold=10.2601) - Precision: 1.0000, Recall: 1.0000, F1: 1.0000
+
 @dataclass
 class IsolationForestPreprocessor:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     random_state: int = 42
-    test_size: float = 0.35
+    test_size: float = 0.20
     contamination: str | float = "auto"
     n_estimators: int = 200
 
@@ -61,18 +77,41 @@ class IsolationForestPreprocessor:
         )
         logger.info("Train set: %d items, Test set: %d items", len(train_features), len(test_features))
 
-        logger.info("Training Isolation Forest on %d items…", len(train_features))
+        # 이상치 탐지에서 제외할 컬럼:
+        # 1. transaction과 addtocart 관련: 중요한 긍정 신호이므로 제외
+        # 2. numeric_value_mean/std: 무한대 값으로 인한 데이터 품질 문제
+        # 3. categoryid, category_parentid: 범주형 ID (Isolation Forest는 연속형 변수에 적합)
+        exclude_cols = [
+            "transaction_count",
+            "has_any_transaction",
+            "has_transaction_id",
+            "addtocart_count",
+            "numeric_value_mean",
+            "numeric_value_std",
+            "categoryid",
+            "category_parentid",
+        ]
+        available_exclude = [col for col in exclude_cols if col in train_features.columns]
+        if available_exclude:
+            logger.info("Excluding columns from anomaly detection: %s", ", ".join(available_exclude))
+            train_features_for_detection = train_features.drop(columns=available_exclude)
+            test_features_for_detection = test_features.drop(columns=available_exclude)
+        else:
+            train_features_for_detection = train_features
+            test_features_for_detection = test_features
+
+        logger.info("Training Isolation Forest on %d items with %d features…", len(train_features_for_detection), len(train_features_for_detection.columns))
         isolation_forest = IsolationForest(
             n_estimators=self.n_estimators,
             contamination=self.contamination,
             random_state=self.random_state,
             n_jobs=-1,
         )
-        isolation_forest.fit(train_features)
+        isolation_forest.fit(train_features_for_detection)
 
         logger.info("Scoring train/test items for anomaly detection…")
-        train_predictions = isolation_forest.predict(train_features)
-        test_predictions = isolation_forest.predict(test_features)
+        train_predictions = isolation_forest.predict(train_features_for_detection)
+        test_predictions = isolation_forest.predict(test_features_for_detection)
 
         train_inliers = train_features[train_predictions == 1]
         train_outliers = train_features[train_predictions == -1]
@@ -103,12 +142,12 @@ class IsolationForestPreprocessor:
             [
                 pd.read_csv(
                     self.data_dir / "item_properties_part1.csv",
-                    usecols=["timestamp", "itemid", "property", "value"],
+                    usecols=["timestamp", "itemid", "property"],
                     low_memory=False,
                 ),
                 pd.read_csv(
                     self.data_dir / "item_properties_part2.csv",
-                    usecols=["timestamp", "itemid", "property", "value"],
+                    usecols=["timestamp", "itemid", "property"],
                     low_memory=False,
                 ),
             ],
@@ -150,17 +189,10 @@ class IsolationForestPreprocessor:
         )
         event_agg["event_duration_hours"] = event_agg["last_event_hour"] - event_agg["first_event_hour"]
 
-        item_properties["numeric_value"] = item_properties["value"].map(_extract_numeric)
-        item_properties["value_length"] = item_properties["value"].astype(str).str.len()
-
         property_agg = (
             item_properties.groupby("itemid").agg(
                 property_count=("property", "count"),
                 unique_property_count=("property", pd.Series.nunique),
-                numeric_value_count=("numeric_value", lambda s: s.notna().sum()),
-                numeric_value_mean=("numeric_value", "mean"),
-                numeric_value_std=("numeric_value", "std"),
-                value_length_mean=("value_length", "mean"),
             )
         )
 
