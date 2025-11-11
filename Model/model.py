@@ -35,22 +35,6 @@ def _extract_numeric(value: Optional[str]) -> Optional[float]:
     except ValueError:
         return None
 
-# test set 35%일때
-# [INFO] 
-# Confusion Matrix:
-# [[15612     0]
-#  [  197   955]]
-# [INFO] Accuracy: 0.9882, Precision: 1.0000, Recall: 0.8290, F1: 0.9065, ROC-AUC: 1.0000, Average Precision: 1.0000        
-# [INFO] Item-level metrics (threshold=10.3358) - Precision: 1.0000, Recall: 1.0000, F1: 1.0000
-
-# test set 20%일때
-# [INFO] 
-# Confusion Matrix:
-# [[11431     0]
-#  [  122  1152]]
-# [INFO] Accuracy: 0.9904, Precision: 1.0000, Recall: 0.9042, F1: 0.9497, ROC-AUC: 1.0000, Average Precision: 1.0000        
-# [INFO] Item-level metrics (threshold=10.2601) - Precision: 1.0000, Recall: 1.0000, F1: 1.0000
-
 @dataclass
 class IsolationForestPreprocessor:
     data_dir: Path = field(default_factory=lambda: Path("data"))
@@ -1084,17 +1068,17 @@ class ReRanker:
         return user_embeddings, item_embeddings, user_ids, item_ids
 
     def _load_availability(self) -> Dict[int, int]:
-        item_props_path = self.processed_dir / "item_properties_train_clean.csv"
-        if not item_props_path.exists():
+        # feature table에서 has_available 컬럼 사용
+        feature_path = self.processed_dir / "feature_train_inliers.csv"
+        if not feature_path.exists():
             return {}
 
-        item_properties = pd.read_csv(item_props_path)
-        available_df = item_properties[item_properties["property"] == "available"].copy()
-        if available_df.empty:
+        feature_table = pd.read_csv(feature_path, index_col=0)
+        if "has_available" not in feature_table.columns:
             return {}
 
-        available_df["value"] = pd.to_numeric(available_df["value"], errors="coerce")
-        available_items = available_df[available_df["value"] == 1]["itemid"].dropna().astype(int).unique()
+        # has_available이 1인 아이템만 반환
+        available_items = feature_table[feature_table["has_available"] == 1].index.astype(int)
         return {int(item_id): 1 for item_id in available_items}
 
     def _combine_scores(self, als_scores: np.ndarray, gnn_scores: np.ndarray) -> Tuple[np.ndarray, float]:
