@@ -77,28 +77,21 @@ class IsolationForestPreprocessor:
         )
         logger.info("Train set: %d items, Test set: %d items", len(train_features), len(test_features))
 
-        # 이상치 탐지에서 제외할 컬럼:
-        # 1. transaction과 addtocart 관련: 중요한 긍정 신호이므로 제외
-        # 2. numeric_value_mean/std: 무한대 값으로 인한 데이터 품질 문제
-        # 3. categoryid, category_parentid: 범주형 ID (Isolation Forest는 연속형 변수에 적합)
         exclude_cols = [
             "transaction_count",
             "has_any_transaction",
             "has_transaction_id",
             "addtocart_count",
-            "numeric_value_mean",
-            "numeric_value_std",
             "categoryid",
             "category_parentid",
+            "has_available",
         ]
         available_exclude = [col for col in exclude_cols if col in train_features.columns]
         if available_exclude:
             logger.info("Excluding columns from anomaly detection: %s", ", ".join(available_exclude))
             train_features_for_detection = train_features.drop(columns=available_exclude)
-            test_features_for_detection = test_features.drop(columns=available_exclude)
         else:
             train_features_for_detection = train_features
-            test_features_for_detection = test_features
 
         logger.info("Training Isolation Forest on %d items with %d features…", len(train_features_for_detection), len(train_features_for_detection.columns))
         isolation_forest = IsolationForest(
@@ -109,13 +102,11 @@ class IsolationForestPreprocessor:
         )
         isolation_forest.fit(train_features_for_detection)
 
-        logger.info("Scoring train/test items for anomaly detection…")
+        logger.info("Scoring train items for anomaly detection…")
         train_predictions = isolation_forest.predict(train_features_for_detection)
-        test_predictions = isolation_forest.predict(test_features_for_detection)
 
         train_inliers = train_features[train_predictions == 1]
         train_outliers = train_features[train_predictions == -1]
-        test_inliers = test_features[test_predictions == 1]
 
         logger.info(
             "Detected %d anomalies in train set (%.2f%%).",
@@ -123,13 +114,14 @@ class IsolationForestPreprocessor:
             (len(train_outliers) / max(len(train_features), 1)) * 100,
         )
 
+        # Test set은 이상치 제거하지 않음 (평가를 위해 원본 유지)
         self._save_results(
             datasets,
             train_inliers=train_inliers,
-            test_inliers=test_inliers,
+            test_inliers=test_features,
             train_outliers=train_outliers,
         )
-        logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_inliers))
+        logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_features))
 
     def _load_raw(self) -> Dict[str, DataFrame]:
         events = pd.read_csv(
@@ -142,12 +134,12 @@ class IsolationForestPreprocessor:
             [
                 pd.read_csv(
                     self.data_dir / "item_properties_part1.csv",
-                    usecols=["timestamp", "itemid", "property"],
+                    usecols=["timestamp", "itemid", "property", "value"],
                     low_memory=False,
                 ),
                 pd.read_csv(
                     self.data_dir / "item_properties_part2.csv",
-                    usecols=["timestamp", "itemid", "property"],
+                    usecols=["timestamp", "itemid", "property", "value"],
                     low_memory=False,
                 ),
             ],
@@ -164,6 +156,11 @@ class IsolationForestPreprocessor:
         events = datasets["events"].copy()
         item_properties = datasets["item_properties"].copy()
         category_tree = datasets["category_tree"].copy()
+
+        # property가 "categoryid" 또는 "available"인 것만 사용
+        item_properties_filtered = item_properties[
+            item_properties["property"].isin(["categoryid", "available"])
+        ].copy()
 
         events["timestamp_dt"] = pd.to_datetime(events["timestamp"], unit="ms", errors="coerce")
         min_timestamp = events["timestamp_dt"].min()
@@ -190,16 +187,14 @@ class IsolationForestPreprocessor:
         event_agg["event_duration_hours"] = event_agg["last_event_hour"] - event_agg["first_event_hour"]
 
         property_agg = (
-            item_properties.groupby("itemid").agg(
+            item_properties_filtered.groupby("itemid").agg(
                 property_count=("property", "count"),
-                unique_property_count=("property", pd.Series.nunique),
             )
         )
 
         category_rows = (
-            item_properties[item_properties["property"] == "categoryid"]["itemid"].to_frame().copy()
+            item_properties_filtered[item_properties_filtered["property"] == "categoryid"][["itemid", "value"]].copy()
         )
-        category_rows["value"] = item_properties[item_properties["property"] == "categoryid"]["value"].values
         category_rows = category_rows.dropna(subset=["value"])
         extracted_category = category_rows["value"].astype(str).str.extract(r"(?P<category>\d+)")
         category_rows["categoryid"] = pd.to_numeric(extracted_category["category"], errors="coerce")
@@ -215,8 +210,24 @@ class IsolationForestPreprocessor:
         )
         category_features.rename(columns={"parentid": "category_parentid"}, inplace=True)
 
+        # available feature 처리
+        available_rows = item_properties_filtered[
+            item_properties_filtered["property"] == "available"
+        ].copy()
+        if not available_rows.empty:
+            available_rows["value_numeric"] = pd.to_numeric(available_rows["value"], errors="coerce")
+            available_features = (
+                available_rows.dropna(subset=["value_numeric"])
+                .groupby("itemid")["value_numeric"]
+                .max()  # 여러 값이 있으면 최대값 사용 (보통 1이 있으면 1)
+                .to_frame(name="has_available")
+            )
+        else:
+            available_features = pd.DataFrame(columns=["has_available"])
+
         feature_table = event_agg.join(property_agg, how="left")
         feature_table = feature_table.join(category_features, how="left")
+        feature_table = feature_table.join(available_features, how="left")
 
         feature_table = feature_table.fillna(0.0)
         feature_table = feature_table.apply(pd.to_numeric, errors="coerce").fillna(0.0)
