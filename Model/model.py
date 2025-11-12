@@ -13,6 +13,7 @@ import scipy.sparse as sp
 from pandas import DataFrame
 from sklearn.ensemble import IsolationForest
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
@@ -106,6 +107,14 @@ class IsolationForestPreprocessor:
             train_outliers=train_outliers,
         )
         logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_features))
+
+        # 시각화 생성
+        self._create_visualizations(
+            train_features=train_features,
+            train_inliers=train_inliers,
+            train_outliers=train_outliers,
+            test_features=test_features,
+        )
 
     def _load_raw(self) -> Dict[str, DataFrame]:
         events = pd.read_csv(
@@ -288,6 +297,115 @@ class IsolationForestPreprocessor:
 
         logger.info("Saved cleaned datasets and summary to %s", self.processed_dir.resolve())
 
+    def _create_visualizations(
+        self,
+        train_features: DataFrame,
+        train_inliers: DataFrame,
+        train_outliers: DataFrame,
+        test_features: DataFrame,
+    ) -> None:
+        try:
+            import seaborn as sns
+        except ImportError:
+            logger.warning("seaborn이 설치되지 않아 시각화를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        # 1. 이상치 비율 파이 차트
+        try:
+            total_train = len(train_features)
+            num_inliers = len(train_inliers)
+            num_outliers = len(train_outliers)
+            outlier_pct = (num_outliers / total_train * 100) if total_train > 0 else 0
+
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+            # Train set 이상치 비율
+            sizes = [num_inliers, num_outliers]
+            labels = [f"Inliers\n({num_inliers:,})", f"Outliers\n({num_outliers:,})"]
+            colors = ["#66b3ff", "#ff9999"]
+            ax1.pie(sizes, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 11})
+            ax1.set_title(f"Train Set Anomaly Detection\n(Total: {total_train:,} items)", fontsize=14, fontweight="bold")
+
+            # 전체 데이터셋 비율 (Train + Test)
+            total_all = total_train + len(test_features)
+            test_count = len(test_features)
+            sizes_all = [num_inliers, num_outliers, test_count]
+            labels_all = [
+                f"Train Inliers\n({num_inliers:,})",
+                f"Train Outliers\n({num_outliers:,})",
+                f"Test Set\n({test_count:,})",
+            ]
+            colors_all = ["#66b3ff", "#ff9999", "#99ff99"]
+            ax2.pie(sizes_all, labels=labels_all, colors=colors_all, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 10})
+            ax2.set_title(f"Overall Dataset Distribution\n(Total: {total_all:,} items)", fontsize=14, fontweight="bold")
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "anomaly_detection_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved anomaly detection distribution to %s", viz_dir / "anomaly_detection_distribution.png")
+        except Exception as e:
+            logger.warning("Anomaly detection distribution 시각화 생성 실패: %s", e)
+
+        # 2. 주요 Feature 분포 비교 (Inlier vs Outlier)
+        try:
+            numeric_cols = train_features.select_dtypes(include=[np.number]).columns.tolist()
+            exclude_cols = ["categoryid", "category_parentid"]
+            plot_cols = [col for col in numeric_cols if col not in exclude_cols][:6]  # 상위 6개만
+
+            if plot_cols and len(train_inliers) > 0 and len(train_outliers) > 0:
+                n_cols = 3
+                n_rows = (len(plot_cols) + n_cols - 1) // n_cols
+                fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows))
+                axes = axes.flatten() if n_rows > 1 else [axes] if n_rows == 1 else axes
+
+                for idx, col in enumerate(plot_cols):
+                    ax = axes[idx]
+                    inlier_data = train_inliers[col].dropna()
+                    outlier_data = train_outliers[col].dropna()
+
+                    if len(inlier_data) > 0 and len(outlier_data) > 0:
+                        # 로그 스케일이 필요한 경우
+                        if inlier_data.max() / max(inlier_data.min(), 1) > 1000 or outlier_data.max() / max(outlier_data.min(), 1) > 1000:
+                            inlier_data = np.log1p(inlier_data)
+                            outlier_data = np.log1p(outlier_data)
+                            ax.set_yscale("log")
+                            col_label = f"{col} (log scale)"
+                        else:
+                            col_label = col
+
+                        ax.hist(inlier_data, bins=50, alpha=0.6, label="Inliers", color="#66b3ff", density=True)
+                        ax.hist(outlier_data, bins=50, alpha=0.6, label="Outliers", color="#ff9999", density=True)
+                        ax.set_xlabel(col_label, fontsize=10)
+                        ax.set_ylabel("Density", fontsize=10)
+                        ax.set_title(f"{col}", fontsize=11, fontweight="bold")
+                        ax.legend(fontsize=9)
+                        ax.grid(True, alpha=0.3)
+
+                # 빈 subplot 제거
+                for idx in range(len(plot_cols), len(axes)):
+                    fig.delaxes(axes[idx])
+
+                plt.suptitle("Feature Distribution: Inliers vs Outliers", fontsize=16, fontweight="bold", y=0.995)
+                plt.tight_layout()
+                plt.savefig(viz_dir / "feature_distribution_comparison.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved feature distribution comparison to %s", viz_dir / "feature_distribution_comparison.png")
+        except Exception as e:
+            logger.warning("Feature distribution comparison 시각화 생성 실패: %s", e)
+
 @dataclass
 class ALSRecommender:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -346,6 +464,15 @@ class ALSRecommender:
 
         self._save_outputs(recommendations, users, items, model)
         logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
+
+        # 시각화 생성
+        self._create_visualizations(
+            interactions=interactions,
+            recommendations=recommendations,
+            user_item_matrix=user_item_matrix,
+            users=users,
+            items=items,
+        )
 
     def _prepare_interactions(self, events: DataFrame) -> DataFrame:
         events = events.copy()
@@ -454,6 +581,149 @@ class ALSRecommender:
         np.save(self.processed_dir / "als_user_factors.npy", model.user_factors)
         np.save(self.processed_dir / "als_item_factors.npy", model.item_factors)
 
+    def _create_visualizations(
+        self,
+        interactions: DataFrame,
+        recommendations: DataFrame,
+        user_item_matrix: sp.csr_matrix,
+        users: List[int],
+        items: List[int],
+    ) -> None:
+        try:
+            import seaborn as sns
+        except ImportError:
+            logger.warning("seaborn이 설치되지 않아 ALS 시각화를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        # 1. 사용자-아이템 상호작용 분포
+        try:
+            user_interaction_counts = interactions.groupby("visitorid")["weight"].count()
+            item_interaction_counts = interactions.groupby("itemid")["weight"].count()
+
+            fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+            # 사용자별 상호작용 수 분포
+            axes[0].hist(user_interaction_counts.values, bins=50, color="#66b3ff", alpha=0.7, edgecolor="black")
+            axes[0].set_xlabel("Number of Interactions per User", fontsize=12)
+            axes[0].set_ylabel("Number of Users", fontsize=12)
+            axes[0].set_title("User Interaction Distribution", fontsize=14, fontweight="bold")
+            axes[0].set_yscale("log")
+            axes[0].grid(True, alpha=0.3)
+            axes[0].axvline(user_interaction_counts.mean(), color="red", linestyle="--", linewidth=2, label=f"Mean: {user_interaction_counts.mean():.1f}")
+            axes[0].legend()
+
+            # 아이템별 상호작용 수 분포
+            axes[1].hist(item_interaction_counts.values, bins=50, color="#99ff99", alpha=0.7, edgecolor="black")
+            axes[1].set_xlabel("Number of Interactions per Item", fontsize=12)
+            axes[1].set_ylabel("Number of Items", fontsize=12)
+            axes[1].set_title("Item Interaction Distribution", fontsize=14, fontweight="bold")
+            axes[1].set_yscale("log")
+            axes[1].grid(True, alpha=0.3)
+            axes[1].axvline(item_interaction_counts.mean(), color="red", linestyle="--", linewidth=2, label=f"Mean: {item_interaction_counts.mean():.1f}")
+            axes[1].legend()
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "als_interaction_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved ALS interaction distribution to %s", viz_dir / "als_interaction_distribution.png")
+        except Exception as e:
+            logger.warning("ALS interaction distribution 시각화 생성 실패: %s", e)
+
+        # 2. 추천 점수 분포
+        try:
+            if not recommendations.empty and "score" in recommendations.columns:
+                scores = recommendations["score"].values
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.hist(scores, bins=50, color="#ffcc99", alpha=0.7, edgecolor="black")
+                ax.set_xlabel("Recommendation Score", fontsize=12)
+                ax.set_ylabel("Frequency", fontsize=12)
+                ax.set_title("ALS Recommendation Score Distribution", fontsize=14, fontweight="bold")
+                ax.grid(True, alpha=0.3)
+                ax.axvline(scores.mean(), color="red", linestyle="--", linewidth=2, label=f"Mean: {scores.mean():.4f}")
+                ax.axvline(np.median(scores), color="blue", linestyle="--", linewidth=2, label=f"Median: {np.median(scores):.4f}")
+                ax.legend()
+
+                plt.tight_layout()
+                plt.savefig(viz_dir / "als_score_distribution.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved ALS score distribution to %s", viz_dir / "als_score_distribution.png")
+        except Exception as e:
+            logger.warning("ALS score distribution 시각화 생성 실패: %s", e)
+
+        # 3. 상위 추천 아이템
+        try:
+            if not recommendations.empty:
+                top_recommended_items = (
+                    recommendations.groupby("itemid")
+                    .size()
+                    .sort_values(ascending=False)
+                    .head(20)
+                )
+
+                fig, ax = plt.subplots(figsize=(12, 8))
+                bars = ax.barh(range(len(top_recommended_items)), top_recommended_items.values, color="#ff99cc")
+                ax.set_yticks(range(len(top_recommended_items)))
+                ax.set_yticklabels([f"Item {item_id}" for item_id in top_recommended_items.index], fontsize=9)
+                ax.set_xlabel("Number of Recommendations", fontsize=12)
+                ax.set_title("Top 20 Most Recommended Items", fontsize=14, fontweight="bold")
+                ax.grid(True, alpha=0.3, axis="x")
+
+                # 값 표시
+                for i, bar in enumerate(bars):
+                    width = bar.get_width()
+                    ax.text(
+                        width,
+                        bar.get_y() + bar.get_height() / 2.0,
+                        f"{int(width)}",
+                        ha="left",
+                        va="center",
+                        fontsize=9,
+                        fontweight="bold",
+                    )
+
+                plt.tight_layout()
+                plt.savefig(viz_dir / "als_top_recommended_items.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved ALS top recommended items to %s", viz_dir / "als_top_recommended_items.png")
+        except Exception as e:
+            logger.warning("ALS top recommended items 시각화 생성 실패: %s", e)
+
+        # 4. 사용자별 추천 수 분포
+        try:
+            if not recommendations.empty:
+                user_recommendation_counts = recommendations.groupby("visitorid").size()
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.hist(user_recommendation_counts.values, bins=30, color="#99ccff", alpha=0.7, edgecolor="black")
+                ax.set_xlabel("Number of Recommendations per User", fontsize=12)
+                ax.set_ylabel("Number of Users", fontsize=12)
+                ax.set_title("User Recommendation Count Distribution", fontsize=14, fontweight="bold")
+                ax.grid(True, alpha=0.3)
+                ax.axvline(user_recommendation_counts.mean(), color="red", linestyle="--", linewidth=2, label=f"Mean: {user_recommendation_counts.mean():.1f}")
+                ax.axvline(user_recommendation_counts.median(), color="blue", linestyle="--", linewidth=2, label=f"Median: {user_recommendation_counts.median():.1f}")
+                ax.legend()
+
+                plt.tight_layout()
+                plt.savefig(viz_dir / "als_user_recommendation_distribution.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved ALS user recommendation distribution to %s", viz_dir / "als_user_recommendation_distribution.png")
+        except Exception as e:
+            logger.warning("ALS user recommendation distribution 시각화 생성 실패: %s", e)
+
 @dataclass
 class GNNEmbeddingGenerator:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -560,6 +830,9 @@ class GNNEmbeddingGenerator:
 
         self._save_embeddings(all_embeddings, graph_data)
         logger.info("Saved GNN embeddings to %s", self.processed_dir.resolve())
+
+        # 그래프 구조 시각화
+        self._create_graph_visualizations(graph_data)
 
     def _load_inputs(self) -> Dict[str, DataFrame]:
         events_path = self.processed_dir / "events_train_clean.csv"
@@ -858,6 +1131,173 @@ class GNNEmbeddingGenerator:
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         user_df.to_csv(self.processed_dir / "gnn_user_embeddings.csv", index=False)
         item_df.to_csv(self.processed_dir / "gnn_item_embeddings.csv", index=False)
+
+    def _create_graph_visualizations(self, graph_data: Dict[str, Any]) -> None:
+        try:
+            import seaborn as sns
+        except ImportError:
+            logger.warning("seaborn이 설치되지 않아 그래프 시각화를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        # 1. 노드 타입별 분포
+        try:
+            node_counts = {
+                "Users": graph_data["num_users"],
+                "Items": graph_data["num_items"],
+                "Properties": graph_data["num_properties"],
+                "Categories": graph_data["num_categories"],
+            }
+
+            fig, ax = plt.subplots(figsize=(10, 6))
+            bars = ax.bar(node_counts.keys(), node_counts.values(), color=["#66b3ff", "#99ff99", "#ffcc99", "#ff99cc"])
+            ax.set_ylabel("Number of Nodes", fontsize=12)
+            ax.set_title("Graph Structure: Node Type Distribution", fontsize=14, fontweight="bold")
+            ax.grid(True, alpha=0.3, axis="y")
+
+            # 값 표시
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height,
+                    f"{int(height):,}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=11,
+                    fontweight="bold",
+                )
+
+            plt.xticks(rotation=0)
+            plt.tight_layout()
+            plt.savefig(viz_dir / "gnn_node_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved GNN node distribution to %s", viz_dir / "gnn_node_distribution.png")
+        except Exception as e:
+            logger.warning("GNN node distribution 시각화 생성 실패: %s", e)
+
+        # 2. 엣지 수 및 그래프 통계
+        try:
+            total_edges = len(graph_data["edge_sources"]) // 2  # 양방향이므로 2로 나눔
+            total_nodes = graph_data["total_nodes"]
+            num_interactions = len(graph_data["interactions"])
+
+            fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+            # 그래프 통계 바 차트
+            stats = {
+                "Total Nodes": total_nodes,
+                "Total Edges": total_edges,
+                "Interactions": num_interactions,
+            }
+            bars = axes[0].bar(stats.keys(), stats.values(), color=["#66b3ff", "#99ff99", "#ffcc99"])
+            axes[0].set_ylabel("Count", fontsize=12)
+            axes[0].set_title("Graph Statistics", fontsize=14, fontweight="bold")
+            axes[0].grid(True, alpha=0.3, axis="y")
+
+            for bar in bars:
+                height = bar.get_height()
+                axes[0].text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height,
+                    f"{int(height):,}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=11,
+                    fontweight="bold",
+                )
+
+            # 노드 타입별 비율 파이 차트
+            node_counts = {
+                "Users": graph_data["num_users"],
+                "Items": graph_data["num_items"],
+                "Properties": graph_data["num_properties"],
+                "Categories": graph_data["num_categories"],
+            }
+            sizes = list(node_counts.values())
+            labels = [f"{k}\n({v:,})" for k, v in node_counts.items()]
+            colors = ["#66b3ff", "#99ff99", "#ffcc99", "#ff99cc"]
+            axes[1].pie(sizes, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 10})
+            axes[1].set_title("Node Type Distribution", fontsize=14, fontweight="bold")
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "gnn_graph_statistics.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved GNN graph statistics to %s", viz_dir / "gnn_graph_statistics.png")
+        except Exception as e:
+            logger.warning("GNN graph statistics 시각화 생성 실패: %s", e)
+
+        # 3. 엣지 타입별 분포 (간단한 추정)
+        try:
+            # 엣지 소스에서 노드 타입 추정
+            offsets = graph_data["offsets"]
+            edge_sources = np.array(graph_data["edge_sources"])
+            edge_targets = np.array(graph_data["edge_targets"])
+
+            # 양방향이므로 절반만 사용
+            unique_edges = set()
+            for i in range(0, len(edge_sources), 2):  # 양방향이므로 2씩 건너뜀
+                src, dst = edge_sources[i], edge_targets[i]
+                if src < dst:  # 중복 제거
+                    unique_edges.add((src, dst))
+
+            # 노드 타입 분류
+            def get_node_type(node_idx: int) -> str:
+                if node_idx < offsets["user"] + graph_data["num_users"]:
+                    return "User"
+                elif node_idx < offsets["item"] + graph_data["num_items"]:
+                    return "Item"
+                elif node_idx < offsets["property"] + graph_data["num_properties"]:
+                    return "Property"
+                else:
+                    return "Category"
+
+            edge_types = {}
+            for src, dst in list(unique_edges)[:10000]:  # 샘플링 (너무 많으면)
+                src_type = get_node_type(src)
+                dst_type = get_node_type(dst)
+                edge_type = f"{src_type}-{dst_type}"
+                edge_types[edge_type] = edge_types.get(edge_type, 0) + 1
+
+            if edge_types:
+                fig, ax = plt.subplots(figsize=(12, 6))
+                edge_type_names = list(edge_types.keys())
+                edge_type_counts = list(edge_types.values())
+                bars = ax.barh(edge_type_names, edge_type_counts, color="#66b3ff")
+                ax.set_xlabel("Number of Edges", fontsize=12)
+                ax.set_title("Graph Structure: Edge Type Distribution (Sample)", fontsize=14, fontweight="bold")
+                ax.grid(True, alpha=0.3, axis="x")
+
+                for i, bar in enumerate(bars):
+                    width = bar.get_width()
+                    ax.text(
+                        width,
+                        bar.get_y() + bar.get_height() / 2.0,
+                        f"{int(width):,}",
+                        ha="left",
+                        va="center",
+                        fontsize=10,
+                        fontweight="bold",
+                    )
+
+                plt.tight_layout()
+                plt.savefig(viz_dir / "gnn_edge_type_distribution.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved GNN edge type distribution to %s", viz_dir / "gnn_edge_type_distribution.png")
+        except Exception as e:
+            logger.warning("GNN edge type distribution 시각화 생성 실패: %s", e)
 
 @dataclass
 class ReRanker:
@@ -1195,6 +1635,7 @@ class TestSetEvaluator:
                 precision_score,
                 recall_score,
                 roc_auc_score,
+                roc_curve,
                 precision_recall_curve,
             )
 
@@ -1251,6 +1692,124 @@ class TestSetEvaluator:
             item_recall,
             item_f1,
         )
+
+        # 시각화 생성
+        self._create_visualizations(
+            y_true=y_true,
+            y_pred=y_pred,
+            y_scores=y_scores,
+            item_y_true=item_y_true,
+            item_y_scores=item_y_scores,
+            confusion=confusion,
+            roc_auc=roc_auc,
+            average_precision=average_precision,
+        )
+
+    def _create_visualizations(
+        self,
+        y_true: List[int],
+        y_pred: List[int],
+        y_scores: List[float],
+        item_y_true: List[int],
+        item_y_scores: List[float],
+        confusion: Optional[np.ndarray],
+        roc_auc: float,
+        average_precision: float,
+    ) -> None:
+        try:
+            import matplotlib.pyplot as plt
+            import seaborn as sns
+        except ImportError:
+            logger.warning("matplotlib 또는 seaborn이 설치되지 않아 시각화를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        # 1. ROC Curve (Item-level)
+        if item_y_true and len(set(item_y_true)) > 1:
+            try:
+                from sklearn.metrics import roc_curve
+
+                y_true_arr = np.array(item_y_true)
+                y_score_arr = np.array(item_y_scores)
+                fpr, tpr, _ = roc_curve(y_true_arr, y_score_arr)
+
+                plt.figure(figsize=(8, 6))
+                plt.plot(fpr, tpr, linewidth=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
+                plt.plot([0, 1], [0, 1], "k--", linewidth=1, label="Random Classifier")
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel("False Positive Rate", fontsize=12)
+                plt.ylabel("True Positive Rate", fontsize=12)
+                plt.title("ROC Curve (Item-level)", fontsize=14, fontweight="bold")
+                plt.legend(loc="lower right", fontsize=10)
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                plt.savefig(viz_dir / "roc_curve.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved ROC curve to %s", viz_dir / "roc_curve.png")
+            except Exception as e:
+                logger.warning("ROC curve 생성 실패: %s", e)
+
+        # 2. Precision-Recall Curve (Item-level)
+        if item_y_true and len(set(item_y_true)) > 1:
+            try:
+                from sklearn.metrics import precision_recall_curve
+
+                y_true_arr = np.array(item_y_true)
+                y_score_arr = np.array(item_y_scores)
+                precision, recall, _ = precision_recall_curve(y_true_arr, y_score_arr)
+
+                plt.figure(figsize=(8, 6))
+                plt.plot(recall, precision, linewidth=2, label=f"PR Curve (AP = {average_precision:.4f})")
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel("Recall", fontsize=12)
+                plt.ylabel("Precision", fontsize=12)
+                plt.title("Precision-Recall Curve (Item-level)", fontsize=14, fontweight="bold")
+                plt.legend(loc="lower left", fontsize=10)
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                plt.savefig(viz_dir / "precision_recall_curve.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved Precision-Recall curve to %s", viz_dir / "precision_recall_curve.png")
+            except Exception as e:
+                logger.warning("Precision-Recall curve 생성 실패: %s", e)
+
+        # 3. Confusion Matrix 히트맵 (User-level)
+        if confusion is not None:
+            try:
+                plt.figure(figsize=(8, 6))
+                sns.heatmap(
+                    confusion,
+                    annot=True,
+                    fmt="d",
+                    cmap="Blues",
+                    cbar=True,
+                    square=True,
+                    linewidths=0.5,
+                    annot_kws={"size": 14, "weight": "bold"},
+                )
+                plt.xlabel("Predicted Label", fontsize=12)
+                plt.ylabel("True Label", fontsize=12)
+                plt.title("Confusion Matrix (User-level)", fontsize=14, fontweight="bold")
+                plt.tight_layout()
+                plt.savefig(viz_dir / "confusion_matrix.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved Confusion matrix to %s", viz_dir / "confusion_matrix.png")
+            except Exception as e:
+                logger.warning("Confusion matrix 생성 실패: %s", e)
 
 if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
