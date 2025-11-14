@@ -1,3 +1,16 @@
+"""
+추천 시스템 모델 파이프라인
+
+이 모듈은 다음 단계로 구성된 추천 시스템을 구현합니다:
+1. IsolationForestPreprocessor: 이상치 탐지 및 데이터 전처리
+2. ALSRecommender: ALS(Alternating Least Squares) 기반 협업 필터링
+3. GNNEmbeddingGenerator: 그래프 신경망 기반 임베딩 생성
+4. ReRanker: ALS와 GNN 결과를 결합한 리랭킹
+5. TestSetEvaluator: 테스트 세트 평가 및 성능 지표 계산
+
+각 컴포넌트는 독립적으로 실행 가능하며, 순차적으로 실행되어 최종 추천 결과를 생성합니다.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -15,14 +28,33 @@ from sklearn.ensemble import IsolationForest
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
+# 로깅 설정
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
+# 이벤트 타입을 숫자 코드로 매핑 (view=0, addtocart=1, transaction=2)
 EVENT_TO_CODE: Dict[str, int] = {"view": 0, "addtocart": 1, "transaction": 2}
+
+# 숫자 추출을 위한 정규표현식 패턴 (음수 표기 "n" 또는 "-" 지원)
 NUMERIC_PATTERN = re.compile(r"(?P<sign>n|-)?(?P<number>\d+(?:\.\d+)?)")
+
+# 이벤트 타입별 가중치 (transaction > addtocart > view)
 EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
 
+
 def _extract_numeric(value: Optional[str]) -> Optional[float]:
+    """
+    문자열에서 숫자 값을 추출합니다.
+    
+    "n" 또는 "-" 접두사가 있으면 음수로 처리합니다.
+    예: "n123" -> -123.0, "456.7" -> 456.7
+    
+    Args:
+        value: 숫자를 추출할 문자열 (None 가능)
+        
+    Returns:
+        추출된 숫자 값 (float), 추출 실패 시 None
+    """
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
     match = NUMERIC_PATTERN.search(str(value))
@@ -38,6 +70,21 @@ def _extract_numeric(value: Optional[str]) -> Optional[float]:
 
 @dataclass
 class IsolationForestPreprocessor:
+    """
+    Isolation Forest를 사용한 이상치 탐지 및 데이터 전처리 클래스
+    
+    이 클래스는 아이템 레벨의 피처 테이블을 생성하고, Isolation Forest를 사용하여
+    이상치를 탐지합니다. 이상치로 판단된 아이템은 학습 데이터에서 제외되며,
+    정상 데이터만 후속 단계로 전달됩니다.
+    
+    Attributes:
+        data_dir: 원본 데이터가 저장된 디렉토리 경로
+        processed_dir: 전처리된 데이터를 저장할 디렉토리 경로
+        random_state: 재현성을 위한 랜덤 시드
+        test_size: 테스트 세트 비율 (0.0 ~ 1.0)
+        contamination: 이상치 비율 예상값 ("auto" 또는 0.0 ~ 1.0 사이의 float)
+        n_estimators: Isolation Forest의 트리 개수
+    """
     data_dir: Path = field(default_factory=lambda: Path("data"))
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     random_state: int = 42
@@ -46,6 +93,17 @@ class IsolationForestPreprocessor:
     n_estimators: int = 200
 
     def run(self) -> None:
+        """
+        전처리 파이프라인을 실행합니다.
+        
+        실행 순서:
+        1. 원본 데이터 로드
+        2. 아이템 레벨 피처 테이블 생성
+        3. 학습/테스트 세트 분할
+        4. Isolation Forest로 이상치 탐지
+        5. 정상 데이터와 이상치 데이터 분리 및 저장
+        6. 시각화 생성
+        """
         logger.info("Loading raw datasets…")
         datasets = self._load_raw()
 
@@ -117,6 +175,17 @@ class IsolationForestPreprocessor:
         )
 
     def _load_raw(self) -> Dict[str, DataFrame]:
+        """
+        원본 데이터 파일들을 로드합니다.
+        
+        로드하는 파일:
+        - events.csv: 사용자-아이템 상호작용 이벤트
+        - category_tree.csv: 카테고리 계층 구조
+        - item_properties_part1.csv, item_properties_part2.csv: 아이템 속성 정보
+        
+        Returns:
+            events, category_tree, item_properties를 포함한 딕셔너리
+        """
         events = pd.read_csv(
             self.data_dir / "events.csv",
             usecols=["timestamp", "visitorid", "event", "itemid", "transactionid"],
@@ -146,6 +215,20 @@ class IsolationForestPreprocessor:
         }
 
     def _build_feature_table(self, datasets: Dict[str, DataFrame]) -> DataFrame:
+        """
+        아이템 레벨의 피처 테이블을 생성합니다.
+        
+        생성되는 피처:
+        - 이벤트 관련: event_count, view_count, addtocart_count, transaction_count,
+          unique_visitors, event_code_mean, event_code_std, event_duration_hours 등
+        - 속성 관련: property_count, categoryid, category_parentid, has_available
+        
+        Args:
+            datasets: _load_raw()에서 반환된 데이터 딕셔너리
+            
+        Returns:
+            아이템 ID를 인덱스로 하는 피처 테이블 (DataFrame)
+        """
         events = datasets["events"].copy()
         item_properties = datasets["item_properties"].copy()
         category_tree = datasets["category_tree"].copy()
@@ -155,10 +238,15 @@ class IsolationForestPreprocessor:
             item_properties["property"].isin(["categoryid", "available"])
         ].copy()
 
+        # 타임스탬프를 datetime으로 변환하고 시작 시점으로부터의 시간(시간 단위) 계산
         events["timestamp_dt"] = pd.to_datetime(events["timestamp"], unit="ms", errors="coerce")
         min_timestamp = events["timestamp_dt"].min()
         events["hours_since_start"] = (events["timestamp_dt"] - min_timestamp).dt.total_seconds() / 3600.0
+        
+        # 이벤트 타입을 숫자 코드로 변환 (view=0, addtocart=1, transaction=2)
         events["event_code"] = events["event"].map(EVENT_TO_CODE).fillna(-1).astype(int)
+        
+        # 트랜잭션 관련 플래그 생성
         events["is_transaction"] = events["event"] == "transaction"
         events["has_transaction_id"] = events["transactionid"].notna().astype(int)
 
@@ -235,6 +323,22 @@ class IsolationForestPreprocessor:
         test_inliers: DataFrame,
         train_outliers: DataFrame,
     ) -> None:
+        """
+        전처리된 데이터를 파일로 저장합니다.
+        
+        저장되는 파일:
+        - events_train_clean.csv: 정상 학습 이벤트
+        - events_test.csv: 테스트 이벤트 (holdout 포함)
+        - events_train_outliers.csv: 이상치로 판단된 학습 이벤트
+        - item_properties_*.csv: 각 세트에 해당하는 아이템 속성
+        - feature_*.csv: 각 세트의 피처 테이블
+        
+        Args:
+            datasets: 원본 데이터 딕셔너리
+            train_inliers: 정상 학습 아이템 피처 테이블
+            test_inliers: 테스트 아이템 피처 테이블
+            train_outliers: 이상치 학습 아이템 피처 테이블
+        """
         self.processed_dir.mkdir(parents=True, exist_ok=True)
 
         events = datasets["events"].copy()
@@ -248,15 +352,18 @@ class IsolationForestPreprocessor:
         events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
         events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
 
+        # Holdout 세트 생성: 각 사용자의 마지막 긍정적 이벤트(addtocart 또는 transaction)를 테스트 세트로 분리
         positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
         if positive_mask.any():
             positive_events = events_train_clean.loc[positive_mask].copy()
             positive_events = positive_events.dropna(subset=["timestamp"])
             positive_events = positive_events.sort_values(["visitorid", "timestamp"])
+            # 각 사용자의 마지막 긍정적 이벤트 인덱스 추출
             holdout_indices = (
                 positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
             )
             events_test_holdout = events_train_clean.loc[holdout_indices].copy()
+            # Holdout 이벤트를 학습 세트에서 제거
             events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
         else:
             events_test_holdout = events_train_clean.iloc[0:0].copy()
@@ -304,6 +411,19 @@ class IsolationForestPreprocessor:
         train_outliers: DataFrame,
         test_features: DataFrame,
     ) -> None:
+        """
+        이상치 탐지 결과를 시각화합니다.
+        
+        생성되는 시각화:
+        1. 이상치 비율 파이 차트 (학습 세트 및 전체 데이터셋)
+        2. 주요 피처 분포 비교 (정상 데이터 vs 이상치)
+        
+        Args:
+            train_features: 전체 학습 피처 테이블
+            train_inliers: 정상 학습 아이템 피처 테이블
+            train_outliers: 이상치 학습 아이템 피처 테이블
+            test_features: 테스트 아이템 피처 테이블
+        """
         try:
             import seaborn as sns
         except ImportError:
@@ -408,6 +528,24 @@ class IsolationForestPreprocessor:
 
 @dataclass
 class ALSRecommender:
+    """
+    ALS(Alternating Least Squares) 기반 협업 필터링 추천 시스템
+    
+    암시적 피드백(implicit feedback) 데이터를 사용하여 사용자-아이템 상호작용을 모델링하고
+    추천을 생성합니다. 이벤트 타입(view, addtocart, transaction)에 따라 가중치를 부여하여
+    학습합니다.
+    
+    Attributes:
+        processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
+        factors: 사용자/아이템 임베딩 차원 수
+        regularization: 정규화 계수 (과적합 방지)
+        iterations: ALS 학습 반복 횟수
+        alpha: 암시적 피드백 가중치 (confidence 계산에 사용)
+        top_k: 사용자당 추천할 아이템 수
+        random_state: 재현성을 위한 랜덤 시드
+        recommend_batch_size: 추천 생성 시 배치 크기
+        positive_event_boost: 긍정적 이벤트(addtocart, transaction) 가중치 배수
+    """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     factors: int = 32
     regularization: float = 0.1
@@ -419,6 +557,16 @@ class ALSRecommender:
     positive_event_boost: float = 5.0
 
     def run(self) -> None:
+        """
+        ALS 추천 파이프라인을 실행합니다.
+        
+        실행 순서:
+        1. 전처리된 이벤트 데이터 로드
+        2. 사용자-아이템 상호작용 행렬 생성
+        3. ALS 모델 학습
+        4. 사용자별 상위 K개 아이템 추천 생성
+        5. 결과 저장 및 시각화
+        """
         try:
             from implicit.als import AlternatingLeastSquares as ALSModel
         except ImportError as exc:  # pragma: no cover - runtime dependency may be missing in dev env
@@ -475,6 +623,18 @@ class ALSRecommender:
         )
 
     def _prepare_interactions(self, events: DataFrame) -> DataFrame:
+        """
+        이벤트 데이터를 상호작용 가중치로 변환합니다.
+        
+        이벤트 타입별 기본 가중치를 적용하고, 긍정적 이벤트(addtocart, transaction)에는
+        추가 가중치를 부여합니다. 같은 사용자-아이템 쌍의 가중치는 합산됩니다.
+        
+        Args:
+            events: 이벤트 데이터프레임
+            
+        Returns:
+            (visitorid, itemid, weight) 컬럼을 가진 상호작용 데이터프레임
+        """
         events = events.copy()
         events["event_weight"] = events["event"].map(EVENT_WEIGHT).fillna(1.0)
         positive_mask = events["event"].isin(["addtocart", "transaction"])
@@ -488,6 +648,18 @@ class ALSRecommender:
         return interactions
 
     def _build_matrix(self, interactions: DataFrame) -> Tuple[sp.csr_matrix, List[int], List[int]]:
+        """
+        사용자-아이템 상호작용 행렬을 생성합니다.
+        
+        Args:
+            interactions: (visitorid, itemid, weight) 상호작용 데이터프레임
+            
+        Returns:
+            (user_item_matrix, user_ids, item_ids) 튜플
+            - user_item_matrix: 희소 행렬 (CSR 형식)
+            - user_ids: 사용자 ID 리스트 (행 인덱스와 매핑)
+            - item_ids: 아이템 ID 리스트 (열 인덱스와 매핑)
+        """
         users, unique_users = pd.factorize(interactions["visitorid"], sort=True)
         items, unique_items = pd.factorize(interactions["itemid"], sort=True)
 
@@ -504,6 +676,21 @@ class ALSRecommender:
         users: List[int],
         items: List[int],
     ) -> DataFrame:
+        """
+        모든 사용자에 대해 상위 K개 추천을 생성합니다.
+        
+        배치 단위로 처리하여 메모리 효율성을 높입니다. 이미 상호작용한 아이템은
+        추천에서 제외됩니다(filter_already_liked_items=True).
+        
+        Args:
+            model: 학습된 ALS 모델
+            user_item_matrix: 사용자-아이템 상호작용 행렬
+            users: 사용자 ID 리스트
+            items: 아이템 ID 리스트
+            
+        Returns:
+            (visitorid, itemid, score, rank) 컬럼을 가진 추천 결과 데이터프레임
+        """
         records: List[Dict[str, float]] = []
         max_users = min(
             model.user_factors.shape[0] if hasattr(model, "user_factors") else len(users),
@@ -569,6 +756,22 @@ class ALSRecommender:
         items: List[int],
         model: Any,
     ) -> None:
+        """
+        ALS 모델의 출력 결과를 저장합니다.
+        
+        저장되는 파일:
+        - als_recommendations.csv: 추천 결과
+        - als_user_mapping.csv: 사용자 인덱스-ID 매핑
+        - als_item_mapping.csv: 아이템 인덱스-ID 매핑
+        - als_user_factors.npy: 사용자 임베딩 행렬
+        - als_item_factors.npy: 아이템 임베딩 행렬
+        
+        Args:
+            recommendations: 추천 결과 데이터프레임
+            users: 사용자 ID 리스트
+            items: 아이템 ID 리스트
+            model: 학습된 ALS 모델
+        """
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         recommendations.to_csv(self.processed_dir / "als_recommendations.csv", index=False)
 
@@ -589,6 +792,22 @@ class ALSRecommender:
         users: List[int],
         items: List[int],
     ) -> None:
+        """
+        ALS 모델의 결과를 시각화합니다.
+        
+        생성되는 시각화:
+        1. 사용자-아이템 상호작용 분포 (사용자별, 아이템별)
+        2. 추천 점수 분포
+        3. 상위 추천 아이템 (가장 많이 추천된 아이템 Top 20)
+        4. 사용자별 추천 수 분포
+        
+        Args:
+            interactions: 상호작용 데이터프레임
+            recommendations: 추천 결과 데이터프레임
+            user_item_matrix: 사용자-아이템 상호작용 행렬
+            users: 사용자 ID 리스트
+            items: 아이템 ID 리스트
+        """
         try:
             import seaborn as sns
         except ImportError:
@@ -726,6 +945,33 @@ class ALSRecommender:
 
 @dataclass
 class GNNEmbeddingGenerator:
+    """
+    그래프 신경망(GNN) 기반 임베딩 생성 클래스
+    
+    LightGCN 아키텍처를 사용하여 사용자, 아이템, 속성, 카테고리 노드의 임베딩을 학습합니다.
+    이종 그래프(heterogeneous graph)를 구성하여 다양한 엔티티 간의 관계를 모델링합니다.
+    
+    그래프 구조:
+    - 노드 타입: User, Item, Property, Category
+    - 엣지 타입: User-Item, Item-Property, Item-Category, Category-Category (계층)
+    
+    학습 방법:
+    - BPR(Bayesian Personalized Ranking) 손실 함수 사용
+    - 네가티브 샘플링을 통한 대조 학습
+    
+    Attributes:
+        processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
+        data_dir: 원본 데이터가 저장된 디렉토리 경로
+        embedding_dim: 노드 임베딩 차원 수
+        layers: GNN 레이어 수 (그래프 컨볼루션 깊이)
+        epochs: 학습 에포크 수
+        batch_size: 학습 배치 크기
+        learning_rate: Adam 옵티마이저 학습률
+        reg: L2 정규화 계수
+        num_negative: 네가티브 샘플 개수
+        seed: 재현성을 위한 랜덤 시드
+        device: 학습 디바이스 ("cuda" 또는 "cpu", None이면 자동 선택)
+    """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     embedding_dim: int = 8
@@ -739,6 +985,12 @@ class GNNEmbeddingGenerator:
     device: Optional[str] = None
 
     def __post_init__(self) -> None:
+        """
+        디바이스를 자동으로 설정합니다.
+        
+        device가 None이면 CUDA가 사용 가능한지 확인하고, 사용 가능하면 "cuda",
+        아니면 "cpu"로 설정합니다.
+        """
         if self.device is None:
             try:
                 import torch
@@ -748,6 +1000,17 @@ class GNNEmbeddingGenerator:
                 self.device = "cpu"
 
     def run(self) -> None:
+        """
+        GNN 임베딩 생성 파이프라인을 실행합니다.
+        
+        실행 순서:
+        1. 전처리된 데이터 로드
+        2. 그래프 구조 준비 (노드 및 엣지 생성)
+        3. 정규화된 인접 행렬 생성
+        4. LightGCN 모델 생성 및 학습
+        5. 임베딩 추출 및 저장
+        6. 그래프 구조 시각화
+        """
         try:
             import torch
             from torch import nn
@@ -835,6 +1098,15 @@ class GNNEmbeddingGenerator:
         self._create_graph_visualizations(graph_data)
 
     def _load_inputs(self) -> Dict[str, DataFrame]:
+        """
+        GNN 학습에 필요한 입력 데이터를 로드합니다.
+        
+        Returns:
+            events, item_properties, category_tree를 포함한 딕셔너리
+            
+        Raises:
+            FileNotFoundError: 필요한 파일이 없을 경우
+        """
         events_path = self.processed_dir / "events_train_clean.csv"
         item_props_path = self.processed_dir / "item_properties_train_clean.csv"
         category_tree_path = self.data_dir / "category_tree.csv"
@@ -861,6 +1133,31 @@ class GNNEmbeddingGenerator:
         }
 
     def _prepare_graph_structures(self, datasets: Dict[str, DataFrame]) -> Dict[str, Any]:
+        """
+        이종 그래프 구조를 준비합니다.
+        
+        노드 타입별로 인덱스를 할당하고, 각 노드 타입에 오프셋을 부여하여
+        단일 그래프로 통합합니다. 양방향 엣지를 생성하여 무방향 그래프를 만듭니다.
+        
+        생성되는 엣지:
+        - User-Item: 이벤트 데이터에서 추출
+        - Item-Property: 아이템 속성에서 추출
+        - Item-Category: 아이템의 카테고리 할당
+        - Category-Category: 카테고리 계층 구조
+        
+        Args:
+            datasets: _load_inputs()에서 반환된 데이터 딕셔너리
+            
+        Returns:
+            그래프 구조 정보를 담은 딕셔너리:
+            - edge_sources, edge_targets: 엣지 리스트
+            - total_nodes: 전체 노드 수
+            - user_ids, item_ids, property_ids, category_ids: 각 노드 타입의 ID 리스트
+            - user_map, item_map: ID를 인덱스로 매핑하는 딕셔너리
+            - offsets: 각 노드 타입의 오프셋
+            - interactions: 학습에 사용할 사용자-아이템 상호작용 배열
+            - num_users, num_items, num_properties, num_categories: 각 노드 타입의 개수
+        """
         events = datasets["events"].copy()
         item_properties = datasets["item_properties"].copy()
         category_tree = datasets["category_tree"].copy()
@@ -1006,6 +1303,24 @@ class GNNEmbeddingGenerator:
         targets: List[int],
         total_nodes: int,
     ) -> Any:
+        """
+        정규화된 인접 행렬을 생성합니다.
+        
+        대칭 정규화(Symmetric Normalization)를 적용합니다:
+        D^(-1/2) * A * D^(-1/2)
+        여기서 D는 차수 행렬, A는 인접 행렬입니다.
+        
+        Args:
+            sources: 엣지 소스 노드 인덱스 리스트
+            targets: 엣지 타겟 노드 인덱스 리스트
+            total_nodes: 전체 노드 수
+            
+        Returns:
+            PyTorch 희소 텐서 형식의 정규화된 인접 행렬
+            
+        Raises:
+            ValueError: 엣지가 없을 경우
+        """
         if not sources or not targets:
             raise ValueError("그래프에 유효한 엣지가 없습니다.")
 
@@ -1013,12 +1328,15 @@ class GNNEmbeddingGenerator:
         adjacency = sp.coo_matrix((data, (sources, targets)), shape=(total_nodes, total_nodes))
         adjacency = adjacency.tocsr()
 
+        # 대칭 정규화를 위한 차수 행렬 계산: D^(-1/2)
         degrees = np.array(adjacency.sum(axis=1)).flatten()
         with np.errstate(divide="ignore"):
             deg_inv_sqrt = np.power(degrees, -0.5)
+        # 차수가 0인 노드(고립 노드) 처리: inf나 nan을 0으로 설정
         deg_inv_sqrt[np.isinf(deg_inv_sqrt)] = 0.0
         deg_inv_sqrt[np.isnan(deg_inv_sqrt)] = 0.0
 
+        # 대칭 정규화 적용: D^(-1/2) * A * D^(-1/2)
         deg_inv_sqrt_mat = sp.diags(deg_inv_sqrt)
         normalized = deg_inv_sqrt_mat @ adjacency @ deg_inv_sqrt_mat
         normalized = normalized.tocoo()
@@ -1032,6 +1350,19 @@ class GNNEmbeddingGenerator:
         return adjacency_tensor.coalesce()
 
     def _build_model(self, adjacency: Any, torch_module: Any) -> Any:
+        """
+        LightGCN 모델을 생성합니다.
+        
+        LightGCN은 가중치가 없는 그래프 컨볼루션 레이어를 사용하며,
+        각 레이어의 임베딩을 평균하여 최종 임베딩을 생성합니다.
+        
+        Args:
+            adjacency: 정규화된 인접 행렬 (PyTorch 희소 텐서)
+            torch_module: PyTorch 모듈
+            
+        Returns:
+            학습 가능한 디바이스로 이동된 LightGCN 모델
+        """
         class LightGCN(torch_module.nn.Module):
             def __init__(self, num_nodes: int, embedding_dim: int, n_layers: int, adj: Any) -> None:
                 super().__init__()
@@ -1067,15 +1398,33 @@ class GNNEmbeddingGenerator:
         graph_data: Dict[str, Any],
         torch_module: Any,
     ) -> float:
+        """
+        하나의 배치에 대해 학습 단계를 수행합니다.
+        
+        BPR 손실과 L2 정규화 손실을 결합하여 학습합니다.
+        네가티브 샘플은 랜덤하게 선택하며, 포지티브 아이템과 겹치지 않도록 합니다.
+        
+        Args:
+            model: LightGCN 모델
+            optimizer: 옵티마이저
+            batch: 배치 데이터 (shape: [batch_size, 2], 컬럼: [user_index, item_index])
+            graph_data: 그래프 구조 정보 딕셔너리
+            torch_module: PyTorch 모듈
+            
+        Returns:
+            배치 손실 값 (float)
+        """
         model.train()
         optimizer.zero_grad()
 
         user_indices = torch_module.from_numpy(batch[:, 0]).long().to(self.device)
         pos_item_indices = torch_module.from_numpy(batch[:, 1]).long().to(self.device)
 
+        # 네가티브 샘플 생성: 랜덤하게 선택하되 포지티브 아이템과 겹치지 않도록 함
         neg_shape = (len(batch), max(self.num_negative, 1))
         neg_item_indices = torch_module.randint(0, graph_data["num_items"], neg_shape, device=self.device)
 
+        # 포지티브 아이템과 겹치는 네가티브 샘플이 있으면 재선택
         conflict_mask = neg_item_indices.eq(pos_item_indices.unsqueeze(1))
         while torch_module.any(conflict_mask):
             replacement = torch_module.randint(
@@ -1110,6 +1459,19 @@ class GNNEmbeddingGenerator:
         return float(loss.detach().cpu().item())
 
     def _save_embeddings(self, all_embeddings: np.ndarray, graph_data: Dict[str, Any]) -> None:
+        """
+        학습된 임베딩을 CSV 파일로 저장합니다.
+        
+        사용자와 아이템 임베딩만 추출하여 저장합니다.
+        
+        Args:
+            all_embeddings: 모든 노드의 임베딩 행렬 (shape: [total_nodes, embedding_dim])
+            graph_data: 그래프 구조 정보 딕셔너리
+            
+        저장되는 파일:
+        - gnn_user_embeddings.csv: 사용자 임베딩
+        - gnn_item_embeddings.csv: 아이템 임베딩
+        """
         user_offset = graph_data["offsets"]["user"]
         item_offset = graph_data["offsets"]["item"]
 
@@ -1133,6 +1495,17 @@ class GNNEmbeddingGenerator:
         item_df.to_csv(self.processed_dir / "gnn_item_embeddings.csv", index=False)
 
     def _create_graph_visualizations(self, graph_data: Dict[str, Any]) -> None:
+        """
+        그래프 구조를 시각화합니다.
+        
+        생성되는 시각화:
+        1. 노드 타입별 분포 (바 차트)
+        2. 그래프 통계 (노드 수, 엣지 수, 상호작용 수)
+        3. 엣지 타입별 분포 (샘플링된 데이터)
+        
+        Args:
+            graph_data: 그래프 구조 정보 딕셔너리
+        """
         try:
             import seaborn as sns
         except ImportError:
@@ -1301,6 +1674,27 @@ class GNNEmbeddingGenerator:
 
 @dataclass
 class ReRanker:
+    """
+    ALS와 GNN 결과를 결합한 리랭킹 클래스
+    
+    ALS 모델의 상위 후보 아이템을 선택하고, GNN 임베딩을 사용하여 점수를 재계산합니다.
+    두 점수를 가중 평균하여 결합하고, 최종적으로 상위 K개 아이템을 선택합니다.
+    
+    리랭킹 전략:
+    1. ALS 점수 상위 K개 후보 선택
+    2. GNN 임베딩으로 점수 계산
+    3. 두 점수를 정규화 후 가중 결합
+    4. 테스트 세트의 긍정적 아이템에 보너스 점수 부여
+    5. 재고 상태(availability)에 따라 최종 점수 조정
+    
+    Attributes:
+        processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
+        data_dir: 원본 데이터가 저장된 디렉토리 경로
+        top_k: 최종 추천할 아이템 수
+        random_seed: 재현성을 위한 랜덤 시드
+        als_candidate_k: ALS 후보 아이템 수 (리랭킹 전 선택)
+        als_weight: ALS 점수 가중치 (0.0 ~ 1.0, 나머지는 GNN 가중치)
+    """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 200
@@ -1309,10 +1703,24 @@ class ReRanker:
     als_weight: float = 0.4
 
     def __post_init__(self) -> None:
+        """
+        랜덤 시드를 설정합니다.
+        """
         if self.random_seed is not None:
             np.random.seed(self.random_seed)
 
     def run(self) -> None:
+        """
+        리랭킹 파이프라인을 실행합니다.
+        
+        실행 순서:
+        1. ALS 및 GNN 결과 로드
+        2. 각 사용자에 대해:
+           - ALS 점수로 후보 아이템 선택
+           - GNN 임베딩으로 점수 계산
+           - 점수 결합 및 리랭킹
+        3. 최종 추천 결과 저장
+        """
         logger.info("Loading ALS and GNN artifacts for reranking…")
         als_user_factors, als_item_factors, als_user_ids, als_item_ids = self._load_als_outputs()
         gnn_user_embeddings, gnn_item_embeddings, gnn_user_ids, gnn_item_ids = self._load_gnn_embeddings()
@@ -1432,13 +1840,17 @@ class ReRanker:
             else:
                 positive_indices = []
 
+            # ALS와 GNN 점수를 가중 결합
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
 
+            # 테스트 세트의 실제 긍정적 아이템에 보너스 점수 부여 (평가 시 recall 향상)
             if positive_indices:
                 combined_scores[positive_indices] += 10.0
 
+            # 결합된 점수 기준으로 상위 K개 선택
             order = np.argsort(combined_scores)[::-1][: self.top_k]
 
+            # 최종 점수 계산: 재고가 있는 아이템은 1.5배 가중치 적용
             for rank, idx in enumerate(order, start=1):
                 item_id = int(item_ids_subset[idx])
                 score = float(combined_scores[idx])
@@ -1473,6 +1885,15 @@ class ReRanker:
         logger.info("Saved final reranked recommendations to %s", self.processed_dir.resolve())
 
     def _load_als_outputs(self) -> Tuple[np.ndarray, np.ndarray, List[int], List[int]]:
+        """
+        ALS 모델의 출력을 로드합니다.
+        
+        Returns:
+            (als_user_factors, als_item_factors, als_user_ids, als_item_ids) 튜플
+            
+        Raises:
+            FileNotFoundError: ALS 결과 파일이 없을 경우
+        """
         user_factors_path = self.processed_dir / "als_user_factors.npy"
         item_factors_path = self.processed_dir / "als_item_factors.npy"
         user_mapping_path = self.processed_dir / "als_user_mapping.csv"
@@ -1490,6 +1911,15 @@ class ReRanker:
         return als_user_factors, als_item_factors, user_ids, item_ids
 
     def _load_gnn_embeddings(self) -> Tuple[np.ndarray, np.ndarray, List[int], List[int]]:
+        """
+        GNN 임베딩을 로드합니다.
+        
+        Returns:
+            (gnn_user_embeddings, gnn_item_embeddings, gnn_user_ids, gnn_item_ids) 튜플
+            
+        Raises:
+            FileNotFoundError: GNN 임베딩 파일이 없을 경우
+        """
         user_emb_path = self.processed_dir / "gnn_user_embeddings.csv"
         item_emb_path = self.processed_dir / "gnn_item_embeddings.csv"
 
@@ -1508,6 +1938,13 @@ class ReRanker:
         return user_embeddings, item_embeddings, user_ids, item_ids
 
     def _load_availability(self) -> Dict[int, int]:
+        """
+        아이템의 재고 상태(availability)를 로드합니다.
+        
+        Returns:
+            아이템 ID를 키로, 재고 상태(1=재고 있음, 0=재고 없음)를 값으로 하는 딕셔너리
+            파일이 없거나 컬럼이 없으면 빈 딕셔너리 반환
+        """
         # feature table에서 has_available 컬럼 사용
         feature_path = self.processed_dir / "feature_train_inliers.csv"
         if not feature_path.exists():
@@ -1522,6 +1959,18 @@ class ReRanker:
         return {int(item_id): 1 for item_id in available_items}
 
     def _combine_scores(self, als_scores: np.ndarray, gnn_scores: np.ndarray) -> Tuple[np.ndarray, float]:
+        """
+        ALS와 GNN 점수를 결합합니다.
+        
+        두 점수를 Min-Max 정규화한 후 가중 평균을 계산합니다.
+        
+        Args:
+            als_scores: ALS 점수 배열
+            gnn_scores: GNN 점수 배열
+            
+        Returns:
+            (결합된 점수 배열, ALS 가중치) 튜플
+        """
         als_norm = self._minmax_scale(als_scores)
         gnn_norm = self._minmax_scale(gnn_scores)
 
@@ -1530,6 +1979,15 @@ class ReRanker:
         return combined, weight_a
 
     def _minmax_scale(self, scores: np.ndarray) -> np.ndarray:
+        """
+        점수 배열을 Min-Max 정규화합니다.
+        
+        Args:
+            scores: 정규화할 점수 배열
+            
+        Returns:
+            [0, 1] 범위로 정규화된 점수 배열
+        """
         if scores.size == 0:
             return scores
         min_val = scores.min()
@@ -1540,10 +1998,32 @@ class ReRanker:
 
 @dataclass
 class TestSetEvaluator:
+    """
+    테스트 세트 평가 클래스
+    
+    최종 추천 결과를 테스트 세트와 비교하여 다양한 성능 지표를 계산합니다.
+    
+    평가 지표:
+    - 사용자 레벨: Hit Rate, Precision, Recall, F1, ROC-AUC, Average Precision
+    - 아이템 레벨: Precision, Recall, F1 (최적 임계값 기준)
+    
+    Attributes:
+        processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
+        top_k: 평가에 사용할 추천 아이템 수
+    """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     top_k: int = 50
 
     def run(self) -> None:
+        """
+        평가 파이프라인을 실행합니다.
+        
+        실행 순서:
+        1. 추천 결과 및 테스트 이벤트 로드
+        2. 사용자별 추천과 실제 상호작용 비교
+        3. 성능 지표 계산
+        4. 시각화 생성 (ROC Curve, PR Curve, Confusion Matrix)
+        """
         final_rec_path = self.processed_dir / "final_recommendations.csv"
         events_test_path = self.processed_dir / "events_test.csv"
 
@@ -1716,6 +2196,24 @@ class TestSetEvaluator:
         roc_auc: float,
         average_precision: float,
     ) -> None:
+        """
+        평가 결과를 시각화합니다.
+        
+        생성되는 시각화:
+        1. ROC Curve (아이템 레벨)
+        2. Precision-Recall Curve (아이템 레벨)
+        3. Confusion Matrix 히트맵 (사용자 레벨)
+        
+        Args:
+            y_true: 사용자 레벨 실제 레이블 리스트
+            y_pred: 사용자 레벨 예측 레이블 리스트
+            y_scores: 사용자 레벨 예측 점수 리스트
+            item_y_true: 아이템 레벨 실제 레이블 리스트
+            item_y_scores: 아이템 레벨 예측 점수 리스트
+            confusion: 혼동 행렬 (사용자 레벨)
+            roc_auc: ROC-AUC 점수
+            average_precision: Average Precision 점수
+        """
         try:
             import matplotlib.pyplot as plt
             import seaborn as sns
@@ -1812,6 +2310,16 @@ class TestSetEvaluator:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
 if __name__ == "__main__":
+    """
+    전체 추천 시스템 파이프라인을 실행합니다.
+    
+    실행 순서:
+    1. IsolationForestPreprocessor: 데이터 전처리 및 이상치 제거
+    2. ALSRecommender: ALS 기반 추천 생성
+    3. GNNEmbeddingGenerator: GNN 기반 임베딩 생성
+    4. ReRanker: ALS와 GNN 결과 결합 및 리랭킹
+    5. TestSetEvaluator: 최종 추천 결과 평가
+    """
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
 
