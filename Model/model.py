@@ -556,8 +556,10 @@ class ALSRecommender:
     random_state: int = 42
     recommend_batch_size: int = 256
     positive_event_boost: float = 5.0
-    early_stopping_patience: Optional[int] = None  # None이면 early stopping 비활성화
+    early_stopping_patience: Optional[int] = 5  # None이면 early stopping 비활성화
     min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
+    loss_batch_size: int = 1000  # Loss 계산 시 배치 크기 (메모리 효율성)
+    loss_sample_size: Optional[int] = None  # Loss 계산 시 샘플링할 사용자 수 (None이면 전체 사용)
 
     def run(self) -> None:
         """
@@ -621,6 +623,17 @@ class ALSRecommender:
         logger.info("Training ALS model (factors=%d, iterations=%d)…", self.factors, self.iterations)
         logger.info("Train users: %d, Validation users: %d", len(train_user_indices), len(val_user_indices))
         
+        # Loss 계산용 샘플 인덱스 선택 (메모리 효율성)
+        if self.loss_sample_size is not None and self.loss_sample_size < len(train_user_indices):
+            np.random.seed(self.random_state)
+            train_sample_indices = np.random.choice(train_user_indices, size=self.loss_sample_size, replace=False)
+            val_sample_indices = np.random.choice(val_user_indices, size=min(self.loss_sample_size, len(val_user_indices)), replace=False)
+            logger.info("Using sampled users for loss calculation: %d train, %d val", 
+                       len(train_sample_indices), len(val_sample_indices))
+        else:
+            train_sample_indices = train_user_indices
+            val_sample_indices = val_user_indices
+        
         # 학습 중 loss 추적
         train_losses = []
         val_losses = []
@@ -640,18 +653,20 @@ class ALSRecommender:
             random_state=self.random_state,
         )
         
-        # 초기 loss 계산 (학습 전)
+        # 초기 loss 계산 (학습 전) - 샘플링 및 배치 처리로 메모리 효율성 향상
         initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
         initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
         
-        train_pred_init = initial_user_factors[train_user_indices] @ initial_item_factors.T
-        train_actual = train_matrix.toarray()
-        train_loss_init = np.mean((train_pred_init - train_actual) ** 2)
-        train_losses.append(train_loss_init)
+        train_loss_init = self._compute_als_loss_batch(
+            initial_user_factors, initial_item_factors, 
+            train_matrix, train_sample_indices, self.loss_batch_size
+        )
+        val_loss_init = self._compute_als_loss_batch(
+            initial_user_factors, initial_item_factors,
+            val_matrix, val_sample_indices, self.loss_batch_size
+        )
         
-        val_pred_init = initial_user_factors[val_user_indices] @ initial_item_factors.T
-        val_actual = val_matrix.toarray()
-        val_loss_init = np.mean((val_pred_init - val_actual) ** 2)
+        train_losses.append(train_loss_init)
         val_losses.append(val_loss_init)
         
         logger.info("Initial - Train Loss: %.6f, Val Loss: %.6f", train_loss_init, val_loss_init)
@@ -667,14 +682,18 @@ class ALSRecommender:
                 # 대신 전체 데이터로 학습하되 iteration=1로 설정하여 점진적으로 학습
                 temp_model.fit(train_matrix.T.tocsr())
             
-            # Train loss 계산 (reconstruction error)
-            train_pred = temp_model.user_factors[train_user_indices] @ temp_model.item_factors.T
-            train_loss = np.mean((train_pred - train_actual) ** 2)
+            # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
+            train_loss = self._compute_als_loss_batch(
+                temp_model.user_factors, temp_model.item_factors,
+                train_matrix, train_sample_indices, self.loss_batch_size
+            )
             train_losses.append(train_loss)
             
-            # Validation loss 계산
-            val_pred = temp_model.user_factors[val_user_indices] @ temp_model.item_factors.T
-            val_loss = np.mean((val_pred - val_actual) ** 2)
+            # Validation loss 계산 - 샘플링 및 배치 처리로 메모리 효율성 향상
+            val_loss = self._compute_als_loss_batch(
+                temp_model.user_factors, temp_model.item_factors,
+                val_matrix, val_sample_indices, self.loss_batch_size
+            )
             val_losses.append(val_loss)
             
             logger.info("Iteration %d/%d - Train Loss: %.6f, Val Loss: %.6f", 
@@ -827,6 +846,43 @@ class ALSRecommender:
             shape=(len(unique_users), len(unique_items)),
         )
         return matrix.tocsr(), unique_users.tolist(), unique_items.tolist()
+
+    def _compute_als_loss_batch(
+        self,
+        user_factors: np.ndarray,
+        item_factors: np.ndarray,
+        matrix: sp.csr_matrix,
+        user_indices: np.ndarray,
+        batch_size: int,
+    ) -> float:
+        """
+        배치 처리로 ALS loss를 계산합니다 (메모리 효율성).
+        
+        Args:
+            user_factors: 사용자 임베딩 행렬
+            item_factors: 아이템 임베딩 행렬
+            matrix: 실제 상호작용 행렬 (희소 행렬)
+            user_indices: 계산할 사용자 인덱스 배열
+            batch_size: 배치 크기
+            
+        Returns:
+            평균 reconstruction error (MSE)
+        """
+        total_loss = 0.0
+        n_batches = int(np.ceil(len(user_indices) / batch_size))
+        
+        for i in range(n_batches):
+            start_idx = i * batch_size
+            end_idx = min((i + 1) * batch_size, len(user_indices))
+            batch_user_indices_batch = user_indices[start_idx:end_idx]
+            
+            # 예측 행렬 계산 (배치)
+            pred_batch = user_factors[batch_user_indices_batch] @ item_factors.T
+            # 실제 행렬 (희소 행렬에서 배치만 추출)
+            actual_batch = matrix[batch_user_indices_batch].toarray()
+            total_loss += np.mean((pred_batch - actual_batch) ** 2) * (end_idx - start_idx)
+        
+        return total_loss / len(user_indices) if len(user_indices) > 0 else 0.0
 
     def _generate_recommendations(
         self,
@@ -1135,7 +1191,7 @@ class GNNEmbeddingGenerator:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     embedding_dim: int = 8
     layers: int = 2
-    epochs: int = 5
+    epochs: int = 100
     batch_size: int = 8192
     learning_rate: float = 1e-3
     reg: float = 1e-4
@@ -2667,6 +2723,8 @@ if __name__ == "__main__":
     3. GNNEmbeddingGenerator: GNN 기반 임베딩 생성
     4. ReRanker: ALS와 GNN 결과 결합 및 리랭킹
     5. TestSetEvaluator: 최종 추천 결과 평가
+    
+    각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
