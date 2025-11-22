@@ -624,15 +624,19 @@ class ALSRecommender:
         logger.info("Train users: %d, Validation users: %d", len(train_user_indices), len(val_user_indices))
         
         # Loss 계산용 샘플 인덱스 선택 (메모리 효율성)
-        if self.loss_sample_size is not None and self.loss_sample_size < len(train_user_indices):
+        # train_matrix와 val_matrix는 이미 분할된 행렬이므로 0부터 시작하는 인덱스 사용
+        n_train_users = len(train_user_indices)
+        n_val_users = len(val_user_indices)
+        
+        if self.loss_sample_size is not None and self.loss_sample_size < n_train_users:
             np.random.seed(self.random_state)
-            train_sample_indices = np.random.choice(train_user_indices, size=self.loss_sample_size, replace=False)
-            val_sample_indices = np.random.choice(val_user_indices, size=min(self.loss_sample_size, len(val_user_indices)), replace=False)
+            train_sample_indices = np.random.choice(n_train_users, size=self.loss_sample_size, replace=False)
+            val_sample_indices = np.random.choice(n_val_users, size=min(self.loss_sample_size, n_val_users), replace=False)
             logger.info("Using sampled users for loss calculation: %d train, %d val", 
                        len(train_sample_indices), len(val_sample_indices))
         else:
-            train_sample_indices = train_user_indices
-            val_sample_indices = val_user_indices
+            train_sample_indices = np.arange(n_train_users)
+            val_sample_indices = np.arange(n_val_users)
         
         # 학습 중 loss 추적
         train_losses = []
@@ -658,11 +662,11 @@ class ALSRecommender:
         initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
         
         train_loss_init = self._compute_als_loss_batch(
-            initial_user_factors, initial_item_factors, 
+            initial_user_factors[train_user_indices], initial_item_factors, 
             train_matrix, train_sample_indices, self.loss_batch_size
         )
         val_loss_init = self._compute_als_loss_batch(
-            initial_user_factors, initial_item_factors,
+            initial_user_factors[val_user_indices], initial_item_factors,
             val_matrix, val_sample_indices, self.loss_batch_size
         )
         
@@ -683,6 +687,7 @@ class ALSRecommender:
                 temp_model.fit(train_matrix.T.tocsr())
             
             # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
+            # temp_model은 train_matrix로 학습했으므로 user_factors는 train_user_indices에 해당
             train_loss = self._compute_als_loss_batch(
                 temp_model.user_factors, temp_model.item_factors,
                 train_matrix, train_sample_indices, self.loss_batch_size
@@ -690,8 +695,17 @@ class ALSRecommender:
             train_losses.append(train_loss)
             
             # Validation loss 계산 - 샘플링 및 배치 처리로 메모리 효율성 향상
+            # Validation loss를 계산하기 위해 validation 데이터로 별도 모델 학습
+            # (시간이 걸리지만 정확한 validation loss를 얻기 위해 필요)
+            val_temp_model = ALSModel(
+                factors=self.factors,
+                regularization=self.regularization,
+                iterations=1,
+                random_state=self.random_state,
+            )
+            val_temp_model.fit(val_matrix.T.tocsr())
             val_loss = self._compute_als_loss_batch(
-                temp_model.user_factors, temp_model.item_factors,
+                val_temp_model.user_factors, val_temp_model.item_factors,
                 val_matrix, val_sample_indices, self.loss_batch_size
             )
             val_losses.append(val_loss)
