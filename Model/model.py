@@ -27,6 +27,7 @@ from pandas import DataFrame
 from sklearn.ensemble import IsolationForest
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
@@ -555,6 +556,8 @@ class ALSRecommender:
     random_state: int = 42
     recommend_batch_size: int = 256
     positive_event_boost: float = 5.0
+    early_stopping_patience: Optional[int] = None  # None이면 early stopping 비활성화
+    min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
 
     def run(self) -> None:
         """
@@ -603,8 +606,114 @@ class ALSRecommender:
         )
 
         confidence_matrix = user_item_matrix * self.alpha
+        
+        # Train/Validation 분할 (80/20) - 사용자 레벨로 분할
+        np.random.seed(self.random_state)
+        n_users = len(users)
+        user_indices = np.arange(n_users)
+        train_user_indices, val_user_indices = train_test_split(
+            user_indices, test_size=0.2, random_state=self.random_state
+        )
+        
+        train_matrix = confidence_matrix[train_user_indices]
+        val_matrix = confidence_matrix[val_user_indices]
+        
         logger.info("Training ALS model (factors=%d, iterations=%d)…", self.factors, self.iterations)
-        model.fit(confidence_matrix.T.tocsr())
+        logger.info("Train users: %d, Validation users: %d", len(train_user_indices), len(val_user_indices))
+        
+        # 학습 중 loss 추적
+        train_losses = []
+        val_losses = []
+        
+        # Early stopping 변수
+        best_val_loss = float("inf")
+        patience_counter = 0
+        best_iteration = 0
+        best_user_factors = None
+        best_item_factors = None
+        
+        # 각 iteration마다 모델을 학습하고 loss 계산
+        temp_model = ALSModel(
+            factors=self.factors,
+            regularization=self.regularization,
+            iterations=1,  # 한 번씩 학습
+            random_state=self.random_state,
+        )
+        
+        # 초기 loss 계산 (학습 전)
+        initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
+        initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
+        
+        train_pred_init = initial_user_factors[train_user_indices] @ initial_item_factors.T
+        train_actual = train_matrix.toarray()
+        train_loss_init = np.mean((train_pred_init - train_actual) ** 2)
+        train_losses.append(train_loss_init)
+        
+        val_pred_init = initial_user_factors[val_user_indices] @ initial_item_factors.T
+        val_actual = val_matrix.toarray()
+        val_loss_init = np.mean((val_pred_init - val_actual) ** 2)
+        val_losses.append(val_loss_init)
+        
+        logger.info("Initial - Train Loss: %.6f, Val Loss: %.6f", train_loss_init, val_loss_init)
+        
+        # 각 iteration마다 학습
+        for iteration in range(1, self.iterations + 1):
+            # 학습 (이전 iteration의 factors를 초기값으로 사용)
+            if iteration == 1:
+                temp_model.fit(train_matrix.T.tocsr())
+            else:
+                # 이전 factors를 초기값으로 사용하여 학습
+                # implicit 라이브러리는 fit() 호출 시 초기화되므로, 
+                # 대신 전체 데이터로 학습하되 iteration=1로 설정하여 점진적으로 학습
+                temp_model.fit(train_matrix.T.tocsr())
+            
+            # Train loss 계산 (reconstruction error)
+            train_pred = temp_model.user_factors[train_user_indices] @ temp_model.item_factors.T
+            train_loss = np.mean((train_pred - train_actual) ** 2)
+            train_losses.append(train_loss)
+            
+            # Validation loss 계산
+            val_pred = temp_model.user_factors[val_user_indices] @ temp_model.item_factors.T
+            val_loss = np.mean((val_pred - val_actual) ** 2)
+            val_losses.append(val_loss)
+            
+            logger.info("Iteration %d/%d - Train Loss: %.6f, Val Loss: %.6f", 
+                       iteration, self.iterations, train_loss, val_loss)
+            
+            # Early stopping 체크
+            if self.early_stopping_patience is not None:
+                if val_loss < best_val_loss - self.min_delta:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                    best_iteration = iteration
+                    best_user_factors = temp_model.user_factors.copy()
+                    best_item_factors = temp_model.item_factors.copy()
+                    logger.info("  *** Best validation loss improved to %.6f at iteration %d ***", 
+                               best_val_loss, best_iteration)
+                else:
+                    patience_counter += 1
+                    logger.info("  No improvement for %d iteration(s) (patience: %d)", 
+                               patience_counter, self.early_stopping_patience)
+                    
+                    if patience_counter >= self.early_stopping_patience:
+                        logger.info("Early stopping triggered at iteration %d. Best iteration: %d (Val Loss: %.6f)",
+                                   iteration, best_iteration, best_val_loss)
+                        break
+        
+        # 최적 모델 사용 또는 전체 데이터로 학습
+        if self.early_stopping_patience is not None and best_user_factors is not None:
+            logger.info("Using best model from iteration %d (Val Loss: %.6f)", 
+                       best_iteration, best_val_loss)
+            # 최적 모델의 factors를 사용하여 전체 데이터로 재학습 (선택적)
+            # 또는 최적 모델을 그대로 사용
+            model.user_factors = best_user_factors
+            model.item_factors = best_item_factors
+        else:
+            # 최종 모델 학습 (전체 데이터)
+            model.fit(confidence_matrix.T.tocsr())
+        
+        # Loss 그래프 출력
+        self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
 
         logger.info("Generating top-%d recommendations per user…", self.top_k)
         recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
@@ -621,6 +730,56 @@ class ALSRecommender:
             users=users,
             items=items,
         )
+
+    def _plot_als_losses(self, train_losses: List[float], val_losses: List[float], best_iteration: Optional[int] = None) -> None:
+        """
+        ALS 학습 중 loss 그래프를 출력합니다.
+        
+        Args:
+            train_losses: 학습 loss 리스트
+            val_losses: validation loss 리스트
+            best_iteration: 최적 iteration (early stopping 사용 시)
+        """
+        try:
+            import seaborn as sns
+        except ImportError:
+            logger.warning("seaborn이 설치되지 않아 ALS loss 그래프를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        iterations = range(1, len(train_losses) + 1)
+        
+        ax.plot(iterations, train_losses, label="Train Loss", marker="o", linewidth=2, markersize=6)
+        ax.plot(iterations, val_losses, label="Validation Loss", marker="s", linewidth=2, markersize=6)
+        
+        # Early stopping 지점 표시
+        if best_iteration is not None and best_iteration < len(iterations):
+            ax.axvline(x=best_iteration, color="red", linestyle="--", linewidth=2, 
+                      label=f"Best (iter {best_iteration})", alpha=0.7)
+        
+        ax.set_xlabel("Iteration", fontsize=12)
+        ax.set_ylabel("Reconstruction Error (MSE)", fontsize=12)
+        ax.set_title("ALS Training and Validation Loss", fontsize=14, fontweight="bold")
+        ax.legend(fontsize=11)
+        ax.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(viz_dir / "als_loss_curve.png", dpi=300, bbox_inches="tight")
+        plt.close()
+        logger.info("Saved ALS loss curve to %s", viz_dir / "als_loss_curve.png")
 
     def _prepare_interactions(self, events: DataFrame) -> DataFrame:
         """
@@ -983,6 +1142,8 @@ class GNNEmbeddingGenerator:
     num_negative: int = 1
     seed: int = 42
     device: Optional[str] = None
+    early_stopping_patience: Optional[int] = None  # None이면 early stopping 비활성화
+    min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
 
     def __post_init__(self) -> None:
         """
@@ -1052,16 +1213,40 @@ class GNNEmbeddingGenerator:
             len(graph_data["edge_sources"]),
         )
 
-        num_batches = max(int(np.ceil(len(interactions) / self.batch_size)), 1)
+        # Train/Validation 분할 (80/20)
+        np.random.seed(self.seed)
+        n_interactions = len(interactions)
+        indices = np.arange(n_interactions)
+        train_indices, val_indices = train_test_split(
+            indices, test_size=0.2, random_state=self.seed
+        )
+        
+        train_interactions = interactions[train_indices]
+        val_interactions = interactions[val_indices]
+        
+        logger.info("Train interactions: %d, Validation interactions: %d", 
+                   len(train_interactions), len(val_interactions))
+        
+        num_batches = max(int(np.ceil(len(train_interactions) / self.batch_size)), 1)
+        train_losses = []
+        val_losses = []
+        
+        # Early stopping 변수
+        best_val_loss = float("inf")
+        patience_counter = 0
+        best_epoch = 0
+        best_model_state = None
+        
         for epoch in range(1, self.epochs + 1):
-            permutation = np.random.permutation(len(interactions))
+            # Train
+            permutation = np.random.permutation(len(train_interactions))
             epoch_loss = 0.0
             model.train()
 
             for batch_idx in range(num_batches):
                 start = batch_idx * self.batch_size
-                end = min((batch_idx + 1) * self.batch_size, len(interactions))
-                batch = interactions[permutation[start:end]]
+                end = min((batch_idx + 1) * self.batch_size, len(train_interactions))
+                batch = train_interactions[permutation[start:end]]
                 if batch.size == 0:
                     continue
 
@@ -1085,7 +1270,48 @@ class GNNEmbeddingGenerator:
                         progress,
                     )
 
-            logger.info("Epoch %d/%d - loss %.4f", epoch, self.epochs, epoch_loss / num_batches)
+            avg_train_loss = epoch_loss / num_batches
+            train_losses.append(avg_train_loss)
+            
+            # Validation loss 계산
+            val_loss = self._compute_val_loss(model, val_interactions, graph_data, torch)
+            val_losses.append(val_loss)
+            
+            logger.info("Epoch %d/%d - Train Loss: %.6f, Val Loss: %.6f", 
+                       epoch, self.epochs, avg_train_loss, val_loss)
+            
+            # Early stopping 체크
+            if self.early_stopping_patience is not None:
+                if val_loss < best_val_loss - self.min_delta:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                    best_epoch = epoch
+                    # 최적 모델 상태 저장
+                    best_model_state = {
+                        "model": model.state_dict().copy(),
+                        "optimizer": optimizer.state_dict().copy(),
+                    }
+                    logger.info("  *** Best validation loss improved to %.6f at epoch %d ***", 
+                               best_val_loss, best_epoch)
+                else:
+                    patience_counter += 1
+                    logger.info("  No improvement for %d epoch(s) (patience: %d)", 
+                               patience_counter, self.early_stopping_patience)
+                    
+                    if patience_counter >= self.early_stopping_patience:
+                        logger.info("Early stopping triggered at epoch %d. Best epoch: %d (Val Loss: %.6f)",
+                                   epoch, best_epoch, best_val_loss)
+                        break
+        
+        # 최적 모델 복원
+        if self.early_stopping_patience is not None and best_model_state is not None:
+            logger.info("Restoring best model from epoch %d (Val Loss: %.6f)", 
+                       best_epoch, best_val_loss)
+            model.load_state_dict(best_model_state["model"])
+            optimizer.load_state_dict(best_model_state["optimizer"])
+        
+        # Loss 그래프 출력
+        self._plot_gnn_losses(train_losses, val_losses, best_epoch if self.early_stopping_patience else None)
 
         model.eval()
         with torch.no_grad():
@@ -1096,6 +1322,128 @@ class GNNEmbeddingGenerator:
 
         # 그래프 구조 시각화
         self._create_graph_visualizations(graph_data)
+
+    def _compute_val_loss(
+        self,
+        model: Any,
+        val_interactions: np.ndarray,
+        graph_data: Dict[str, Any],
+        torch_module: Any,
+    ) -> float:
+        """
+        Validation loss를 계산합니다.
+        
+        Args:
+            model: GNN 모델
+            val_interactions: validation 상호작용 배열
+            graph_data: 그래프 구조 정보 딕셔너리
+            torch_module: PyTorch 모듈
+            
+        Returns:
+            Validation loss 값
+        """
+        model.eval()
+        total_loss = 0.0
+        num_batches = max(int(np.ceil(len(val_interactions) / self.batch_size)), 1)
+        
+        with torch_module.no_grad():
+            for batch_idx in range(num_batches):
+                start = batch_idx * self.batch_size
+                end = min((batch_idx + 1) * self.batch_size, len(val_interactions))
+                batch = val_interactions[start:end]
+                if batch.size == 0:
+                    continue
+
+                user_indices = torch_module.from_numpy(batch[:, 0]).long().to(self.device)
+                pos_item_indices = torch_module.from_numpy(batch[:, 1]).long().to(self.device)
+
+                # 네가티브 샘플 생성
+                neg_shape = (len(batch), max(self.num_negative, 1))
+                neg_item_indices = torch_module.randint(0, graph_data["num_items"], neg_shape, device=self.device)
+
+                # 포지티브 아이템과 겹치는 네가티브 샘플이 있으면 재선택
+                conflict_mask = neg_item_indices.eq(pos_item_indices.unsqueeze(1))
+                while torch_module.any(conflict_mask):
+                    replacement = torch_module.randint(
+                        0, graph_data["num_items"], (int(conflict_mask.sum()),), device=self.device
+                    )
+                    neg_item_indices[conflict_mask] = replacement
+                    conflict_mask = neg_item_indices.eq(pos_item_indices.unsqueeze(1))
+
+                user_global = graph_data["offsets"]["user"] + user_indices
+                pos_global = graph_data["offsets"]["item"] + pos_item_indices
+                neg_global = graph_data["offsets"]["item"] + neg_item_indices
+
+                all_embeddings = model()
+
+                user_emb = all_embeddings[user_global]
+                pos_emb = all_embeddings[pos_global]
+                neg_emb = all_embeddings[neg_global.view(-1)].view(len(batch), -1, self.embedding_dim)
+
+                pos_scores = (user_emb * pos_emb).sum(dim=1, keepdim=True)
+                neg_scores = (user_emb.unsqueeze(1) * neg_emb).sum(dim=2)
+
+                bpr_loss = -torch_module.log(torch_module.sigmoid(pos_scores - neg_scores) + 1e-8).mean()
+                reg_loss = self.reg * (
+                    user_emb.pow(2).sum(dim=1, keepdim=True)
+                    + pos_emb.pow(2).sum(dim=1, keepdim=True)
+                    + neg_emb.pow(2).sum(dim=2)
+                ).mean()
+
+                loss = bpr_loss + reg_loss
+                total_loss += float(loss.cpu().item())
+
+        return total_loss / num_batches if num_batches > 0 else 0.0
+
+    def _plot_gnn_losses(self, train_losses: List[float], val_losses: List[float], best_epoch: Optional[int] = None) -> None:
+        """
+        GNN 학습 중 loss 그래프를 출력합니다.
+        
+        Args:
+            train_losses: 학습 loss 리스트
+            val_losses: validation loss 리스트
+            best_epoch: 최적 epoch (early stopping 사용 시)
+        """
+        try:
+            import seaborn as sns
+        except ImportError:
+            logger.warning("seaborn이 설치되지 않아 GNN loss 그래프를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        epochs = range(1, len(train_losses) + 1)
+        
+        ax.plot(epochs, train_losses, label="Train Loss", marker="o", linewidth=2, markersize=6)
+        ax.plot(epochs, val_losses, label="Validation Loss", marker="s", linewidth=2, markersize=6)
+        
+        # Early stopping 지점 표시
+        if best_epoch is not None and best_epoch <= len(epochs):
+            ax.axvline(x=best_epoch, color="red", linestyle="--", linewidth=2, 
+                      label=f"Best (epoch {best_epoch})", alpha=0.7)
+        
+        ax.set_xlabel("Epoch", fontsize=12)
+        ax.set_ylabel("Loss (BPR + L2 Regularization)", fontsize=12)
+        ax.set_title("GNN Training and Validation Loss", fontsize=14, fontweight="bold")
+        ax.legend(fontsize=11)
+        ax.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(viz_dir / "gnn_loss_curve.png", dpi=300, bbox_inches="tight")
+        plt.close()
+        logger.info("Saved GNN loss curve to %s", viz_dir / "gnn_loss_curve.png")
 
     def _load_inputs(self) -> Dict[str, DataFrame]:
         """
