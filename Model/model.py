@@ -2599,9 +2599,9 @@ class TestSetEvaluator:
                 
                 # 가중치 합계 계산
                 total_weight = sum(item_scores)
-                # 임계값: 최소 1개의 strong positive 또는 view 가중치 합계가 일정 수준 이상
-                # 더 관대한 임계값 사용: 최소 1.0 또는 view_weight 이상
-                threshold = max(self.view_weight, 1.0)  # view_weight(0.3) 또는 1.0 중 큰 값
+                # 임계값: view 가중치를 적극적으로 활용하기 위해 낮은 임계값 사용
+                # view_weight(0.3) 이상이면 positive로 분류 (최소 1개의 view만 있어도)
+                threshold = self.view_weight  # 0.3 (기본값)
                 
                 labels = [1 if score > 0 else 0 for score in item_scores]
                 item_y_true.extend(labels)
@@ -2610,11 +2610,13 @@ class TestSetEvaluator:
                 # 사용자 레벨 평가
                 # 실제 positive (transaction/addtocart)가 있는지 확인
                 actual_strong_positive = len(relevant_items) > 0
-                
-                # 예측 로직 개선:
-                # 1. 실제 strong positive가 있으면 무조건 positive로 예측 (hits > 0)
-                # 2. 없으면 가중치 합계가 임계값 이상이면 positive
                 hits = len(set(predicted_items) & relevant_items) if relevant_items else 0
+                
+                # weighted 모드의 핵심: view 가중치도 활용하여 더 많은 positive 예측
+                # 예측 로직:
+                # 1. hits가 있으면 무조건 positive (transaction/addtocart 매칭)
+                # 2. hits가 없어도 view 가중치 합계가 threshold 이상이면 positive
+                #    - threshold = view_weight (0.3)이므로 최소 1개의 view만 있어도 positive
                 predicted_positive = hits > 0 or total_weight >= threshold
                 
                 # 실제 positive: strong positive가 있으면 true
