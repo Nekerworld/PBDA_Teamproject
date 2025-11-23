@@ -2502,20 +2502,25 @@ class TestSetEvaluator:
                 .apply(lambda items: set(items.tolist()))
                 .to_dict()
             )
-            # view 이벤트도 가중치로 포함
+            # view 이벤트도 가중치로 포함 (메모리 효율적인 방식)
             view_events = events_test[events_test["event"] == "view"]
-            view_items: Dict[int, Dict[int, float]] = (
+            view_events_clean = (
                 view_events.dropna(subset=["visitorid", "itemid"])
                 .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .apply(lambda items: {item: self.view_weight for item in items.tolist()})
-                .to_dict()
             )
+            
             # 아이템별 가중치 계산 (transaction/addtocart=1.0, view=view_weight)
+            # 메모리 효율적으로 직접 딕셔너리 구성 (numpy 배열 사용)
             item_weights: Dict[Tuple[int, int], float] = {}
-            for visitor_id, items in view_items.items():
-                for item_id in items:
-                    item_weights[(visitor_id, item_id)] = self.view_weight
+            
+            # view 이벤트 가중치 추가 (벡터화된 방식)
+            if not view_events_clean.empty:
+                visitor_ids = view_events_clean["visitorid"].values
+                item_ids = view_events_clean["itemid"].values
+                for visitor_id, item_id in zip(visitor_ids, item_ids):
+                    item_weights[(int(visitor_id), int(item_id))] = self.view_weight
+            
+            # transaction/addtocart 가중치 추가 (view보다 우선)
             for visitor_id, items in positives.items():
                 for item_id in items:
                     item_weights[(visitor_id, item_id)] = 1.0  # transaction/addtocart는 1.0
@@ -2921,17 +2926,17 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
 
-    als_recommender = ALSRecommender()
-    als_recommender.run()
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
 
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
 
-    reranker = ReRanker()
-    reranker.run()
+    # reranker = ReRanker()
+    # reranker.run()
 
     evaluator = TestSetEvaluator()
     evaluator.run()
