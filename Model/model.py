@@ -2589,11 +2589,16 @@ class TestSetEvaluator:
                 # 가중치 기반 평가
                 # 아이템별 가중치 계산
                 item_scores = []
+                view_count = 0
+                strong_count = 0
+                
                 for item_id in predicted_items:
                     if item_id in relevant_items:
                         item_scores.append(1.0)  # transaction/addtocart
+                        strong_count += 1
                     elif (visitor_id, item_id) in item_weights:
                         item_scores.append(item_weights[(visitor_id, item_id)])  # view 가중치
+                        view_count += 1
                     else:
                         item_scores.append(0.0)
                 
@@ -2617,6 +2622,8 @@ class TestSetEvaluator:
                 # 1. hits가 있으면 무조건 positive (transaction/addtocart 매칭)
                 # 2. hits가 없어도 view 가중치 합계가 threshold 이상이면 positive
                 #    - threshold = view_weight (0.3)이므로 최소 1개의 view만 있어도 positive
+                # 중요: hits가 0이어도 view 가중치가 충분하면 positive로 예측
+                # view_count > 0이면 view 가중치가 있다는 의미이므로, threshold 이상이면 positive
                 predicted_positive = hits > 0 or total_weight >= threshold
                 
                 # 실제 positive: strong positive가 있으면 true
