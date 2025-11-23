@@ -2435,15 +2435,66 @@ class TestSetEvaluator:
     - 사용자 레벨: Hit Rate, Precision, Recall, F1, ROC-AUC, Average Precision
     - 아이템 레벨: Precision, Recall, F1 (최적 임계값 기준)
     
+    평가 모드 (evaluation_mode):
+    
+    1. "strict" 모드 (기존 방식):
+       - Positive: addtocart 또는 transaction 이벤트만
+       - Negative: view 이벤트 또는 이벤트 없음
+       - 예측: 추천된 아이템 중 최소 1개라도 transaction/addtocart와 매칭되면 positive
+       - 특징: 가장 엄격한 기준, 높은 precision, 낮은 recall
+       - 사용 시기: 정확한 추천이 중요한 경우, false positive를 최소화하고 싶을 때
+    
+    2. "weighted" 모드 (가중치 기반):
+       - Positive: transaction/addtocart (가중치 1.0) 또는 view (가중치 view_weight)
+       - Negative: 이벤트 없음
+       - 예측: 
+         * 추천된 아이템 중 transaction/addtocart가 있으면 무조건 positive
+         * 없어도 view 가중치 합계가 threshold(view_weight) 이상이면 positive
+       - 특징: view 이벤트도 일정 가중치를 받아 더 많은 positive 예측 가능
+       - 파라미터: view_weight (기본값: 0.3)
+       - 사용 시기: view도 사용자 관심의 신호로 간주하고 싶을 때
+    
+    3. "partial" 모드 (부분 점수 시스템):
+       - Positive: transaction/addtocart 이벤트
+       - 예측: Top-K 추천 중 일정 비율(min_hit_ratio) 이상 hit하면 positive
+       - 예시: top_k=50, min_hit_ratio=0.1이면 5개 이상 hit하면 positive
+       - 특징: 더 관대한 기준으로 더 많은 positive 예측, recall 향상 가능
+       - 파라미터: min_hit_ratio (기본값: 0.1 = 10%)
+       - 사용 시기: recall을 높이고 싶을 때, 부분적으로 맞는 추천도 인정하고 싶을 때
+    
     Attributes:
         processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
-        top_k: 평가에 사용할 추천 아이템 수
-        evaluation_mode: 평가 모드 ("strict", "weighted", "partial")
-            - "strict": 기존 방식 (addtocart/transaction만 positive)
-            - "weighted": 이벤트 타입별 가중치 적용 (view도 일정 가중치)
-            - "partial": Top-K 중 일정 비율 이상 hit하면 positive
+        top_k: 평가에 사용할 추천 아이템 수 (기본값: 50)
+        evaluation_mode: 평가 모드 ("strict", "weighted", "partial", 기본값: "weighted")
         view_weight: view 이벤트의 가중치 (weighted 모드에서 사용, 기본값: 0.3)
-        min_hit_ratio: 부분 점수 시스템에서 positive로 분류하기 위한 최소 hit 비율 (partial 모드에서 사용, 기본값: 0.1)
+            - transaction/addtocart는 1.0, view는 이 값 사용
+            - 낮을수록 엄격, 높을수록 관대한 평가
+        min_hit_ratio: 부분 점수 시스템에서 positive로 분류하기 위한 최소 hit 비율 
+            (partial 모드에서 사용, 기본값: 0.1 = 10%)
+            - 0.0 ~ 1.0 사이의 값
+            - 낮을수록 더 많은 positive 예측 (더 관대)
+            - 높을수록 더 적은 positive 예측 (더 엄격)
+    
+    Examples:
+        >>> # Strict 모드 사용
+        >>> evaluator = TestSetEvaluator(evaluation_mode="strict", top_k=50)
+        >>> evaluator.run()
+        
+        >>> # Weighted 모드 사용 (view 가중치 0.5)
+        >>> evaluator = TestSetEvaluator(
+        ...     evaluation_mode="weighted", 
+        ...     top_k=50, 
+        ...     view_weight=0.5
+        ... )
+        >>> evaluator.run()
+        
+        >>> # Partial 모드 사용 (20% 이상 hit하면 positive)
+        >>> evaluator = TestSetEvaluator(
+        ...     evaluation_mode="partial", 
+        ...     top_k=50, 
+        ...     min_hit_ratio=0.2
+        ... )
+        >>> evaluator.run()
     """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     top_k: int = 50
@@ -2954,5 +3005,10 @@ if __name__ == "__main__":
     # reranker = ReRanker()
     # reranker.run()
 
-    evaluator = TestSetEvaluator()
+    # 평가 모드 선택: "strict", "weighted", "partial"
+    evaluator = TestSetEvaluator(
+        evaluation_mode="partial",  # partial 모드 사용
+        top_k=50,  # 평가에 사용할 추천 아이템 수
+        min_hit_ratio=0.1  # partial 모드에서 최소 hit 비율 (10% 이상 hit하면 positive)
+    )
     evaluator.run()
