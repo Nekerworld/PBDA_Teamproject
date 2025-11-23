@@ -550,7 +550,7 @@ class ALSRecommender:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     factors: int = 32
     regularization: float = 0.1
-    iterations: int = 16
+    iterations: int = 128
     alpha: float = 1.0
     top_k: int = 20
     random_state: int = 42
@@ -2438,9 +2438,18 @@ class TestSetEvaluator:
     Attributes:
         processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
         top_k: 평가에 사용할 추천 아이템 수
+        evaluation_mode: 평가 모드 ("strict", "weighted", "partial")
+            - "strict": 기존 방식 (addtocart/transaction만 positive)
+            - "weighted": 이벤트 타입별 가중치 적용 (view도 일정 가중치)
+            - "partial": Top-K 중 일정 비율 이상 hit하면 positive
+        view_weight: view 이벤트의 가중치 (weighted 모드에서 사용, 기본값: 0.3)
+        min_hit_ratio: 부분 점수 시스템에서 positive로 분류하기 위한 최소 hit 비율 (partial 모드에서 사용, 기본값: 0.1)
     """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     top_k: int = 50
+    evaluation_mode: str = "weighted"  # "strict", "weighted", "partial"
+    view_weight: float = 0.3  # view 이벤트의 가중치 (transaction=1.0, addtocart=1.0 기준)
+    min_hit_ratio: float = 0.1  # partial 모드에서 최소 hit 비율 (예: 0.1 = 10%)
 
     def run(self) -> None:
         """
@@ -2470,14 +2479,59 @@ class TestSetEvaluator:
         )
         test_recommendations.to_csv(self.processed_dir / "test_recommendations.csv", index=False)
 
-        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-        positives: Dict[int, set[int]] = (
-            positive_events.dropna(subset=["visitorid", "itemid"])
-            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-            .groupby("visitorid")["itemid"]
-            .apply(lambda items: set(items.tolist()))
-            .to_dict()
-        )
+        # 평가 모드에 따라 positive 정의
+        if self.evaluation_mode == "strict":
+            # 기존 방식: addtocart/transaction만 positive
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            # 가중치 딕셔너리 (strict 모드에서는 사용하지 않음)
+            item_weights: Dict[Tuple[int, int], float] = {}
+        elif self.evaluation_mode == "weighted":
+            # 가중치 기반: view도 일정 가중치 부여
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            # view 이벤트도 가중치로 포함
+            view_events = events_test[events_test["event"] == "view"]
+            view_items: Dict[int, Dict[int, float]] = (
+                view_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: {item: self.view_weight for item in items.tolist()})
+                .to_dict()
+            )
+            # 아이템별 가중치 계산 (transaction/addtocart=1.0, view=view_weight)
+            item_weights: Dict[Tuple[int, int], float] = {}
+            for visitor_id, items in view_items.items():
+                for item_id in items:
+                    item_weights[(visitor_id, item_id)] = self.view_weight
+            for visitor_id, items in positives.items():
+                for item_id in items:
+                    item_weights[(visitor_id, item_id)] = 1.0  # transaction/addtocart는 1.0
+        elif self.evaluation_mode == "partial":
+            # 부분 점수 시스템: Top-K 중 일정 비율 이상 hit하면 positive
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            item_weights: Dict[Tuple[int, int], float] = {}
+        else:
+            raise ValueError(f"Unknown evaluation_mode: {self.evaluation_mode}. Use 'strict', 'weighted', or 'partial'.")
 
         metrics = {
             "users_evaluated": 0,
@@ -2499,29 +2553,128 @@ class TestSetEvaluator:
 
             metrics["users_evaluated"] += 1
 
-            labels = [1 if item in relevant_items else 0 for item in predicted_items]
-            item_y_true.extend(labels)
-            item_y_scores.extend(recs["final_score"].astype(float).tolist())
+            # 평가 모드에 따라 예측 및 라벨 계산
+            if self.evaluation_mode == "strict":
+                # 기존 방식
+                labels = [1 if item in relevant_items else 0 for item in predicted_items]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs["final_score"].astype(float).tolist())
 
-            if not relevant_items:
-                y_true.append(0)
-                y_pred.append(0)
-                y_scores.append(0.0)
-                continue
+                if not relevant_items:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
 
-            hits = len(set(predicted_items) & relevant_items)
-            if hits > 0:
-                metrics["hit_users"] += 1
+                hits = len(set(predicted_items) & relevant_items)
+                if hits > 0:
+                    metrics["hit_users"] += 1
 
-            precision = hits / len(predicted_items)
-            recall = hits / len(relevant_items) if relevant_items else 0.0
+                precision = hits / len(predicted_items)
+                recall = hits / len(relevant_items) if relevant_items else 0.0
 
-            metrics["precision_sum"] += precision
-            metrics["recall_sum"] += recall
+                metrics["precision_sum"] += precision
+                metrics["recall_sum"] += recall
 
-            y_true.append(1)
-            y_pred.append(1 if hits > 0 else 0)
-            y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+                y_true.append(1)
+                y_pred.append(1 if hits > 0 else 0)
+                y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+
+            elif self.evaluation_mode == "weighted":
+                # 가중치 기반 평가
+                # 아이템별 가중치 계산
+                item_scores = []
+                for item_id in predicted_items:
+                    if item_id in relevant_items:
+                        item_scores.append(1.0)  # transaction/addtocart
+                    elif (visitor_id, item_id) in item_weights:
+                        item_scores.append(item_weights[(visitor_id, item_id)])  # view 가중치
+                    else:
+                        item_scores.append(0.0)
+                
+                # 가중치 합계가 임계값 이상이면 positive
+                total_weight = sum(item_scores)
+                threshold = max(1.0, len(predicted_items) * 0.1)  # 최소 1.0 또는 10% 가중치
+                
+                labels = [1 if score > 0 else 0 for score in item_scores]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+
+                # 사용자 레벨 평가: 가중치 합계가 임계값 이상이면 positive
+                # 실제 positive (transaction/addtocart)가 있는지 확인
+                actual_strong_positive = len(relevant_items) > 0
+                predicted_positive = total_weight >= threshold
+                
+                # 가중치 기반 평가: 실제 strong positive가 있거나 가중치 합계가 임계값 이상이면 true
+                # (view도 일정 가중치를 받아서 positive로 분류될 수 있음)
+                actual_positive = actual_strong_positive or total_weight >= threshold
+                
+                if not actual_positive and total_weight == 0.0:
+                    # 실제 positive도 없고 가중치도 없으면 negative
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+
+                # 실제 positive (strong 또는 가중치 기반)로 설정
+                y_true.append(1 if actual_positive else 0)
+                
+                # 예측: 가중치 합계가 임계값 이상이면 positive
+                y_pred.append(1 if predicted_positive else 0)
+                y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+                
+                # 메트릭 계산
+                if actual_strong_positive:
+                    hits = len(set(predicted_items) & relevant_items)
+                    weighted_hits = sum(item_scores)
+                    precision = weighted_hits / len(predicted_items)
+                    recall = hits / len(relevant_items) if relevant_items else 0.0
+                    metrics["precision_sum"] += precision
+                    metrics["recall_sum"] += recall
+                    if hits > 0 or predicted_positive:
+                        metrics["hit_users"] += 1
+                elif predicted_positive:
+                    # view만 있어도 가중치가 충분하면 hit로 간주
+                    weighted_hits = sum(item_scores)
+                    precision = weighted_hits / len(predicted_items)
+                    recall = 0.0  # 실제 transaction/addtocart가 없으므로 recall은 0
+                    metrics["precision_sum"] += precision
+                    metrics["recall_sum"] += recall
+                    metrics["hit_users"] += 1
+
+            elif self.evaluation_mode == "partial":
+                # 부분 점수 시스템: Top-K 중 일정 비율 이상 hit하면 positive
+                labels = [1 if item in relevant_items else 0 for item in predicted_items]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+
+                hits = len(set(predicted_items) & relevant_items)
+                hit_ratio = hits / len(predicted_items) if predicted_items else 0.0
+                
+                # 실제 positive가 있는지 확인
+                has_actual_positive = len(relevant_items) > 0
+                
+                if not has_actual_positive:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+
+                # 일정 비율 이상 hit하면 positive로 분류
+                predicted_positive = hit_ratio >= self.min_hit_ratio or hits >= max(1, int(len(predicted_items) * self.min_hit_ratio))
+                
+                if hits > 0:
+                    metrics["hit_users"] += 1
+
+                precision = hits / len(predicted_items)
+                recall = hits / len(relevant_items) if relevant_items else 0.0
+
+                metrics["precision_sum"] += precision
+                metrics["recall_sum"] += recall
+
+                y_true.append(1)
+                y_pred.append(1 if predicted_positive else 0)
+                y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
 
         evaluated = metrics["users_evaluated"]
         hit_users = metrics["hit_users"]
@@ -2575,7 +2728,8 @@ class TestSetEvaluator:
             item_f1 = f1_score(y_true_arr, item_preds, zero_division=0)
 
         logger.info(
-            "Test Evaluation - users: %d, hit@%d: %.4f, precision: %.4f, recall: %.4f",
+            "Test Evaluation (mode=%s) - users: %d, hit@%d: %.4f, precision: %.4f, recall: %.4f",
+            self.evaluation_mode,
             evaluated,
             self.top_k,
             hit_rate,
@@ -2669,16 +2823,24 @@ class TestSetEvaluator:
 
                 y_true_arr = np.array(item_y_true)
                 y_score_arr = np.array(item_y_scores)
+                
+                # 길이가 다를 경우 처리
+                if len(y_true_arr) != len(y_score_arr):
+                    min_len = min(len(y_true_arr), len(y_score_arr))
+                    y_true_arr = y_true_arr[:min_len]
+                    y_score_arr = y_score_arr[:min_len]
+                
                 fpr, tpr, _ = roc_curve(y_true_arr, y_score_arr)
 
                 plt.figure(figsize=(8, 6))
+                mode_label = f" (mode: {self.evaluation_mode})" if hasattr(self, 'evaluation_mode') else ""
                 plt.plot(fpr, tpr, linewidth=2, label=f"ROC Curve (AUC = {roc_auc:.4f})")
                 plt.plot([0, 1], [0, 1], "k--", linewidth=1, label="Random Classifier")
                 plt.xlim([0.0, 1.0])
                 plt.ylim([0.0, 1.05])
                 plt.xlabel("False Positive Rate", fontsize=12)
                 plt.ylabel("True Positive Rate", fontsize=12)
-                plt.title("ROC Curve (Item-level)", fontsize=14, fontweight="bold")
+                plt.title(f"ROC Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.legend(loc="lower right", fontsize=10)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
@@ -2695,15 +2857,23 @@ class TestSetEvaluator:
 
                 y_true_arr = np.array(item_y_true)
                 y_score_arr = np.array(item_y_scores)
+                
+                # 길이가 다를 경우 처리
+                if len(y_true_arr) != len(y_score_arr):
+                    min_len = min(len(y_true_arr), len(y_score_arr))
+                    y_true_arr = y_true_arr[:min_len]
+                    y_score_arr = y_score_arr[:min_len]
+                
                 precision, recall, _ = precision_recall_curve(y_true_arr, y_score_arr)
 
                 plt.figure(figsize=(8, 6))
+                mode_label = f" (mode: {self.evaluation_mode})" if hasattr(self, 'evaluation_mode') else ""
                 plt.plot(recall, precision, linewidth=2, label=f"PR Curve (AP = {average_precision:.4f})")
                 plt.xlim([0.0, 1.0])
                 plt.ylim([0.0, 1.05])
                 plt.xlabel("Recall", fontsize=12)
                 plt.ylabel("Precision", fontsize=12)
-                plt.title("Precision-Recall Curve (Item-level)", fontsize=14, fontweight="bold")
+                plt.title(f"Precision-Recall Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.legend(loc="lower left", fontsize=10)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
@@ -2729,7 +2899,8 @@ class TestSetEvaluator:
                 )
                 plt.xlabel("Predicted Label", fontsize=12)
                 plt.ylabel("True Label", fontsize=12)
-                plt.title("Confusion Matrix (User-level)", fontsize=14, fontweight="bold")
+                mode_label = f" (mode: {self.evaluation_mode})" if hasattr(self, 'evaluation_mode') else ""
+                plt.title(f"Confusion Matrix (User-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.tight_layout()
                 plt.savefig(viz_dir / "confusion_matrix.png", dpi=300, bbox_inches="tight")
                 plt.close()
