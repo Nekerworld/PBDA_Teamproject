@@ -661,12 +661,13 @@ class ALSRecommender:
         initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
         initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
         
+        # _compute_als_loss_batch의 파라미터: user_factors는 아이템 factors, item_factors는 사용자 factors
         train_loss_init = self._compute_als_loss_batch(
-            initial_user_factors[train_user_indices], initial_item_factors, 
+            initial_item_factors, initial_user_factors[train_user_indices],
             train_matrix, train_sample_indices, self.loss_batch_size
         )
         val_loss_init = self._compute_als_loss_batch(
-            initial_user_factors[val_user_indices], initial_item_factors,
+            initial_item_factors, initial_user_factors[val_user_indices],
             val_matrix, val_sample_indices, self.loss_batch_size
         )
         
@@ -687,7 +688,9 @@ class ALSRecommender:
                 temp_model.fit(train_matrix.T.tocsr())
             
             # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
-            # temp_model은 train_matrix로 학습했으므로 user_factors는 train_user_indices에 해당
+            # temp_model은 train_matrix.T로 학습했으므로:
+            # - user_factors는 아이템 factors (행: 아이템)
+            # - item_factors는 사용자 factors (열: 사용자)
             train_loss = self._compute_als_loss_batch(
                 temp_model.user_factors, temp_model.item_factors,
                 train_matrix, train_sample_indices, self.loss_batch_size
@@ -704,6 +707,9 @@ class ALSRecommender:
                 random_state=self.random_state,
             )
             val_temp_model.fit(val_matrix.T.tocsr())
+            # val_temp_model도 val_matrix.T로 학습했으므로:
+            # - user_factors는 아이템 factors (행: 아이템)
+            # - item_factors는 사용자 factors (열: 사용자)
             val_loss = self._compute_als_loss_batch(
                 val_temp_model.user_factors, val_temp_model.item_factors,
                 val_matrix, val_sample_indices, self.loss_batch_size
@@ -872,9 +878,12 @@ class ALSRecommender:
         """
         배치 처리로 ALS loss를 계산합니다 (메모리 효율성).
         
+        주의: implicit 라이브러리에서 fit(matrix.T)로 학습하므로,
+        user_factors는 실제로 아이템 factors이고, item_factors는 실제로 사용자 factors입니다.
+        
         Args:
-            user_factors: 사용자 임베딩 행렬
-            item_factors: 아이템 임베딩 행렬
+            user_factors: 아이템 임베딩 행렬 (implicit 라이브러리에서 model.user_factors)
+            item_factors: 사용자 임베딩 행렬 (implicit 라이브러리에서 model.item_factors)
             matrix: 실제 상호작용 행렬 (희소 행렬)
             user_indices: 계산할 사용자 인덱스 배열
             batch_size: 배치 크기
@@ -891,7 +900,8 @@ class ALSRecommender:
             batch_user_indices_batch = user_indices[start_idx:end_idx]
             
             # 예측 행렬 계산 (배치)
-            pred_batch = user_factors[batch_user_indices_batch] @ item_factors.T
+            # implicit 라이브러리: item_factors는 사용자 factors, user_factors는 아이템 factors
+            pred_batch = item_factors[batch_user_indices_batch] @ user_factors.T
             # 실제 행렬 (희소 행렬에서 배치만 추출)
             actual_batch = matrix[batch_user_indices_batch].toarray()
             total_loss += np.mean((pred_batch - actual_batch) ** 2) * (end_idx - start_idx)
