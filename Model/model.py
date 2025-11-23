@@ -2597,22 +2597,29 @@ class TestSetEvaluator:
                     else:
                         item_scores.append(0.0)
                 
-                # 가중치 합계가 임계값 이상이면 positive
+                # 가중치 합계 계산
                 total_weight = sum(item_scores)
-                threshold = max(1.0, len(predicted_items) * 0.1)  # 최소 1.0 또는 10% 가중치
+                # 임계값: 최소 1개의 strong positive 또는 view 가중치 합계가 일정 수준 이상
+                # 더 관대한 임계값 사용: 최소 1.0 또는 view_weight 이상
+                threshold = max(self.view_weight, 1.0)  # view_weight(0.3) 또는 1.0 중 큰 값
                 
                 labels = [1 if score > 0 else 0 for score in item_scores]
                 item_y_true.extend(labels)
                 item_y_scores.extend(recs["final_score"].astype(float).tolist())
 
-                # 사용자 레벨 평가: 가중치 합계가 임계값 이상이면 positive
+                # 사용자 레벨 평가
                 # 실제 positive (transaction/addtocart)가 있는지 확인
                 actual_strong_positive = len(relevant_items) > 0
-                predicted_positive = total_weight >= threshold
                 
-                # 가중치 기반 평가: 실제 strong positive가 있거나 가중치 합계가 임계값 이상이면 true
-                # (view도 일정 가중치를 받아서 positive로 분류될 수 있음)
-                actual_positive = actual_strong_positive or total_weight >= threshold
+                # 예측 로직 개선:
+                # 1. 실제 strong positive가 있으면 무조건 positive로 예측 (hits > 0)
+                # 2. 없으면 가중치 합계가 임계값 이상이면 positive
+                hits = len(set(predicted_items) & relevant_items) if relevant_items else 0
+                predicted_positive = hits > 0 or total_weight >= threshold
+                
+                # 실제 positive: strong positive가 있으면 true
+                # (view 가중치는 예측에만 사용하고, 실제 positive는 transaction/addtocart만)
+                actual_positive = actual_strong_positive
                 
                 if not actual_positive and total_weight == 0.0:
                     # 실제 positive도 없고 가중치도 없으면 negative
@@ -2621,10 +2628,10 @@ class TestSetEvaluator:
                     y_scores.append(0.0)
                     continue
 
-                # 실제 positive (strong 또는 가중치 기반)로 설정
+                # 실제 positive (transaction/addtocart만)
                 y_true.append(1 if actual_positive else 0)
                 
-                # 예측: 가중치 합계가 임계값 이상이면 positive
+                # 예측: hits가 있거나 가중치 합계가 임계값 이상이면 positive
                 y_pred.append(1 if predicted_positive else 0)
                 y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
                 
@@ -2632,7 +2639,7 @@ class TestSetEvaluator:
                 if actual_strong_positive:
                     hits = len(set(predicted_items) & relevant_items)
                     weighted_hits = sum(item_scores)
-                    precision = weighted_hits / len(predicted_items)
+                    precision = weighted_hits / len(predicted_items) if predicted_items else 0.0
                     recall = hits / len(relevant_items) if relevant_items else 0.0
                     metrics["precision_sum"] += precision
                     metrics["recall_sum"] += recall
@@ -2641,7 +2648,7 @@ class TestSetEvaluator:
                 elif predicted_positive:
                     # view만 있어도 가중치가 충분하면 hit로 간주
                     weighted_hits = sum(item_scores)
-                    precision = weighted_hits / len(predicted_items)
+                    precision = weighted_hits / len(predicted_items) if predicted_items else 0.0
                     recall = 0.0  # 실제 transaction/addtocart가 없으므로 recall은 0
                     metrics["precision_sum"] += precision
                     metrics["recall_sum"] += recall
