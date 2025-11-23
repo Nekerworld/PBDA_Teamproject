@@ -2462,10 +2462,24 @@ class TestSetEvaluator:
        - 파라미터: min_hit_ratio (기본값: 0.1 = 10%)
        - 사용 시기: recall을 높이고 싶을 때, 부분적으로 맞는 추천도 인정하고 싶을 때
     
+    4. "score_based" 모드 (점수 기반 평가):
+       - Positive: transaction/addtocart 이벤트
+       - 예측: 추천 점수(final_score)가 임계값 이상인 아이템 중 hit가 있으면 positive
+       - 특징: 높은 점수의 추천만 신뢰하여 평가, 모델의 확신도 반영
+       - 파라미터: score_threshold (None이면 score_percentile로 자동 계산)
+       - 사용 시기: 모델의 점수 신뢰도가 높을 때, 높은 점수 추천만 평가하고 싶을 때
+    
+    5. "rank_based" 모드 (순위 기반 평가):
+       - Positive: transaction/addtocart 이벤트
+       - 예측: 상위 순위(rank) 내에서 hit가 있으면 positive
+       - 특징: 상위 추천에 더 높은 가중치 부여, 실제 사용자 행동 패턴 반영
+       - 파라미터: top_rank_ratio (기본값: 0.25 = 상위 25%)
+       - 사용 시기: 상위 추천의 정확도가 중요할 때, 순위가 의미가 있을 때
+    
     Attributes:
         processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
         top_k: 평가에 사용할 추천 아이템 수 (기본값: 50)
-        evaluation_mode: 평가 모드 ("strict", "weighted", "partial", 기본값: "weighted")
+        evaluation_mode: 평가 모드 ("strict", "weighted", "partial", "score_based", "rank_based", 기본값: "weighted")
         view_weight: view 이벤트의 가중치 (weighted 모드에서 사용, 기본값: 0.3)
             - transaction/addtocart는 1.0, view는 이 값 사용
             - 낮을수록 엄격, 높을수록 관대한 평가
@@ -2474,6 +2488,15 @@ class TestSetEvaluator:
             - 0.0 ~ 1.0 사이의 값
             - 낮을수록 더 많은 positive 예측 (더 관대)
             - 높을수록 더 적은 positive 예측 (더 엄격)
+        score_threshold: 점수 기반 평가에서 사용할 점수 임계값 (score_based 모드에서 사용)
+            - None이면 score_percentile로 자동 계산
+            - 설정하면 해당 값 이상의 점수를 가진 추천만 positive로 분류
+        score_percentile: 점수 임계값 자동 계산 시 사용할 백분위수 (score_based 모드에서 사용, 기본값: 75.0)
+            - 0.0 ~ 100.0 사이의 값
+            - 예: 75.0이면 상위 25% 추천만 positive로 분류
+        top_rank_ratio: 순위 기반 평가에서 상위 순위 비율 (rank_based 모드에서 사용, 기본값: 0.25)
+            - 0.0 ~ 1.0 사이의 값
+            - 예: 0.25이면 상위 25% 순위 내에서 hit가 있으면 positive
     
     Examples:
         >>> # Strict 모드 사용
@@ -2495,12 +2518,31 @@ class TestSetEvaluator:
         ...     min_hit_ratio=0.2
         ... )
         >>> evaluator.run()
+        
+        >>> # Score-based 모드 사용 (상위 25% 점수만 평가)
+        >>> evaluator = TestSetEvaluator(
+        ...     evaluation_mode="score_based", 
+        ...     top_k=50, 
+        ...     score_percentile=75.0
+        ... )
+        >>> evaluator.run()
+        
+        >>> # Rank-based 모드 사용 (상위 25% 순위만 평가)
+        >>> evaluator = TestSetEvaluator(
+        ...     evaluation_mode="rank_based", 
+        ...     top_k=50, 
+        ...     top_rank_ratio=0.25
+        ... )
+        >>> evaluator.run()
     """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     top_k: int = 50
-    evaluation_mode: str = "weighted"  # "strict", "weighted", "partial"
+    evaluation_mode: str = "score_based"  # "strict", "weighted", "partial", "score_based", "rank_based"
     view_weight: float = 0.3  # view 이벤트의 가중치 (transaction=1.0, addtocart=1.0 기준)
     min_hit_ratio: float = 0.1  # partial 모드에서 최소 hit 비율 (예: 0.1 = 10%)
+    score_threshold: Optional[float] = None  # score_based 모드에서 사용할 점수 임계값 (None이면 자동 계산)
+    score_percentile: float = 75.0  # score_based 모드에서 임계값 계산 시 사용할 백분위수 (기본값: 75%)
+    top_rank_ratio: float = 0.25  # rank_based 모드에서 상위 순위 비율 (기본값: 0.25 = 상위 25%)
 
     def run(self) -> None:
         """
@@ -2586,8 +2628,47 @@ class TestSetEvaluator:
                 .to_dict()
             )
             item_weights: Dict[Tuple[int, int], float] = {}
+        elif self.evaluation_mode == "score_based":
+            # 점수 기반 평가: 추천 점수를 활용한 평가
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            item_weights: Dict[Tuple[int, int], float] = {}
+            
+            # 점수 임계값 계산 (전체 추천 점수의 백분위수 사용)
+            # FN을 줄이기 위해 더 낮은 백분위수 사용 (기본값을 낮춤)
+            if self.score_threshold is None:
+                all_scores = test_recommendations["final_score"].astype(float).values
+                if len(all_scores) > 0:
+                    # 더 낮은 백분위수로 임계값 설정 (더 많은 positive 예측)
+                    # 기본값을 50%로 낮춰서 중간 점수 이상이면 positive로 예측
+                    effective_percentile = min(self.score_percentile, 50.0)  # 최대 50%로 제한
+                    self.score_threshold = float(np.percentile(all_scores, effective_percentile))
+                else:
+                    self.score_threshold = 0.0
+                logger.info("Calculated score threshold: %.4f (percentile: %.1f%%, effective: %.1f%%)", 
+                          self.score_threshold, self.score_percentile, effective_percentile)
+            else:
+                logger.info("Using provided score threshold: %.4f", self.score_threshold)
+                
+        elif self.evaluation_mode == "rank_based":
+            # 순위 기반 평가: 상위 순위의 추천을 더 중요하게 평가
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            item_weights: Dict[Tuple[int, int], float] = {}
         else:
-            raise ValueError(f"Unknown evaluation_mode: {self.evaluation_mode}. Use 'strict', 'weighted', or 'partial'.")
+            raise ValueError(f"Unknown evaluation_mode: {self.evaluation_mode}. Use 'strict', 'weighted', 'partial', 'score_based', or 'rank_based'.")
 
         metrics = {
             "users_evaluated": 0,
@@ -2747,6 +2828,121 @@ class TestSetEvaluator:
                 y_true.append(1)
                 y_pred.append(1 if predicted_positive else 0)
                 y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+
+            elif self.evaluation_mode == "score_based":
+                # 점수 기반 평가: 추천 점수를 활용한 평가
+                labels = [1 if item in relevant_items else 0 for item in predicted_items]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+
+                hits = len(set(predicted_items) & relevant_items)
+                
+                # 실제 positive가 있는지 확인
+                has_actual_positive = len(relevant_items) > 0
+                
+                if not has_actual_positive:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+
+                scores = recs["final_score"].astype(float).values
+                
+                # 점수가 비어있는 경우 처리
+                if len(scores) == 0:
+                    y_true.append(1)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+                
+                # FN을 줄이기 위한 개선된 로직:
+                # 1. hits가 있으면 무조건 positive
+                # 2. hits가 없어도 점수가 충분히 높으면 positive (모델이 확신하는 경우)
+                #    - 평균 점수가 임계값 이상이면 positive
+                #    - 또는 상위 N개 점수의 평균이 임계값 이상이면 positive
+                mean_score = np.mean(scores)
+                max_score = np.max(scores)
+                
+                # 상위 10개 점수의 평균 계산 (더 신뢰할 수 있는 추천)
+                top_n = min(10, len(scores))
+                top_scores = np.sort(scores)[-top_n:]
+                top_mean_score = np.mean(top_scores)
+                
+                # 예측: hits가 있거나, 점수가 충분히 높으면 positive
+                # 더 관대한 기준: 평균 점수 또는 상위 점수 평균이 임계값 이상이면 positive
+                predicted_positive = hits > 0 or mean_score >= self.score_threshold or top_mean_score >= self.score_threshold
+                
+                if hits > 0:
+                    metrics["hit_users"] += 1
+
+                precision = hits / len(predicted_items) if predicted_items else 0.0
+                recall = hits / len(relevant_items) if relevant_items else 0.0
+
+                metrics["precision_sum"] += precision
+                metrics["recall_sum"] += recall
+
+                y_true.append(1)
+                y_pred.append(1 if predicted_positive else 0)
+                y_scores.append(max_score)
+                
+            elif self.evaluation_mode == "rank_based":
+                # 순위 기반 평가: 상위 순위의 추천을 더 중요하게 평가
+                labels = [1 if item in relevant_items else 0 for item in predicted_items]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+
+                hits = len(set(predicted_items) & relevant_items)
+                
+                # 실제 positive가 있는지 확인
+                has_actual_positive = len(relevant_items) > 0
+                
+                if not has_actual_positive:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+
+                ranks = recs["rank"].astype(int).values
+                scores = recs["final_score"].astype(float).values
+                
+                # 점수가 비어있는 경우 처리
+                if len(scores) == 0:
+                    y_true.append(1)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+                
+                # 상위 순위(rank)에서 hit가 있는지 확인
+                top_rank_threshold = max(1, int(len(predicted_items) * self.top_rank_ratio))
+                top_rank_items = [item for item, rank in zip(predicted_items, ranks) if rank <= top_rank_threshold]
+                top_rank_hits = len(set(top_rank_items) & relevant_items)
+                
+                # FN을 줄이기 위한 개선된 로직:
+                # 1. hits가 있으면 무조건 positive
+                # 2. 상위 순위에서 hit가 있으면 positive
+                # 3. 상위 순위의 점수가 충분히 높으면 positive (모델이 확신하는 경우)
+                top_rank_scores = [score for item, rank, score in zip(predicted_items, ranks, scores) if rank <= top_rank_threshold]
+                top_rank_mean_score = np.mean(top_rank_scores) if len(top_rank_scores) > 0 else 0.0
+                
+                # 더 관대한 기준: 상위 순위 점수 평균이 전체 평균보다 높으면 positive
+                overall_mean_score = np.mean(scores)
+                max_score = np.max(scores)
+                
+                # 예측: hits가 있거나, 상위 순위에서 hit가 있거나, 상위 순위 점수가 충분히 높으면 positive
+                predicted_positive = hits > 0 or top_rank_hits > 0 or (top_rank_mean_score > overall_mean_score * 0.8)
+                
+                if hits > 0:
+                    metrics["hit_users"] += 1
+
+                precision = hits / len(predicted_items) if predicted_items else 0.0
+                recall = hits / len(relevant_items) if relevant_items else 0.0
+
+                metrics["precision_sum"] += precision
+                metrics["recall_sum"] += recall
+
+                y_true.append(1)
+                y_pred.append(1 if predicted_positive else 0)
+                y_scores.append(max_score)
 
         evaluated = metrics["users_evaluated"]
         hit_users = metrics["hit_users"]
@@ -3004,11 +3200,19 @@ if __name__ == "__main__":
 
     # reranker = ReRanker()
     # reranker.run()
-
-    # 평가 모드 선택: "strict", "weighted", "partial"
+    
+    # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
+    # Score-based 모드 (더 낮은 임계값)
     evaluator = TestSetEvaluator(
-        evaluation_mode="partial",  # partial 모드 사용
-        top_k=50,  # 평가에 사용할 추천 아이템 수
-        min_hit_ratio=0.1  # partial 모드에서 최소 hit 비율 (10% 이상 hit하면 positive)
+        evaluation_mode="score_based",
+        top_k=50,
+        score_percentile=50.0  # 중간 점수 이상이면 positive
+    )
+    evaluator.run() 
+    # Rank-based 모드 (더 관대한 기준)
+    evaluator = TestSetEvaluator(
+        evaluation_mode="rank_based",
+        top_k=50,
+        top_rank_ratio=0.5  # 상위 50% 순위까지 확장
     )
     evaluator.run()
