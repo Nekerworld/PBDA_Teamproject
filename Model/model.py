@@ -2570,18 +2570,26 @@ class RecommendationComparator:
         
         # 비교 분석 수행
         results = {}
+        user_metrics = {}
         
         logger.info("ALS vs 최종 추천 비교 중...")
-        results["als_vs_final"] = self._compare_recommendations(als_recs, final_recs, "ALS", "최종")
+        als_result, als_user_metrics = self._compare_recommendations(als_recs, final_recs, "ALS", "최종")
+        results["als_vs_final"] = als_result
+        user_metrics["als_vs_final"] = als_user_metrics
         
         logger.info("GNN vs 최종 추천 비교 중...")
-        results["gnn_vs_final"] = self._compare_recommendations(gnn_recs, final_recs, "GNN", "최종")
+        gnn_result, gnn_user_metrics = self._compare_recommendations(gnn_recs, final_recs, "GNN", "최종")
+        results["gnn_vs_final"] = gnn_result
+        user_metrics["gnn_vs_final"] = gnn_user_metrics
         
         # 결과 출력
         self._print_comparison_results(results)
         
         # 결과 저장
         self._save_comparison_results(results)
+        
+        # 시각화 생성
+        self._create_visualizations(results, user_metrics)
         
         logger.info("추천 결과 비교 분석 완료!")
 
@@ -2659,7 +2667,7 @@ class RecommendationComparator:
         rec2: DataFrame, 
         name1: str, 
         name2: str
-    ) -> Dict[str, float]:
+    ) -> Tuple[Dict[str, float], Dict[str, List[float]]]:
         """
         두 추천 결과를 비교하여 다양한 지표를 계산합니다.
         
@@ -2670,7 +2678,7 @@ class RecommendationComparator:
             name2: 두 번째 추천의 이름
             
         Returns:
-            비교 지표 딕셔너리
+            (평균 지표 딕셔너리, 사용자별 지표 딕셔너리) 튜플
         """
         # 사용자별로 그룹화
         # rec1 정렬 기준 결정
@@ -2739,7 +2747,7 @@ class RecommendationComparator:
             ndcg = self._calculate_ndcg(user_rec1, user_rec2, common_items)
             ndcgs.append(ndcg)
         
-        return {
+        avg_metrics = {
             "jaccard_similarity": np.mean(jaccard_similarities),
             "precision_at_k": np.mean(precisions),
             "recall_at_k": np.mean(recalls),
@@ -2750,6 +2758,16 @@ class RecommendationComparator:
             "precision_std": np.std(precisions),
             "recall_std": np.std(recalls),
         }
+        
+        user_metrics = {
+            "jaccard_similarities": jaccard_similarities,
+            "precisions": precisions,
+            "recalls": recalls,
+            "rank_differences": rank_differences if rank_differences else [],
+            "ndcgs": ndcgs,
+        }
+        
+        return avg_metrics, user_metrics
 
     def _calculate_ndcg(self, rec1: DataFrame, rec2: DataFrame, relevant_items: set) -> float:
         """NDCG@K를 계산합니다."""
@@ -2812,6 +2830,253 @@ class RecommendationComparator:
             df = pd.DataFrame(rows)
             df.to_csv(output_path, index=False)
             logger.info(f"비교 결과를 저장했습니다: {output_path}")
+
+    def _create_visualizations(
+        self,
+        results: Dict[str, Dict[str, float]],
+        user_metrics: Dict[str, Dict[str, List[float]]]
+    ) -> None:
+        """
+        비교 분석 결과를 시각화합니다.
+        
+        생성되는 시각화:
+        1. 지표별 비교 바 차트 (ALS vs 최종, GNN vs 최종)
+        2. Jaccard Similarity 분포 히스토그램
+        3. Precision@K 분포 히스토그램
+        4. Recall@K 분포 히스토그램
+        5. NDCG@K 분포 히스토그램
+        6. 평균 순위 차이 비교
+        7. 사용자별 공통 아이템 수 분포
+        
+        Args:
+            results: 평균 지표 딕셔너리
+            user_metrics: 사용자별 지표 딕셔너리
+        """
+        try:
+            import matplotlib.pyplot as plt
+            import seaborn as sns
+        except ImportError:
+            logger.warning("matplotlib 또는 seaborn이 설치되지 않아 시각화를 건너뜁니다.")
+            return
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # 스타일 설정
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+
+        # 1. 지표별 비교 바 차트
+        try:
+            fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+            fig.suptitle("추천 결과 비교 분석 - 지표별 비교", fontsize=16, fontweight="bold", y=0.995)
+
+            metrics_to_plot = [
+                ("jaccard_similarity", "Jaccard Similarity", axes[0, 0]),
+                ("precision_at_k", f"Precision@{self.top_k}", axes[0, 1]),
+                ("recall_at_k", f"Recall@{self.top_k}", axes[0, 2]),
+                ("ndcg_at_k", f"NDCG@{self.top_k}", axes[1, 0]),
+                ("avg_rank_difference", "평균 순위 차이", axes[1, 1]),
+            ]
+
+            comparisons = ["als_vs_final", "gnn_vs_final"]
+            comparison_labels = ["ALS vs 최종", "GNN vs 최종"]
+            colors = ["#3498db", "#e74c3c"]
+
+            for metric_key, metric_label, ax in metrics_to_plot:
+                values = []
+                labels = []
+                for comp, comp_label in zip(comparisons, comparison_labels):
+                    if comp in results and results[comp] and metric_key in results[comp]:
+                        values.append(results[comp][metric_key])
+                        labels.append(comp_label)
+                
+                if values:
+                    bars = ax.bar(labels, values, color=colors[:len(values)], alpha=0.7, edgecolor='black', linewidth=1.5)
+                    ax.set_ylabel(metric_label, fontsize=11, fontweight="bold")
+                    ax.set_title(metric_label, fontsize=12, fontweight="bold")
+                    ax.grid(axis='y', alpha=0.3, linestyle='--')
+                    
+                    # 값 표시
+                    for bar in bars:
+                        height = bar.get_height()
+                        ax.text(bar.get_x() + bar.get_width()/2., height,
+                               f'{height:.4f}',
+                               ha='center', va='bottom', fontsize=10, fontweight="bold")
+                    
+                    # 평균 순위 차이는 낮을수록 좋으므로 y축 반전
+                    if metric_key == "avg_rank_difference":
+                        ax.invert_yaxis()
+
+            # 마지막 subplot에 요약 정보 표시
+            ax = axes[1, 2]
+            ax.axis('off')
+            summary_text = "비교 요약\n\n"
+            for comp, comp_label in zip(comparisons, comparison_labels):
+                if comp in results and results[comp]:
+                    summary_text += f"{comp_label}:\n"
+                    summary_text += f"  공통 사용자: {results[comp].get('num_common_users', 0):,}명\n"
+                    summary_text += f"  Jaccard: {results[comp].get('jaccard_similarity', 0):.4f}\n"
+                    summary_text += f"  Precision@{self.top_k}: {results[comp].get('precision_at_k', 0):.4f}\n"
+                    summary_text += f"  Recall@{self.top_k}: {results[comp].get('recall_at_k', 0):.4f}\n\n"
+            ax.text(0.1, 0.5, summary_text, fontsize=10, verticalalignment='center',
+                   family='monospace', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "recommendation_comparison_metrics.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved comparison metrics chart to %s", viz_dir / "recommendation_comparison_metrics.png")
+        except Exception as e:
+            logger.warning("지표별 비교 차트 생성 실패: %s", e)
+
+        # 2. Jaccard Similarity 분포 히스토그램
+        try:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+            fig.suptitle("Jaccard Similarity 분포 비교", fontsize=14, fontweight="bold")
+
+            for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
+                if comp in user_metrics and "jaccard_similarities" in user_metrics[comp]:
+                    jaccards = user_metrics[comp]["jaccard_similarities"]
+                    if jaccards:
+                        axes[idx].hist(jaccards, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
+                        axes[idx].axvline(np.mean(jaccards), color='red', linestyle='--', linewidth=2, 
+                                         label=f'평균: {np.mean(jaccards):.4f}')
+                        axes[idx].set_xlabel("Jaccard Similarity", fontsize=11)
+                        axes[idx].set_ylabel("사용자 수", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(jaccards):.4f}, 표준편차: {np.std(jaccards):.4f})", 
+                                           fontsize=11, fontweight="bold")
+                        axes[idx].legend()
+                        axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "recommendation_comparison_jaccard_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved Jaccard similarity distribution to %s", viz_dir / "recommendation_comparison_jaccard_distribution.png")
+        except Exception as e:
+            logger.warning("Jaccard Similarity 분포 히스토그램 생성 실패: %s", e)
+
+        # 3. Precision@K 분포 히스토그램
+        try:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+            fig.suptitle(f"Precision@{self.top_k} 분포 비교", fontsize=14, fontweight="bold")
+
+            for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
+                if comp in user_metrics and "precisions" in user_metrics[comp]:
+                    precisions = user_metrics[comp]["precisions"]
+                    if precisions:
+                        axes[idx].hist(precisions, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
+                        axes[idx].axvline(np.mean(precisions), color='red', linestyle='--', linewidth=2,
+                                         label=f'평균: {np.mean(precisions):.4f}')
+                        axes[idx].set_xlabel(f"Precision@{self.top_k}", fontsize=11)
+                        axes[idx].set_ylabel("사용자 수", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(precisions):.4f}, 표준편차: {np.std(precisions):.4f})",
+                                           fontsize=11, fontweight="bold")
+                        axes[idx].legend()
+                        axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "recommendation_comparison_precision_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved Precision@K distribution to %s", viz_dir / "recommendation_comparison_precision_distribution.png")
+        except Exception as e:
+            logger.warning("Precision@K 분포 히스토그램 생성 실패: %s", e)
+
+        # 4. Recall@K 분포 히스토그램
+        try:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+            fig.suptitle(f"Recall@{self.top_k} 분포 비교", fontsize=14, fontweight="bold")
+
+            for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
+                if comp in user_metrics and "recalls" in user_metrics[comp]:
+                    recalls = user_metrics[comp]["recalls"]
+                    if recalls:
+                        axes[idx].hist(recalls, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
+                        axes[idx].axvline(np.mean(recalls), color='red', linestyle='--', linewidth=2,
+                                         label=f'평균: {np.mean(recalls):.4f}')
+                        axes[idx].set_xlabel(f"Recall@{self.top_k}", fontsize=11)
+                        axes[idx].set_ylabel("사용자 수", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(recalls):.4f}, 표준편차: {np.std(recalls):.4f})",
+                                           fontsize=11, fontweight="bold")
+                        axes[idx].legend()
+                        axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "recommendation_comparison_recall_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved Recall@K distribution to %s", viz_dir / "recommendation_comparison_recall_distribution.png")
+        except Exception as e:
+            logger.warning("Recall@K 분포 히스토그램 생성 실패: %s", e)
+
+        # 5. NDCG@K 분포 히스토그램
+        try:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+            fig.suptitle(f"NDCG@{self.top_k} 분포 비교", fontsize=14, fontweight="bold")
+
+            for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
+                if comp in user_metrics and "ndcgs" in user_metrics[comp]:
+                    ndcgs = user_metrics[comp]["ndcgs"]
+                    if ndcgs:
+                        axes[idx].hist(ndcgs, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
+                        axes[idx].axvline(np.mean(ndcgs), color='red', linestyle='--', linewidth=2,
+                                         label=f'평균: {np.mean(ndcgs):.4f}')
+                        axes[idx].set_xlabel(f"NDCG@{self.top_k}", fontsize=11)
+                        axes[idx].set_ylabel("사용자 수", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(ndcgs):.4f}, 표준편차: {np.std(ndcgs):.4f})",
+                                           fontsize=11, fontweight="bold")
+                        axes[idx].legend()
+                        axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "recommendation_comparison_ndcg_distribution.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved NDCG@K distribution to %s", viz_dir / "recommendation_comparison_ndcg_distribution.png")
+        except Exception as e:
+            logger.warning("NDCG@K 분포 히스토그램 생성 실패: %s", e)
+
+        # 6. 박스플롯으로 모든 지표 비교
+        try:
+            fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+            fig.suptitle("추천 결과 비교 분석 - 박스플롯", fontsize=16, fontweight="bold")
+
+            metrics_for_boxplot = [
+                ("jaccard_similarities", "Jaccard Similarity", axes[0, 0]),
+                ("precisions", f"Precision@{self.top_k}", axes[0, 1]),
+                ("recalls", f"Recall@{self.top_k}", axes[1, 0]),
+                ("ndcgs", f"NDCG@{self.top_k}", axes[1, 1]),
+            ]
+
+            for metric_key, metric_label, ax in metrics_for_boxplot:
+                data_to_plot = []
+                labels = []
+                for comp, comp_label in zip(comparisons, comparison_labels):
+                    if comp in user_metrics and metric_key in user_metrics[comp]:
+                        values = user_metrics[comp][metric_key]
+                        if values:
+                            data_to_plot.append(values)
+                            labels.append(comp_label)
+                
+                if data_to_plot:
+                    bp = ax.boxplot(data_to_plot, labels=labels, patch_artist=True, 
+                                   showmeans=True, meanline=True)
+                    for patch, color in zip(bp['boxes'], colors[:len(bp['boxes'])]):
+                        patch.set_facecolor(color)
+                        patch.set_alpha(0.7)
+                    ax.set_ylabel(metric_label, fontsize=11, fontweight="bold")
+                    ax.set_title(metric_label, fontsize=12, fontweight="bold")
+                    ax.grid(axis='y', alpha=0.3, linestyle='--')
+
+            plt.tight_layout()
+            plt.savefig(viz_dir / "recommendation_comparison_boxplot.png", dpi=300, bbox_inches="tight")
+            plt.close()
+            logger.info("Saved comparison boxplot to %s", viz_dir / "recommendation_comparison_boxplot.png")
+        except Exception as e:
+            logger.warning("박스플롯 생성 실패: %s", e)
 
 @dataclass
 class TestSetEvaluator:
@@ -3590,13 +3855,13 @@ if __name__ == "__main__":
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    evaluator = TestSetEvaluator(
-        evaluation_mode="score_based",
-        top_k=50,
-        score_percentile=50.0 # score-based 모드일 시 주석해제
-        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    )
-    evaluator.run()
+    # evaluator = TestSetEvaluator(
+    #     evaluation_mode="score_based",
+    #     top_k=50,
+    #     score_percentile=50.0 # score-based 모드일 시 주석해제
+    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    # )
+    # evaluator.run()
     
     # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
     comparator = RecommendationComparator(top_k=200)
