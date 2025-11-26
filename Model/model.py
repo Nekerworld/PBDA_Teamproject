@@ -2425,6 +2425,395 @@ class ReRanker:
         return (scores - min_val) / (max_val - min_val)
 
 @dataclass
+class RecommendationComparator:
+    """
+    ALS, GNN, 최종 추천 결과를 비교하는 클래스
+    
+    각 모델의 추천 결과가 최종 추천 결과와 얼마나 유사한지 다양한 지표로 측정합니다.
+    ALS와 GNN 각각이 최종 추천 결과와 얼마나 닮았는지, 그리고 두 모델을 결합한 결과가
+    최종 추천과 얼마나 비슷한지를 분석합니다.
+    
+    비교 지표:
+    
+    1. Jaccard Similarity (자카드 유사도):
+       - 의미: 두 추천 리스트의 아이템 집합 유사도를 측정하는 지표
+       - 범위: 0.0 ~ 1.0 (1.0에 가까울수록 완전히 동일)
+       - 계산: 교집합 크기 / 합집합 크기
+       - 예시: ALS 추천 [1,2,3,4,5], 최종 추천 [1,2,6,7,8]
+              → 교집합: {1,2} (크기 2), 합집합: {1,2,3,4,5,6,7,8} (크기 8)
+              → Jaccard = 2/8 = 0.25
+       - 해석:
+         * 0.0 ~ 0.2: 매우 낮은 유사도 (거의 다른 추천)
+         * 0.2 ~ 0.4: 낮은 유사도 (일부 공통)
+         * 0.4 ~ 0.6: 중간 유사도 (상당한 공통)
+         * 0.6 ~ 0.8: 높은 유사도 (대부분 공통)
+         * 0.8 ~ 1.0: 매우 높은 유사도 (거의 동일)
+       - 특징: 집합의 크기에 영향을 받지 않으며, 순서는 고려하지 않음
+    
+    2. Precision@K (정밀도):
+       - 의미: 상위 K개 추천 중 공통 아이템이 차지하는 비율
+       - 범위: 0.0 ~ 1.0 (1.0에 가까울수록 좋음)
+       - 계산: 공통 아이템 수 / K
+       - 예시: K=200, 공통 아이템이 8개
+              → Precision@200 = 8/200 = 0.04
+       - 해석:
+         * 높을수록: 두 추천이 더 많은 공통 아이템을 포함
+         * 낮을수록: 두 추천이 서로 다른 아이템을 많이 추천
+       - 특징: 추천 리스트의 크기(K)에 정규화되어 있어 비교 가능
+    
+    3. Recall@K (재현율):
+       - 의미: 최종 추천 아이템 중 ALS/GNN이 얼마나 포함했는지
+       - 범위: 0.0 ~ 1.0 (1.0에 가까울수록 좋음)
+       - 계산: 공통 아이템 수 / 최종 추천 아이템 수
+       - 예시: 최종 추천에 200개 아이템, 공통 아이템이 14개
+              → Recall@200 = 14/200 = 0.07
+       - 해석:
+         * 높을수록: ALS/GNN이 최종 추천의 대부분을 포함
+         * 낮을수록: ALS/GNN이 최종 추천의 일부만 포함
+       - 특징: 최종 추천을 기준으로 얼마나 "포괄"하는지 측정
+    
+    4. Average Rank Difference (평균 순위 차이):
+       - 의미: 공통 아이템의 순위 차이 평균값
+       - 범위: 0.0 이상 (0에 가까울수록 좋음, 이상적으로는 0)
+       - 계산: 각 공통 아이템의 순위 차이 절댓값의 평균
+       - 예시: 아이템 A가 ALS에서 5위, 최종에서 10위 → 차이 5
+              아이템 B가 ALS에서 3위, 최종에서 4위 → 차이 1
+              → 평균 순위 차이 = (5 + 1) / 2 = 3.0
+       - 해석:
+         * 0 ~ 10: 매우 유사한 순위 (거의 동일한 순서)
+         * 10 ~ 30: 유사한 순위 (대체로 비슷한 위치)
+         * 30 ~ 50: 다른 순위 (상당한 차이)
+         * 50 이상: 매우 다른 순위 (완전히 다른 순서)
+       - 특징: 공통 아이템이 있을 때만 계산되며, 순위의 중요성을 반영
+    
+    5. NDCG@K (Normalized Discounted Cumulative Gain):
+       - 의미: 순위를 고려한 정규화된 누적 이득 (상위 순위에 더 높은 가중치)
+       - 범위: 0.0 ~ 1.0 이상 (1.0 이상도 가능, 이상적으로는 1.0)
+       - 계산:
+         * DCG (Discounted Cumulative Gain): Σ(관련 아이템 점수 / log2(순위 + 1))
+         * Ideal DCG: 최종 추천을 기준으로 한 이상적인 DCG
+         * NDCG = DCG / Ideal DCG
+       - 예시: 상위 3개 중 2개가 공통
+              → DCG = 1/log2(2) + 1/log2(3) = 1 + 0.63 = 1.63
+              → Ideal DCG = 1/log2(2) + 1/log2(3) = 1.63
+              → NDCG = 1.63 / 1.63 = 1.0
+       - 해석:
+         * 0.0 ~ 0.3: 매우 낮은 순위 품질 (공통 아이템이 적거나 하위 순위에 많음)
+         * 0.3 ~ 0.6: 낮은 순위 품질 (일부 공통이지만 순위가 다름)
+         * 0.6 ~ 0.8: 중간 순위 품질 (상당한 공통, 순위도 어느 정도 유사)
+         * 0.8 ~ 1.0: 높은 순위 품질 (대부분 공통, 순위도 유사)
+         * 1.0 이상: 이상적보다 좋음 (상위 순위에 공통 아이템이 더 많음)
+       - 특징: 상위 순위의 공통 아이템에 더 높은 가중치를 부여하여 순위의 중요성 반영
+    
+    실행 과정:
+    1. ALS 추천 결과 로드 (als_recommendations.csv)
+    2. 최종 추천 결과 로드 (final_recommendations.csv)
+    3. GNN 임베딩만 사용하여 GNN 단독 추천 생성
+    4. ALS vs 최종 추천 비교 분석
+    5. GNN vs 최종 추천 비교 분석
+    6. 결과 출력 및 CSV 파일로 저장
+    
+    출력 파일:
+    - data/processed/recommendation_comparison.csv: 비교 결과가 저장되는 CSV 파일
+    
+    Attributes:
+        processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
+        top_k: 비교에 사용할 상위 K개 아이템 (기본값: 200)
+            - 각 사용자별로 상위 K개 추천만 비교에 사용
+            - K가 클수록 더 많은 아이템을 비교하지만 계산 시간 증가
+            - 일반적으로 50~200 사이의 값을 사용
+    
+    Examples:
+        >>> # 기본 설정으로 비교 분석 실행
+        >>> comparator = RecommendationComparator()
+        >>> comparator.run()
+        
+        >>> # 상위 100개만 비교
+        >>> comparator = RecommendationComparator(top_k=100)
+        >>> comparator.run()
+        
+        >>> # 다른 디렉토리에서 비교
+        >>> comparator = RecommendationComparator(
+        ...     processed_dir=Path("custom/processed"),
+        ...     top_k=150
+        ... )
+        >>> comparator.run()
+    
+    Note:
+        - GNN 단독 추천은 GNN 임베딩만 사용하여 실시간으로 생성됩니다
+        - 비교는 공통 사용자에 대해서만 수행됩니다
+        - 각 지표는 사용자별로 계산된 후 평균값과 표준편차를 출력합니다
+        - NDCG가 1.0을 초과할 수 있는데, 이는 비교 대상(ALS/GNN)이 기준(최종 추천)보다
+          상위 순위에 더 많은 공통 아이템을 포함하고 있다는 의미입니다
+    """
+    processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
+    top_k: int = 200
+
+    def run(self) -> None:
+        """
+        추천 결과 비교 분석을 실행합니다.
+        
+        실행 순서:
+        1. ALS, GNN, 최종 추천 결과 로드
+        2. GNN만 사용한 추천 결과 생성
+        3. 각 모델별로 최종 추천과 비교 지표 계산
+        4. 결과 출력 및 저장
+        """
+        logger.info("추천 결과 비교 분석 시작...")
+        
+        # 추천 결과 로드
+        als_recs = self._load_recommendations("als_recommendations.csv", ["visitorid", "itemid", "score", "rank"])
+        final_recs = self._load_recommendations("final_recommendations.csv", ["visitorid", "itemid", "rank", "final_score"])
+        
+        # GNN만 사용한 추천 생성
+        gnn_recs = self._generate_gnn_only_recommendations()
+        
+        # 비교 분석 수행
+        results = {}
+        
+        logger.info("ALS vs 최종 추천 비교 중...")
+        results["als_vs_final"] = self._compare_recommendations(als_recs, final_recs, "ALS", "최종")
+        
+        logger.info("GNN vs 최종 추천 비교 중...")
+        results["gnn_vs_final"] = self._compare_recommendations(gnn_recs, final_recs, "GNN", "최종")
+        
+        # 결과 출력
+        self._print_comparison_results(results)
+        
+        # 결과 저장
+        self._save_comparison_results(results)
+        
+        logger.info("추천 결과 비교 분석 완료!")
+
+    def _load_recommendations(self, filename: str, columns: List[str]) -> DataFrame:
+        """추천 결과 파일을 로드합니다."""
+        filepath = self.processed_dir / filename
+        if not filepath.exists():
+            raise FileNotFoundError(f"추천 결과 파일을 찾을 수 없습니다: {filepath}")
+        df = pd.read_csv(filepath, usecols=columns)
+        df["visitorid"] = df["visitorid"].astype(int)
+        df["itemid"] = df["itemid"].astype(int)
+        return df
+
+    def _generate_gnn_only_recommendations(self) -> DataFrame:
+        """GNN 임베딩만 사용하여 추천 결과를 생성합니다."""
+        logger.info("GNN만 사용한 추천 결과 생성 중...")
+        
+        # GNN 임베딩 로드
+        gnn_user_embeddings_df = pd.read_csv(self.processed_dir / "gnn_user_embeddings.csv")
+        gnn_item_embeddings_df = pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv")
+        
+        # 임베딩 배열로 변환
+        gnn_user_ids = gnn_user_embeddings_df["visitorid"].values.astype(int)
+        gnn_item_ids = gnn_item_embeddings_df["itemid"].values.astype(int)
+        
+        user_embedding_cols = [col for col in gnn_user_embeddings_df.columns if col.startswith("embedding_")]
+        item_embedding_cols = [col for col in gnn_item_embeddings_df.columns if col.startswith("embedding_")]
+        
+        gnn_user_embeddings = gnn_user_embeddings_df[user_embedding_cols].values.astype(np.float32)
+        gnn_item_embeddings = gnn_item_embeddings_df[item_embedding_cols].values.astype(np.float32)
+        
+        # 매핑 생성
+        gnn_user_map = {user_id: idx for idx, user_id in enumerate(gnn_user_ids)}
+        gnn_item_map = {item_id: idx for idx, item_id in enumerate(gnn_item_ids)}
+        
+        # 최종 추천에 있는 사용자들만 처리 (이미 run()에서 로드했지만 여기서도 필요)
+        final_recs_path = self.processed_dir / "final_recommendations.csv"
+        if final_recs_path.exists():
+            final_recs = pd.read_csv(final_recs_path, usecols=["visitorid"])
+            target_users = final_recs["visitorid"].unique()
+        else:
+            # 최종 추천이 없으면 모든 GNN 사용자 사용
+            target_users = gnn_user_ids
+        
+        results: List[Dict[str, Any]] = []
+        
+        for visitor_id in target_users:
+            if visitor_id not in gnn_user_map:
+                continue
+            
+            user_idx = gnn_user_map[visitor_id]
+            user_vector = gnn_user_embeddings[user_idx]
+            
+            # 모든 아이템에 대한 점수 계산
+            gnn_scores = gnn_item_embeddings @ user_vector
+            
+            # 상위 K개 선택
+            top_indices = np.argsort(gnn_scores)[::-1][:self.top_k]
+            
+            for rank, item_idx in enumerate(top_indices, start=1):
+                item_id = gnn_item_ids[item_idx]
+                score = float(gnn_scores[item_idx])
+                results.append({
+                    "visitorid": int(visitor_id),
+                    "itemid": int(item_id),
+                    "score": score,
+                    "rank": rank
+                })
+        
+        return pd.DataFrame(results)
+
+    def _compare_recommendations(
+        self, 
+        rec1: DataFrame, 
+        rec2: DataFrame, 
+        name1: str, 
+        name2: str
+    ) -> Dict[str, float]:
+        """
+        두 추천 결과를 비교하여 다양한 지표를 계산합니다.
+        
+        Args:
+            rec1: 첫 번째 추천 결과 (비교 대상)
+            rec2: 두 번째 추천 결과 (기준, 최종 추천)
+            name1: 첫 번째 추천의 이름
+            name2: 두 번째 추천의 이름
+            
+        Returns:
+            비교 지표 딕셔너리
+        """
+        # 사용자별로 그룹화
+        # rec1 정렬 기준 결정
+        rec1_sort_col = "score" if "score" in rec1.columns else "rank"
+        rec1_ascending = False if rec1_sort_col == "score" else True
+        
+        rec1_by_user = rec1.groupby("visitorid").apply(
+            lambda x: set(x.nlargest(self.top_k, rec1_sort_col)["itemid"] if rec1_sort_col == "score" 
+                         else x.nsmallest(self.top_k, rec1_sort_col)["itemid"])
+        ).to_dict()
+        
+        rec2_by_user = rec2.groupby("visitorid").apply(
+            lambda x: set(x.nsmallest(self.top_k, "rank")["itemid"])
+        ).to_dict()
+        
+        # 공통 사용자만 비교
+        common_users = set(rec1_by_user.keys()) & set(rec2_by_user.keys())
+        
+        if len(common_users) == 0:
+            logger.warning(f"{name1}와 {name2} 사이에 공통 사용자가 없습니다.")
+            return {}
+        
+        jaccard_similarities = []
+        precisions = []
+        recalls = []
+        rank_differences = []
+        ndcgs = []
+        
+        for user_id in common_users:
+            items1 = rec1_by_user[user_id]
+            items2 = rec2_by_user[user_id]
+            
+            # Jaccard Similarity
+            intersection = len(items1 & items2)
+            union = len(items1 | items2)
+            jaccard = intersection / union if union > 0 else 0.0
+            jaccard_similarities.append(jaccard)
+            
+            # Precision@K
+            precision = intersection / self.top_k if self.top_k > 0 else 0.0
+            precisions.append(precision)
+            
+            # Recall@K
+            recall = intersection / len(items2) if len(items2) > 0 else 0.0
+            recalls.append(recall)
+            
+            # Rank Difference (공통 아이템의 순위 차이)
+            rec1_sort_col = "score" if "score" in rec1.columns else "rank"
+            user_rec1 = rec1[rec1["visitorid"] == user_id].nlargest(self.top_k, rec1_sort_col) if rec1_sort_col == "score" else rec1[rec1["visitorid"] == user_id].nsmallest(self.top_k, rec1_sort_col)
+            user_rec2 = rec2[rec2["visitorid"] == user_id].nsmallest(self.top_k, "rank")
+            
+            # 아이템별 순위 매핑
+            rank_map1 = {row["itemid"]: idx + 1 for idx, (_, row) in enumerate(user_rec1.iterrows())}
+            rank_map2 = {row["itemid"]: idx + 1 for idx, (_, row) in enumerate(user_rec2.iterrows())}
+            
+            common_items = items1 & items2
+            if common_items:
+                rank_diffs = []
+                for item in common_items:
+                    if item in rank_map1 and item in rank_map2:
+                        rank_diffs.append(abs(rank_map1[item] - rank_map2[item]))
+                if rank_diffs:
+                    rank_differences.append(np.mean(rank_diffs))
+            
+            # NDCG@K 계산
+            ndcg = self._calculate_ndcg(user_rec1, user_rec2, common_items)
+            ndcgs.append(ndcg)
+        
+        return {
+            "jaccard_similarity": np.mean(jaccard_similarities),
+            "precision_at_k": np.mean(precisions),
+            "recall_at_k": np.mean(recalls),
+            "avg_rank_difference": np.mean(rank_differences) if rank_differences else 0.0,
+            "ndcg_at_k": np.mean(ndcgs),
+            "num_common_users": len(common_users),
+            "jaccard_std": np.std(jaccard_similarities),
+            "precision_std": np.std(precisions),
+            "recall_std": np.std(recalls),
+        }
+
+    def _calculate_ndcg(self, rec1: DataFrame, rec2: DataFrame, relevant_items: set) -> float:
+        """NDCG@K를 계산합니다."""
+        if len(relevant_items) == 0:
+            return 0.0
+        
+        # rec2를 기준으로 ideal DCG 계산
+        ideal_gains = []
+        for idx, (_, row) in enumerate(rec2.iterrows()):
+            if row["itemid"] in relevant_items:
+                ideal_gains.append(1.0 / np.log2(idx + 2))
+        ideal_dcg = sum(ideal_gains[:self.top_k])
+        
+        if ideal_dcg == 0:
+            return 0.0
+        
+        # rec1의 DCG 계산
+        dcg = 0.0
+        for idx, (_, row) in enumerate(rec1.iterrows()):
+            if idx >= self.top_k:
+                break
+            if row["itemid"] in relevant_items:
+                dcg += 1.0 / np.log2(idx + 2)
+        
+        return dcg / ideal_dcg
+
+    def _print_comparison_results(self, results: Dict[str, Dict[str, float]]) -> None:
+        """비교 결과를 출력합니다."""
+        print("\n" + "="*80)
+        print("추천 결과 비교 분석")
+        print("="*80)
+        
+        for comparison_name, metrics in results.items():
+            if not metrics:
+                continue
+            
+            print(f"\n[{comparison_name.upper().replace('_', ' ')}]")
+            print("-" * 80)
+            print(f"공통 사용자 수: {metrics.get('num_common_users', 0):,}")
+            print(f"Jaccard Similarity: {metrics.get('jaccard_similarity', 0):.4f} (±{metrics.get('jaccard_std', 0):.4f})")
+            print(f"Precision@{self.top_k}: {metrics.get('precision_at_k', 0):.4f} (±{metrics.get('precision_std', 0):.4f})")
+            print(f"Recall@{self.top_k}: {metrics.get('recall_at_k', 0):.4f} (±{metrics.get('recall_std', 0):.4f})")
+            print(f"평균 순위 차이: {metrics.get('avg_rank_difference', 0):.2f}")
+            print(f"NDCG@{self.top_k}: {metrics.get('ndcg_at_k', 0):.4f}")
+        
+        print("\n" + "="*80)
+
+    def _save_comparison_results(self, results: Dict[str, Dict[str, float]]) -> None:
+        """비교 결과를 CSV 파일로 저장합니다."""
+        output_path = self.processed_dir / "recommendation_comparison.csv"
+        
+        rows = []
+        for comparison_name, metrics in results.items():
+            if metrics:
+                row = {"comparison": comparison_name}
+                row.update(metrics)
+                rows.append(row)
+        
+        if rows:
+            df = pd.DataFrame(rows)
+            df.to_csv(output_path, index=False)
+            logger.info(f"비교 결과를 저장했습니다: {output_path}")
+
+@dataclass
 class TestSetEvaluator:
     """
     테스트 세트 평가 클래스
@@ -2447,9 +2836,7 @@ class TestSetEvaluator:
     2. "weighted" 모드 (가중치 기반):
        - Positive: transaction/addtocart (가중치 1.0) 또는 view (가중치 view_weight)
        - Negative: 이벤트 없음
-       - 예측: 
-         * 추천된 아이템 중 transaction/addtocart가 있으면 무조건 positive
-         * 없어도 view 가중치 합계가 threshold(view_weight) 이상이면 positive
+       - 예측: 추천된 아이템 중 transaction/addtocart가 있으면 무조건 positive, 없어도 view 가중치 합계가 threshold(view_weight) 이상이면 positive
        - 특징: view 이벤트도 일정 가중치를 받아 더 많은 positive 예측 가능
        - 파라미터: view_weight (기본값: 0.3)
        - 사용 시기: view도 사용자 관심의 신호로 간주하고 싶을 때
@@ -3202,17 +3589,15 @@ if __name__ == "__main__":
     # reranker.run()
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # Score-based 모드 (더 낮은 임계값)
+    # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
     evaluator = TestSetEvaluator(
         evaluation_mode="score_based",
         top_k=50,
-        score_percentile=50.0  # 중간 점수 이상이면 positive
-    )
-    evaluator.run() 
-    # Rank-based 모드 (더 관대한 기준)
-    evaluator = TestSetEvaluator(
-        evaluation_mode="rank_based",
-        top_k=50,
-        top_rank_ratio=0.5  # 상위 50% 순위까지 확장
+        score_percentile=50.0 # score-based 모드일 시 주석해제
+        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
     )
     evaluator.run()
+    
+    # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
+    comparator = RecommendationComparator(top_k=200)
+    comparator.run() 
