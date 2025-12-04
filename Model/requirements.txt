@@ -1,0 +1,17 @@
+# 기본 데이터 처리 및 수치 연산
+numpy>=1.21.0
+pandas>=1.5.0
+scipy>=1.7.0
+
+# 머신러닝 및 전처리
+scikit-learn>=1.0.0
+
+# 시각화
+matplotlib>=3.5.0
+
+# 그래프 신경망 (GNN) - PyTorch
+torch>=1.12.0
+
+# 하이퍼파라미터 최적화 (Bayesian Optimization, BOHB 등)
+optuna>=3.0.0
+

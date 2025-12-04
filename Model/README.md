@@ -1,6 +1,22 @@
 # 하이퍼파라미터 최적화 가이드
 
-이 모듈은 추천 시스템의 하이퍼파라미터를 최적화하기 위한 도구를 제공합니다. Grid Search와 Bayesian Optimization을 지원하며, F1 스코어를 최대화하는 방향으로 최적화를 수행합니다.
+안녕하세요!
+이곳은 추천 시스템의 하이퍼파라미터를 최적화하기 위한 도구를 제공합니다. 
+Grid Search와 Bayesian Optimization을 지원하며, F1 스코어를 최대화하는 방향으로 최적화를 수행합니다.
+
+## 📋 목차
+
+- [주요 기능](#주요-기능)
+- [설치 요구사항](#설치-요구사항)
+- [빠른 시작](#빠른-시작)
+- [최적화 방법 선택 가이드](#최적화-방법-선택-가이드)
+- [하이퍼파라미터 목록](#하이퍼파라미터-목록)
+- [최적화 메트릭](#최적화-메트릭)
+- [사용 예시](#사용-예시)
+- [성능 최적화 팁](#성능-최적화-팁)
+- [결과 해석](#결과-해석)
+- [주의사항](#주의사항)
+- [문제 해결](#문제-해결)
 
 ## 주요 기능
 
@@ -14,12 +30,25 @@
 ## 설치 요구사항
 
 ```bash
-# 기본 패키지 (이미 설치되어 있을 수 있음)
-pip install numpy pandas scikit-learn
+# Model 폴더의 requirements.txt를 사용하여 모든 패키지 설치
+cd Model
+pip install -r requirements.txt
+```
+
+또는 개별 설치:
+
+```bash
+# 기본 패키지
+pip install numpy pandas scikit-learn scipy matplotlib
+
+# 그래프 신경망 (GNN)을 위한 PyTorch
+pip install torch
 
 # Bayesian Optimization을 위한 optuna
 pip install optuna
 ```
+
+> **참고**: `Model/requirements.txt` 파일에 모든 필수 패키지가 정의되어 있습니다.
 
 ## 빠른 시작
 
@@ -132,6 +161,59 @@ python -m Model.hyperparameter_optimization --method hyperband --metric f1 --max
 python -m Model.hyperparameter_optimization --method bohb --metric f1 --max_resource 10 --eta 3
 ```
 
+## 최적화 방법 선택 가이드
+
+다음 표를 참고하여 상황에 맞는 최적화 방법을 선택하세요:
+
+| 방법 | 파라미터 수 | 실행 시간 | 정확도 | 추천 상황 |
+|------|------------|----------|--------|----------|
+| **Grid Search** | 적음 (2-4개) | 중간 | 높음 | 파라미터가 적고, 각 값의 범위가 명확할 때 |
+| **Bayesian Optimization** | 많음 (5개 이상) | 빠름 | 높음 | 파라미터 공간이 크고, 효율적인 탐색이 필요할 때 |
+| **Hyperband** | 많음 | 매우 빠름 | 중간 | 학습 시간이 오래 걸리고, 빠른 탐색이 필요할 때 |
+| **BOHB** | 많음 | 빠름 | 매우 높음 | 정확도와 효율성을 모두 고려할 때 (권장) |
+
+### 시나리오별 추천
+
+#### 시나리오 1: 처음 시작하는 경우
+```python
+# 작은 Grid Search로 시작하여 대략적인 범위 파악
+param_grid = {
+    "als_factors": [16, 32, 64],
+    "als_regularization": [0.1, 0.5],
+}
+optimizer = GridSearchOptimizer(param_grid=param_grid, metric="f1")
+```
+
+#### 시나리오 2: 시간이 부족한 경우
+```python
+# Hyperband로 빠르게 탐색
+optimizer = HyperbandOptimizer(
+    param_space={...},
+    max_resource=5,  # 작은 값으로 시작
+    eta=3
+)
+```
+
+#### 시나리오 3: 최고 성능이 필요한 경우
+```python
+# BOHB로 정밀한 탐색
+optimizer = BOHBOptimizer(
+    param_space={...},
+    max_resource=10,
+    min_samples=5  # 더 많은 샘플로 시작
+)
+```
+
+#### 시나리오 4: 파라미터가 많은 경우 (5개 이상)
+```python
+# Bayesian Optimization 사용
+optimizer = BayesianOptimizer(
+    param_space={...},
+    metric="f1"
+)
+best_config, best_score = optimizer.optimize(n_trials=100)
+```
+
 ## 하이퍼파라미터 목록
 
 ### IsolationForestPreprocessor
@@ -226,6 +308,57 @@ python Model/example_hyperparameter_optimization.py bayesian
 
 최적 파라미터는 `*_best_config.json` 파일에도 별도로 저장됩니다.
 
+### 결과 파일 예시
+
+#### 최적화 결과 파일 (`results.json`)
+```json
+{
+  "metric": "f1",
+  "param_grid": {
+    "als_factors": [16, 32, 64],
+    "als_regularization": [0.1, 0.5]
+  },
+  "best_score": 0.4523,
+  "best_params": {
+    "als_factors": 32,
+    "als_regularization": 0.1,
+    "gnn_embedding_dim": 16,
+    "reranker_als_weight": 0.4
+  },
+  "results": [
+    {
+      "params": {
+        "als_factors": 16,
+        "als_regularization": 0.1,
+        "gnn_embedding_dim": 8,
+        "reranker_als_weight": 0.3
+      },
+      "score": 0.4234,
+      "metrics": {
+        "f1": 0.4234,
+        "precision": 0.4567,
+        "recall": 0.3921,
+        "hit_rate": 0.6789
+      },
+      "elapsed_time": 1234.56
+    }
+  ]
+}
+```
+
+#### 최적 설정 파일 (`*_best_config.json`)
+```json
+{
+  "als_factors": 32,
+  "als_regularization": 0.1,
+  "als_iterations": 16,
+  "gnn_embedding_dim": 16,
+  "gnn_layers": 2,
+  "gnn_epochs": 5,
+  "reranker_als_weight": 0.4
+}
+```
+
 ## 주의사항
 
 1. **실행 시간**: 전체 파이프라인 실행은 시간이 오래 걸릴 수 있습니다. 특히 GNN 학습 단계가 가장 오래 걸립니다.
@@ -243,14 +376,14 @@ python Model/example_hyperparameter_optimization.py bayesian
 pip install optuna
 ```
 
-### 메모리 부족
-- 파라미터 그리드 크기를 줄이세요
-- `cache_preprocessing=True`로 설정하여 중간 결과를 재사용하세요
-- 배치 크기를 줄이세요 (`als_recommend_batch_size`, `gnn_batch_size`)
+### 메모리가 부족하대요
+- 파라미터 그리드 크기 줄이기
+- `cache_preprocessing=True`로 설정하여 중간 결과를 재사용하는건 어떨까요
+- 배치 크기를 줄여보세요 (`als_recommend_batch_size`, `gnn_batch_size`)
 
-### 실행 시간이 너무 깁니다
-- 작은 파라미터 그리드로 시작하세요
-- Bayesian Optimization을 사용하세요 (더 효율적)
+### 실행 시간이 너무 긴데요
+- 작은 파라미터 그리드로 시작 ㄱㄱ
+- Bayesian Optimization 써보십쇼 (더 효율적)
 - `gnn_epochs`를 줄이세요
-- `cache_preprocessing=True`로 설정하세요
+- `cache_preprocessing=True`로 설정해보세요
 
