@@ -188,6 +188,8 @@ python model.py
   - ROC-AUC, Average Precision
 - **평가 모드**: `strict`, `weighted`, `partial`, `score_based (최적)`, `rank_based`
 
+자세한 사용법은 [`model.py 가이드`](Model/MODEL_README.md)를 참고하세요.
+
 ## 🔧 하이퍼파라미터 최적화
 
 프로젝트는 다양한 하이퍼파라미터 최적화 방법을 지원합니다.
@@ -222,7 +224,7 @@ best_config, best_score = optimizer.optimize()
 optimizer.save_results("results.json")
 ```
 
-자세한 사용법은 [`Model/README.md`](Model/README.md)를 참고하세요.
+자세한 사용법은 [`하이퍼파라미터 최적화 가이드`](Model/README.md)를 참고하세요.
 
 ## 💻 사용 예시
 
