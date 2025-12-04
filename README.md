@@ -123,7 +123,7 @@ pip install -r requirements.txt
 
 ### 3. 데이터 준비
 
-1. [Kaggle 데이터셋](https://www.kaggle.com/datasets/retailrocket/ecommerce-dataset)에서 데이터 다운로드
+1. [Kaggle 데이터셋](https://www.kaggle.com/datasets/retailrocket/ecommerce-dataset)에서 데이터 다운로드 (크기가 커서 레포에는 포함하지 않았습니다.)
 2. `data/` 폴더에 다음 파일들을 배치:
    - `events.csv`
    - `item_properties_part1.csv`
@@ -222,7 +222,7 @@ best_config, best_score = optimizer.optimize()
 optimizer.save_results("results.json")
 ```
 
-자세한 사용법은 [`Model/HYPERPARAMETER_OPTIMIZATION_README.md`](Model/HYPERPARAMETER_OPTIMIZATION_README.md)를 참고하세요.
+자세한 사용법은 [`Model/README.md`](Model/README.md)를 참고하세요.
 
 ## 💻 사용 예시
 
