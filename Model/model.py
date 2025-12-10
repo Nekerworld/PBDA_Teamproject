@@ -3202,63 +3202,224 @@ class TestSetEvaluator:
         
         실행 순서:
         1. 추천 결과 및 테스트 이벤트 로드
-        2. 사용자별 추천과 실제 상호작용 비교
-        3. 성능 지표 계산
+        2. ALS, GNN, 최종 추천 결과 각각 평가
+        3. 성능 지표 계산 및 출력
         4. 시각화 생성 (ROC Curve, PR Curve, Confusion Matrix)
         """
-        final_rec_path = self.processed_dir / "final_recommendations.csv"
         events_test_path = self.processed_dir / "events_test.csv"
-
-        if not final_rec_path.exists():
-            raise FileNotFoundError("final_recommendations.csv 파일이 없습니다. ReRanker를 먼저 실행해 주세요.")
         if not events_test_path.exists():
             raise FileNotFoundError("events_test.csv 파일이 없습니다. IsolationForestPreprocessor가 생성한 데이터를 확인해 주세요.")
 
-        recommendations = pd.read_csv(final_rec_path)
         events_test = pd.read_csv(events_test_path)
-
         test_users = events_test["visitorid"].dropna().astype(int).unique()
+
+        # Positive 이벤트 정의 (모든 평가에서 공통 사용)
+        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+        positives: Dict[int, set[int]] = (
+            positive_events.dropna(subset=["visitorid", "itemid"])
+            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            .groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+
+        # 1. ALS 추천 결과 평가
+        als_rec_path = self.processed_dir / "als_recommendations.csv"
+        if als_rec_path.exists():
+            logger.info("=" * 80)
+            logger.info("ALS 추천 결과 평가 시작")
+            logger.info("=" * 80)
+            als_recommendations = pd.read_csv(als_rec_path)
+            als_test_recs = als_recommendations[als_recommendations["visitorid"].isin(test_users)]
+            als_test_recs = (
+                als_test_recs.sort_values(["visitorid", "score"], ascending=[True, False])
+                .groupby("visitorid")
+                .head(self.top_k)
+            )
+            als_results = self._evaluate_recommendations(als_test_recs, positives, events_test, "ALS", score_col="score")
+            als_f1 = als_results["f1"]
+            logger.info("ALS F1 Score: %.4f", als_f1)
+            # ALS 시각화 생성
+            self._create_visualizations(
+                y_true=als_results["y_true"],
+                y_pred=als_results["y_pred"],
+                y_scores=als_results["y_scores"],
+                item_y_true=als_results["item_y_true"],
+                item_y_scores=als_results["item_y_scores"],
+                confusion=als_results["confusion"],
+                roc_auc=als_results["roc_auc"],
+                average_precision=als_results["average_precision"],
+                model_name="ALS"
+            )
+        else:
+            logger.warning("als_recommendations.csv 파일이 없어 ALS 추천 결과를 평가할 수 없습니다.")
+            als_f1 = None
+
+        # 2. GNN 추천 결과 평가
+        gnn_user_emb_path = self.processed_dir / "gnn_user_embeddings.csv"
+        gnn_item_emb_path = self.processed_dir / "gnn_item_embeddings.csv"
+        if gnn_user_emb_path.exists() and gnn_item_emb_path.exists():
+            logger.info("=" * 80)
+            logger.info("GNN 추천 결과 평가 시작")
+            logger.info("=" * 80)
+            gnn_recommendations = self._generate_gnn_recommendations(test_users)
+            gnn_results = self._evaluate_recommendations(gnn_recommendations, positives, events_test, "GNN", score_col="score")
+            gnn_f1 = gnn_results["f1"]
+            logger.info("GNN F1 Score: %.4f", gnn_f1)
+            # GNN 시각화 생성
+            self._create_visualizations(
+                y_true=gnn_results["y_true"],
+                y_pred=gnn_results["y_pred"],
+                y_scores=gnn_results["y_scores"],
+                item_y_true=gnn_results["item_y_true"],
+                item_y_scores=gnn_results["item_y_scores"],
+                confusion=gnn_results["confusion"],
+                roc_auc=gnn_results["roc_auc"],
+                average_precision=gnn_results["average_precision"],
+                model_name="GNN"
+            )
+        else:
+            logger.warning("GNN 임베딩 파일이 없어 GNN 추천 결과를 평가할 수 없습니다.")
+            gnn_f1 = None
+
+        # 3. 최종 추천 결과 평가
+        final_rec_path = self.processed_dir / "final_recommendations.csv"
+        if not final_rec_path.exists():
+            raise FileNotFoundError("final_recommendations.csv 파일이 없습니다. ReRanker를 먼저 실행해 주세요.")
+        
+        logger.info("=" * 80)
+        logger.info("최종 추천 결과 평가 시작")
+        logger.info("=" * 80)
+        recommendations = pd.read_csv(final_rec_path)
         test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
         test_recommendations = (
             test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(self.top_k)
         )
         test_recommendations.to_csv(self.processed_dir / "test_recommendations.csv", index=False)
+        
+        final_results = self._evaluate_recommendations(test_recommendations, positives, events_test, "최종", score_col="final_score")
+        final_f1 = final_results["f1"]
+        logger.info("최종 F1 Score: %.4f", final_f1)
+        # 최종 추천 결과 시각화 생성
+        self._create_visualizations(
+            y_true=final_results["y_true"],
+            y_pred=final_results["y_pred"],
+            y_scores=final_results["y_scores"],
+            item_y_true=final_results["item_y_true"],
+            item_y_scores=final_results["item_y_scores"],
+            confusion=final_results["confusion"],
+            roc_auc=final_results["roc_auc"],
+            average_precision=final_results["average_precision"],
+            model_name="Final"
+        )
 
-        # 평가 모드에 따라 positive 정의
-        if self.evaluation_mode == "strict":
-            # 기존 방식: addtocart/transaction만 positive
-            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-            positives: Dict[int, set[int]] = (
-                positive_events.dropna(subset=["visitorid", "itemid"])
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .apply(lambda items: set(items.tolist()))
-                .to_dict()
-            )
-            # 가중치 딕셔너리 (strict 모드에서는 사용하지 않음)
-            item_weights: Dict[Tuple[int, int], float] = {}
-        elif self.evaluation_mode == "weighted":
-            # 가중치 기반: view도 일정 가중치 부여
-            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-            positives: Dict[int, set[int]] = (
-                positive_events.dropna(subset=["visitorid", "itemid"])
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .apply(lambda items: set(items.tolist()))
-                .to_dict()
-            )
-            # view 이벤트도 가중치로 포함 (메모리 효율적인 방식)
+        # 최종 요약 출력
+        logger.info("=" * 80)
+        logger.info("전체 평가 결과 요약")
+        logger.info("=" * 80)
+        if als_f1 is not None:
+            logger.info("ALS F1 Score: %.4f", als_f1)
+        if gnn_f1 is not None:
+            logger.info("GNN F1 Score: %.4f", gnn_f1)
+        logger.info("최종 F1 Score: %.4f", final_f1)
+        logger.info("=" * 80)
+
+        # 최종 추천 결과에 대한 시각화 생성
+        self._create_visualizations(
+            y_true=final_results["y_true"],
+            y_pred=final_results["y_pred"],
+            y_scores=final_results["y_scores"],
+            item_y_true=final_results["item_y_true"],
+            item_y_scores=final_results["item_y_scores"],
+            confusion=final_results["confusion"],
+            roc_auc=final_results["roc_auc"],
+            average_precision=final_results["average_precision"],
+            model_name="Final"
+        )
+
+    def _generate_gnn_recommendations(self, test_users: np.ndarray) -> pd.DataFrame:
+        """GNN 임베딩을 사용하여 테스트 사용자에 대한 추천 결과를 생성합니다."""
+        logger.info("GNN 임베딩을 사용하여 추천 결과 생성 중...")
+        
+        # GNN 임베딩 로드
+        gnn_user_embeddings_df = pd.read_csv(self.processed_dir / "gnn_user_embeddings.csv")
+        gnn_item_embeddings_df = pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv")
+        
+        # 임베딩 배열로 변환
+        gnn_user_ids = gnn_user_embeddings_df["visitorid"].values.astype(int)
+        gnn_item_ids = gnn_item_embeddings_df["itemid"].values.astype(int)
+        
+        user_embedding_cols = [col for col in gnn_user_embeddings_df.columns if col.startswith("embedding_")]
+        item_embedding_cols = [col for col in gnn_item_embeddings_df.columns if col.startswith("embedding_")]
+        
+        gnn_user_embeddings = gnn_user_embeddings_df[user_embedding_cols].values.astype(np.float32)
+        gnn_item_embeddings = gnn_item_embeddings_df[item_embedding_cols].values.astype(np.float32)
+        
+        # 매핑 생성
+        gnn_user_map = {user_id: idx for idx, user_id in enumerate(gnn_user_ids)}
+        gnn_item_map = {item_id: idx for idx, item_id in enumerate(gnn_item_ids)}
+        
+        results: List[Dict[str, Any]] = []
+        
+        for visitor_id in test_users:
+            if visitor_id not in gnn_user_map:
+                continue
+            
+            user_idx = gnn_user_map[visitor_id]
+            user_vector = gnn_user_embeddings[user_idx]
+            
+            # 모든 아이템에 대한 점수 계산
+            gnn_scores = gnn_item_embeddings @ user_vector
+            
+            # 상위 K개 선택
+            top_indices = np.argsort(gnn_scores)[::-1][:self.top_k]
+            
+            for rank, item_idx in enumerate(top_indices, start=1):
+                item_id = gnn_item_ids[item_idx]
+                score = float(gnn_scores[item_idx])
+                results.append({
+                    "visitorid": int(visitor_id),
+                    "itemid": int(item_id),
+                    "score": score,
+                    "rank": rank
+                })
+        
+        return pd.DataFrame(results)
+
+    def _evaluate_recommendations(
+        self,
+        recommendations: pd.DataFrame,
+        positives: Dict[int, set[int]],
+        events_test: pd.DataFrame,
+        model_name: str,
+        score_col: str = "final_score"
+    ) -> Dict[str, Any]:
+        """
+        추천 결과를 평가하고 평가 결과를 반환합니다.
+        
+        Args:
+            recommendations: 평가할 추천 결과 데이터프레임
+            positives: 사용자별 positive 아이템 딕셔너리
+            events_test: 테스트 이벤트 데이터프레임
+            model_name: 모델 이름 (로깅용)
+            score_col: 점수 컬럼 이름
+            
+        Returns:
+            평가 결과 딕셔너리 (f1, y_true, y_pred, y_scores, item_y_true, item_y_scores, confusion, roc_auc, average_precision)
+        """
+        # 평가 모드에 따라 가중치 정의 (positives는 이미 파라미터로 받음)
+        item_weights: Dict[Tuple[int, int], float] = {}
+        score_threshold: float = 0.0
+        
+        if self.evaluation_mode == "weighted":
+            # view 이벤트도 가중치로 포함
             view_events = events_test[events_test["event"] == "view"]
             view_events_clean = (
                 view_events.dropna(subset=["visitorid", "itemid"])
                 .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
             )
             
-            # 아이템별 가중치 계산 (transaction/addtocart=1.0, view=view_weight)
-            # 메모리 효율적으로 직접 딕셔너리 구성 (numpy 배열 사용)
-            item_weights: Dict[Tuple[int, int], float] = {}
-            
-            # view 이벤트 가중치 추가 (벡터화된 방식)
+            # view 이벤트 가중치 추가
             if not view_events_clean.empty:
                 visitor_ids = view_events_clean["visitorid"].values
                 item_ids = view_events_clean["itemid"].values
@@ -3268,59 +3429,19 @@ class TestSetEvaluator:
             # transaction/addtocart 가중치 추가 (view보다 우선)
             for visitor_id, items in positives.items():
                 for item_id in items:
-                    item_weights[(visitor_id, item_id)] = 1.0  # transaction/addtocart는 1.0
-        elif self.evaluation_mode == "partial":
-            # 부분 점수 시스템: Top-K 중 일정 비율 이상 hit하면 positive
-            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-            positives: Dict[int, set[int]] = (
-                positive_events.dropna(subset=["visitorid", "itemid"])
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .apply(lambda items: set(items.tolist()))
-                .to_dict()
-            )
-            item_weights: Dict[Tuple[int, int], float] = {}
+                    item_weights[(visitor_id, item_id)] = 1.0
+        
         elif self.evaluation_mode == "score_based":
-            # 점수 기반 평가: 추천 점수를 활용한 평가
-            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-            positives: Dict[int, set[int]] = (
-                positive_events.dropna(subset=["visitorid", "itemid"])
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .apply(lambda items: set(items.tolist()))
-                .to_dict()
-            )
-            item_weights: Dict[Tuple[int, int], float] = {}
-            
             # 점수 임계값 계산 (전체 추천 점수의 백분위수 사용)
-            # FN을 줄이기 위해 더 낮은 백분위수 사용 (기본값을 낮춤)
             if self.score_threshold is None:
-                all_scores = test_recommendations["final_score"].astype(float).values
+                all_scores = recommendations[score_col].astype(float).values
                 if len(all_scores) > 0:
-                    # 더 낮은 백분위수로 임계값 설정 (더 많은 positive 예측)
-                    # 기본값을 50%로 낮춰서 중간 점수 이상이면 positive로 예측
-                    effective_percentile = min(self.score_percentile, 50.0)  # 최대 50%로 제한
-                    self.score_threshold = float(np.percentile(all_scores, effective_percentile))
+                    effective_percentile = min(self.score_percentile, 50.0)
+                    score_threshold = float(np.percentile(all_scores, effective_percentile))
                 else:
-                    self.score_threshold = 0.0
-                logger.info("Calculated score threshold: %.4f (percentile: %.1f%%, effective: %.1f%%)", 
-                          self.score_threshold, self.score_percentile, effective_percentile)
+                    score_threshold = 0.0
             else:
-                logger.info("Using provided score threshold: %.4f", self.score_threshold)
-                
-        elif self.evaluation_mode == "rank_based":
-            # 순위 기반 평가: 상위 순위의 추천을 더 중요하게 평가
-            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-            positives: Dict[int, set[int]] = (
-                positive_events.dropna(subset=["visitorid", "itemid"])
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .apply(lambda items: set(items.tolist()))
-                .to_dict()
-            )
-            item_weights: Dict[Tuple[int, int], float] = {}
-        else:
-            raise ValueError(f"Unknown evaluation_mode: {self.evaluation_mode}. Use 'strict', 'weighted', 'partial', 'score_based', or 'rank_based'.")
+                score_threshold = self.score_threshold
 
         metrics = {
             "users_evaluated": 0,
@@ -3334,7 +3455,7 @@ class TestSetEvaluator:
         item_y_true: List[int] = []
         item_y_scores: List[float] = []
 
-        for visitor_id, recs in test_recommendations.groupby("visitorid"):
+        for visitor_id, recs in recommendations.groupby("visitorid"):
             predicted_items = recs["itemid"].astype(int).tolist()
             relevant_items = positives.get(visitor_id, set())
             if not predicted_items:
@@ -3347,7 +3468,7 @@ class TestSetEvaluator:
                 # 기존 방식
                 labels = [1 if item in relevant_items else 0 for item in predicted_items]
                 item_y_true.extend(labels)
-                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
 
                 if not relevant_items:
                     y_true.append(0)
@@ -3367,7 +3488,7 @@ class TestSetEvaluator:
 
                 y_true.append(1)
                 y_pred.append(1 if hits > 0 else 0)
-                y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+                y_scores.append(max(recs[score_col].tolist()) if not recs.empty else 0.0)
 
             elif self.evaluation_mode == "weighted":
                 # 가중치 기반 평가
@@ -3394,7 +3515,7 @@ class TestSetEvaluator:
                 
                 labels = [1 if score > 0 else 0 for score in item_scores]
                 item_y_true.extend(labels)
-                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
 
                 # 사용자 레벨 평가
                 # 실제 positive (transaction/addtocart)가 있는지 확인
@@ -3426,7 +3547,7 @@ class TestSetEvaluator:
                 
                 # 예측: hits가 있거나 가중치 합계가 임계값 이상이면 positive
                 y_pred.append(1 if predicted_positive else 0)
-                y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+                y_scores.append(max(recs[score_col].tolist()) if not recs.empty else 0.0)
                 
                 # 메트릭 계산
                 if actual_strong_positive:
@@ -3451,7 +3572,7 @@ class TestSetEvaluator:
                 # 부분 점수 시스템: Top-K 중 일정 비율 이상 hit하면 positive
                 labels = [1 if item in relevant_items else 0 for item in predicted_items]
                 item_y_true.extend(labels)
-                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
 
                 hits = len(set(predicted_items) & relevant_items)
                 hit_ratio = hits / len(predicted_items) if predicted_items else 0.0
@@ -3479,13 +3600,13 @@ class TestSetEvaluator:
 
                 y_true.append(1)
                 y_pred.append(1 if predicted_positive else 0)
-                y_scores.append(max(recs["final_score"].tolist()) if not recs.empty else 0.0)
+                y_scores.append(max(recs[score_col].tolist()) if not recs.empty else 0.0)
 
             elif self.evaluation_mode == "score_based":
                 # 점수 기반 평가: 추천 점수를 활용한 평가
                 labels = [1 if item in relevant_items else 0 for item in predicted_items]
                 item_y_true.extend(labels)
-                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
 
                 hits = len(set(predicted_items) & relevant_items)
                 
@@ -3497,8 +3618,8 @@ class TestSetEvaluator:
                     y_pred.append(0)
                     y_scores.append(0.0)
                     continue
-
-                scores = recs["final_score"].astype(float).values
+                
+                scores = recs[score_col].astype(float).values
                 
                 # 점수가 비어있는 경우 처리
                 if len(scores) == 0:
@@ -3522,7 +3643,7 @@ class TestSetEvaluator:
                 
                 # 예측: hits가 있거나, 점수가 충분히 높으면 positive
                 # 더 관대한 기준: 평균 점수 또는 상위 점수 평균이 임계값 이상이면 positive
-                predicted_positive = hits > 0 or mean_score >= self.score_threshold or top_mean_score >= self.score_threshold
+                predicted_positive = hits > 0 or mean_score >= score_threshold or top_mean_score >= score_threshold
                 
                 if hits > 0:
                     metrics["hit_users"] += 1
@@ -3541,7 +3662,7 @@ class TestSetEvaluator:
                 # 순위 기반 평가: 상위 순위의 추천을 더 중요하게 평가
                 labels = [1 if item in relevant_items else 0 for item in predicted_items]
                 item_y_true.extend(labels)
-                item_y_scores.extend(recs["final_score"].astype(float).tolist())
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
 
                 hits = len(set(predicted_items) & relevant_items)
                 
@@ -3553,9 +3674,18 @@ class TestSetEvaluator:
                     y_pred.append(0)
                     y_scores.append(0.0)
                     continue
-
-                ranks = recs["rank"].astype(int).values
-                scores = recs["final_score"].astype(float).values
+                
+                # rank 컬럼이 없으면 score 기반으로 순위 생성
+                if "rank" in recs.columns:
+                    ranks = recs["rank"].astype(int).values
+                else:
+                    # score가 높을수록 순위가 높도록 (1부터 시작)
+                    scores_sorted = np.argsort(-recs[score_col].astype(float).values)
+                    ranks = np.zeros(len(scores_sorted), dtype=int)
+                    for idx, pos in enumerate(scores_sorted):
+                        ranks[pos] = idx + 1
+                
+                scores = recs[score_col].astype(float).values
                 
                 # 점수가 비어있는 경우 처리
                 if len(scores) == 0:
@@ -3648,33 +3778,158 @@ class TestSetEvaluator:
             item_f1 = f1_score(y_true_arr, item_preds, zero_division=0)
 
         logger.info(
-            "Test Evaluation (mode=%s) - users: %d, hit@%d: %.4f, precision: %.4f, recall: %.4f",
+            "%s Evaluation (mode=%s) - users: %d, hit@%d: %.4f, precision: %.4f, recall: %.4f, F1: %.4f",
+            model_name,
             self.evaluation_mode,
             evaluated,
             self.top_k,
             hit_rate,
             mean_precision,
             mean_recall,
+            f1,
         )
-        if confusion is not None:
-            logger.info("\nConfusion Matrix:\n%s", confusion)
-            logger.info(
-                "Accuracy: %.4f, Precision: %.4f, Recall: %.4f, F1: %.4f, ROC-AUC: %.4f, Average Precision: %.4f",
-                accuracy,
-                precision_score_value,
-                recall_score_value,
-                f1,
-                roc_auc,
-                average_precision,
-            )
-        logger.info(
-            "Item-level metrics (threshold=%.4f) - Precision: %.4f, Recall: %.4f, F1: %.4f",
-            best_threshold,
-            item_precision,
-            item_recall,
-            item_f1,
-        )
+        
+        return {
+            "f1": f1,
+            "y_true": y_true,
+            "y_pred": y_pred,
+            "y_scores": y_scores,
+            "item_y_true": item_y_true,
+            "item_y_scores": item_y_scores,
+            "confusion": confusion,
+            "roc_auc": roc_auc,
+            "average_precision": average_precision,
+        }
 
+    def _create_visualizations_for_final(
+        self,
+        recommendations: pd.DataFrame,
+        positives: Dict[int, set[int]],
+        events_test: pd.DataFrame,
+    ) -> None:
+        """최종 추천 결과에 대한 시각화를 생성합니다."""
+        # 최종 추천 결과 평가 (시각화용)
+        score_col = "final_score"
+        
+        # 평가 모드에 따라 가중치 정의
+        item_weights: Dict[Tuple[int, int], float] = {}
+        
+        if self.evaluation_mode == "weighted":
+            view_events = events_test[events_test["event"] == "view"]
+            view_events_clean = (
+                view_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            )
+            
+            if not view_events_clean.empty:
+                visitor_ids = view_events_clean["visitorid"].values
+                item_ids = view_events_clean["itemid"].values
+                for visitor_id, item_id in zip(visitor_ids, item_ids):
+                    item_weights[(int(visitor_id), int(item_id))] = self.view_weight
+            
+            for visitor_id, items in positives.items():
+                for item_id in items:
+                    item_weights[(visitor_id, item_id)] = 1.0
+        
+        y_true: List[int] = []
+        y_pred: List[int] = []
+        y_scores: List[float] = []
+        item_y_true: List[int] = []
+        item_y_scores: List[float] = []
+        
+        for visitor_id, recs in recommendations.groupby("visitorid"):
+            predicted_items = recs["itemid"].astype(int).tolist()
+            relevant_items = positives.get(visitor_id, set())
+            if not predicted_items:
+                continue
+            
+            if self.evaluation_mode == "strict":
+                if not relevant_items:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+                
+                hits = len(set(predicted_items) & relevant_items)
+                y_true.append(1)
+                y_pred.append(1 if hits > 0 else 0)
+                y_scores.append(max(recs[score_col].tolist()) if not recs.empty else 0.0)
+                
+                labels = [1 if item in relevant_items else 0 for item in predicted_items]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
+            elif self.evaluation_mode == "weighted":
+                item_scores = []
+                for item_id in predicted_items:
+                    if item_id in relevant_items:
+                        item_scores.append(1.0)
+                    elif (visitor_id, item_id) in item_weights:
+                        item_scores.append(item_weights[(visitor_id, item_id)])
+                    else:
+                        item_scores.append(0.0)
+                
+                total_weight = sum(item_scores)
+                threshold = self.view_weight
+                hits = len(set(predicted_items) & relevant_items) if relevant_items else 0
+                predicted_positive = hits > 0 or total_weight >= threshold
+                actual_positive = len(relevant_items) > 0
+                
+                if not actual_positive and total_weight == 0.0:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+                
+                y_true.append(1 if actual_positive else 0)
+                y_pred.append(1 if predicted_positive else 0)
+                y_scores.append(max(recs[score_col].tolist()) if not recs.empty else 0.0)
+                
+                labels = [1 if score > 0 else 0 for score in item_scores]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
+            else:
+                # 다른 모드는 strict와 유사하게 처리
+                if not relevant_items:
+                    y_true.append(0)
+                    y_pred.append(0)
+                    y_scores.append(0.0)
+                    continue
+                
+                hits = len(set(predicted_items) & relevant_items)
+                y_true.append(1)
+                y_pred.append(1 if hits > 0 else 0)
+                y_scores.append(max(recs[score_col].tolist()) if not recs.empty else 0.0)
+                
+                labels = [1 if item in relevant_items else 0 for item in predicted_items]
+                item_y_true.extend(labels)
+                item_y_scores.extend(recs[score_col].astype(float).tolist())
+        
+        # 메트릭 계산
+        from sklearn.metrics import (
+            accuracy_score,
+            average_precision_score,
+            confusion_matrix,
+            f1_score,
+            precision_score,
+            recall_score,
+            roc_auc_score,
+        )
+        
+        confusion: Optional[np.ndarray] = None
+        accuracy = precision_score_value = recall_score_value = f1 = roc_auc = average_precision = 0.0
+        
+        if y_true:
+            confusion = confusion_matrix(y_true, y_pred)
+            accuracy = accuracy_score(y_true, y_pred)
+            precision_score_value = precision_score(y_true, y_pred, zero_division=0)
+            recall_score_value = recall_score(y_true, y_pred, zero_division=0)
+            f1 = f1_score(y_true, y_pred, zero_division=0)
+            try:
+                roc_auc = roc_auc_score(y_true, y_scores)
+            except ValueError:
+                roc_auc = 0.0
+            average_precision = average_precision_score(y_true, y_scores)
+        
         # 시각화 생성
         self._create_visualizations(
             y_true=y_true,
@@ -3697,6 +3952,7 @@ class TestSetEvaluator:
         confusion: Optional[np.ndarray],
         roc_auc: float,
         average_precision: float,
+        model_name: str = "Final",
     ) -> None:
         """
         평가 결과를 시각화합니다.
@@ -3715,6 +3971,7 @@ class TestSetEvaluator:
             confusion: 혼동 행렬 (사용자 레벨)
             roc_auc: ROC-AUC 점수
             average_precision: Average Precision 점수
+            model_name: 모델 이름 (파일명에 사용, 기본값: "Final")
         """
         try:
             import matplotlib.pyplot as plt
@@ -3760,13 +4017,13 @@ class TestSetEvaluator:
                 plt.ylim([0.0, 1.05])
                 plt.xlabel("False Positive Rate", fontsize=12)
                 plt.ylabel("True Positive Rate", fontsize=12)
-                plt.title(f"ROC Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
+                plt.title(f"{model_name} - ROC Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.legend(loc="lower right", fontsize=10)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
-                plt.savefig(viz_dir / "roc_curve.png", dpi=300, bbox_inches="tight")
+                plt.savefig(viz_dir / f"{model_name.lower()}_roc_curve.png", dpi=300, bbox_inches="tight")
                 plt.close()
-                logger.info("Saved ROC curve to %s", viz_dir / "roc_curve.png")
+                logger.info("Saved ROC curve to %s", viz_dir / f"{model_name.lower()}_roc_curve.png")
             except Exception as e:
                 logger.warning("ROC curve 생성 실패: %s", e)
 
@@ -3793,13 +4050,13 @@ class TestSetEvaluator:
                 plt.ylim([0.0, 1.05])
                 plt.xlabel("Recall", fontsize=12)
                 plt.ylabel("Precision", fontsize=12)
-                plt.title(f"Precision-Recall Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
+                plt.title(f"{model_name} - Precision-Recall Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.legend(loc="lower left", fontsize=10)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
-                plt.savefig(viz_dir / "precision_recall_curve.png", dpi=300, bbox_inches="tight")
+                plt.savefig(viz_dir / f"{model_name.lower()}_precision_recall_curve.png", dpi=300, bbox_inches="tight")
                 plt.close()
-                logger.info("Saved Precision-Recall curve to %s", viz_dir / "precision_recall_curve.png")
+                logger.info("Saved Precision-Recall curve to %s", viz_dir / f"{model_name.lower()}_precision_recall_curve.png")
             except Exception as e:
                 logger.warning("Precision-Recall curve 생성 실패: %s", e)
 
@@ -3820,11 +4077,11 @@ class TestSetEvaluator:
                 plt.xlabel("Predicted Label", fontsize=12)
                 plt.ylabel("True Label", fontsize=12)
                 mode_label = f" (mode: {self.evaluation_mode})" if hasattr(self, 'evaluation_mode') else ""
-                plt.title(f"Confusion Matrix (User-level){mode_label}", fontsize=14, fontweight="bold")
+                plt.title(f"{model_name} - Confusion Matrix (User-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.tight_layout()
-                plt.savefig(viz_dir / "confusion_matrix.png", dpi=300, bbox_inches="tight")
+                plt.savefig(viz_dir / f"{model_name.lower()}_confusion_matrix.png", dpi=300, bbox_inches="tight")
                 plt.close()
-                logger.info("Saved Confusion matrix to %s", viz_dir / "confusion_matrix.png")
+                logger.info("Saved Confusion matrix to %s", viz_dir / f"{model_name.lower()}_confusion_matrix.png")
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
@@ -3855,14 +4112,14 @@ if __name__ == "__main__":
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    # evaluator = TestSetEvaluator(
-    #     evaluation_mode="score_based",
-    #     top_k=50,
-    #     score_percentile=50.0 # score-based 모드일 시 주석해제
-    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    # )
-    # evaluator.run()
+    evaluator = TestSetEvaluator(
+        evaluation_mode="score_based",
+        top_k=50,
+        score_percentile=50.0 # score-based 모드일 시 주석해제
+        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    )
+    evaluator.run()
     
     # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
     comparator = RecommendationComparator(top_k=200)
-    comparator.run() 
+    comparator.run()
