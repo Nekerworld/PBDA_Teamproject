@@ -2685,12 +2685,14 @@ class RecommendationComparator:
         rec1_sort_col = "score" if "score" in rec1.columns else "rank"
         rec1_ascending = False if rec1_sort_col == "score" else True
         
-        rec1_by_user = rec1.groupby("visitorid", include_groups=False).apply(
+        # FutureWarning 해결: 그룹핑 컬럼을 제외하고 필요한 컬럼만 선택
+        rec1_cols = ["itemid", rec1_sort_col]
+        rec1_by_user = rec1.groupby("visitorid")[rec1_cols].apply(
             lambda x: set(x.nlargest(self.top_k, rec1_sort_col)["itemid"] if rec1_sort_col == "score" 
                          else x.nsmallest(self.top_k, rec1_sort_col)["itemid"])
         ).to_dict()
         
-        rec2_by_user = rec2.groupby("visitorid", include_groups=False).apply(
+        rec2_by_user = rec2.groupby("visitorid")[["itemid", "rank"]].apply(
             lambda x: set(x.nsmallest(self.top_k, "rank")["itemid"])
         ).to_dict()
         
