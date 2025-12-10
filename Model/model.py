@@ -4141,17 +4141,17 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
 
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    als_recommender = ALSRecommender()
+    als_recommender.run()
 
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
+    gnn_generator = GNNEmbeddingGenerator()
+    gnn_generator.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    reranker = ReRanker()
+    reranker.run()
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
