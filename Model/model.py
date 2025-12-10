@@ -2685,12 +2685,12 @@ class RecommendationComparator:
         rec1_sort_col = "score" if "score" in rec1.columns else "rank"
         rec1_ascending = False if rec1_sort_col == "score" else True
         
-        rec1_by_user = rec1.groupby("visitorid").apply(
+        rec1_by_user = rec1.groupby("visitorid", include_groups=False).apply(
             lambda x: set(x.nlargest(self.top_k, rec1_sort_col)["itemid"] if rec1_sort_col == "score" 
                          else x.nsmallest(self.top_k, rec1_sort_col)["itemid"])
         ).to_dict()
         
-        rec2_by_user = rec2.groupby("visitorid").apply(
+        rec2_by_user = rec2.groupby("visitorid", include_groups=False).apply(
             lambda x: set(x.nsmallest(self.top_k, "rank")["itemid"])
         ).to_dict()
         
@@ -2875,18 +2875,18 @@ class RecommendationComparator:
         # 1. 지표별 비교 바 차트
         try:
             fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-            fig.suptitle("추천 결과 비교 분석 - 지표별 비교", fontsize=16, fontweight="bold", y=0.995)
+            fig.suptitle("Recommendation Comparison - Metrics Comparison", fontsize=16, fontweight="bold", y=0.995)
 
             metrics_to_plot = [
                 ("jaccard_similarity", "Jaccard Similarity", axes[0, 0]),
                 ("precision_at_k", f"Precision@{self.top_k}", axes[0, 1]),
                 ("recall_at_k", f"Recall@{self.top_k}", axes[0, 2]),
                 ("ndcg_at_k", f"NDCG@{self.top_k}", axes[1, 0]),
-                ("avg_rank_difference", "평균 순위 차이", axes[1, 1]),
+                ("avg_rank_difference", "Average Rank Difference", axes[1, 1]),
             ]
 
             comparisons = ["als_vs_final", "gnn_vs_final"]
-            comparison_labels = ["ALS vs 최종", "GNN vs 최종"]
+            comparison_labels = ["ALS vs Final", "GNN vs Final"]
             colors = ["#3498db", "#e74c3c"]
 
             for metric_key, metric_label, ax in metrics_to_plot:
@@ -2917,11 +2917,11 @@ class RecommendationComparator:
             # 마지막 subplot에 요약 정보 표시
             ax = axes[1, 2]
             ax.axis('off')
-            summary_text = "비교 요약\n\n"
+            summary_text = "Comparison Summary\n\n"
             for comp, comp_label in zip(comparisons, comparison_labels):
                 if comp in results and results[comp]:
                     summary_text += f"{comp_label}:\n"
-                    summary_text += f"  공통 사용자: {results[comp].get('num_common_users', 0):,}명\n"
+                    summary_text += f"  Common Users: {results[comp].get('num_common_users', 0):,}\n"
                     summary_text += f"  Jaccard: {results[comp].get('jaccard_similarity', 0):.4f}\n"
                     summary_text += f"  Precision@{self.top_k}: {results[comp].get('precision_at_k', 0):.4f}\n"
                     summary_text += f"  Recall@{self.top_k}: {results[comp].get('recall_at_k', 0):.4f}\n\n"
@@ -2938,7 +2938,7 @@ class RecommendationComparator:
         # 2. Jaccard Similarity 분포 히스토그램
         try:
             fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-            fig.suptitle("Jaccard Similarity 분포 비교", fontsize=14, fontweight="bold")
+            fig.suptitle("Jaccard Similarity Distribution Comparison", fontsize=14, fontweight="bold")
 
             for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
                 if comp in user_metrics and "jaccard_similarities" in user_metrics[comp]:
@@ -2946,10 +2946,10 @@ class RecommendationComparator:
                     if jaccards:
                         axes[idx].hist(jaccards, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
                         axes[idx].axvline(np.mean(jaccards), color='red', linestyle='--', linewidth=2, 
-                                         label=f'평균: {np.mean(jaccards):.4f}')
+                                         label=f'Mean: {np.mean(jaccards):.4f}')
                         axes[idx].set_xlabel("Jaccard Similarity", fontsize=11)
-                        axes[idx].set_ylabel("사용자 수", fontsize=11)
-                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(jaccards):.4f}, 표준편차: {np.std(jaccards):.4f})", 
+                        axes[idx].set_ylabel("Number of Users", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(Mean: {np.mean(jaccards):.4f}, Std: {np.std(jaccards):.4f})", 
                                            fontsize=11, fontweight="bold")
                         axes[idx].legend()
                         axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
@@ -2964,7 +2964,7 @@ class RecommendationComparator:
         # 3. Precision@K 분포 히스토그램
         try:
             fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-            fig.suptitle(f"Precision@{self.top_k} 분포 비교", fontsize=14, fontweight="bold")
+            fig.suptitle(f"Precision@{self.top_k} Distribution Comparison", fontsize=14, fontweight="bold")
 
             for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
                 if comp in user_metrics and "precisions" in user_metrics[comp]:
@@ -2972,10 +2972,10 @@ class RecommendationComparator:
                     if precisions:
                         axes[idx].hist(precisions, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
                         axes[idx].axvline(np.mean(precisions), color='red', linestyle='--', linewidth=2,
-                                         label=f'평균: {np.mean(precisions):.4f}')
+                                         label=f'Mean: {np.mean(precisions):.4f}')
                         axes[idx].set_xlabel(f"Precision@{self.top_k}", fontsize=11)
-                        axes[idx].set_ylabel("사용자 수", fontsize=11)
-                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(precisions):.4f}, 표준편차: {np.std(precisions):.4f})",
+                        axes[idx].set_ylabel("Number of Users", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(Mean: {np.mean(precisions):.4f}, Std: {np.std(precisions):.4f})",
                                            fontsize=11, fontweight="bold")
                         axes[idx].legend()
                         axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
@@ -2990,7 +2990,7 @@ class RecommendationComparator:
         # 4. Recall@K 분포 히스토그램
         try:
             fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-            fig.suptitle(f"Recall@{self.top_k} 분포 비교", fontsize=14, fontweight="bold")
+            fig.suptitle(f"Recall@{self.top_k} Distribution Comparison", fontsize=14, fontweight="bold")
 
             for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
                 if comp in user_metrics and "recalls" in user_metrics[comp]:
@@ -2998,10 +2998,10 @@ class RecommendationComparator:
                     if recalls:
                         axes[idx].hist(recalls, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
                         axes[idx].axvline(np.mean(recalls), color='red', linestyle='--', linewidth=2,
-                                         label=f'평균: {np.mean(recalls):.4f}')
+                                         label=f'Mean: {np.mean(recalls):.4f}')
                         axes[idx].set_xlabel(f"Recall@{self.top_k}", fontsize=11)
-                        axes[idx].set_ylabel("사용자 수", fontsize=11)
-                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(recalls):.4f}, 표준편차: {np.std(recalls):.4f})",
+                        axes[idx].set_ylabel("Number of Users", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(Mean: {np.mean(recalls):.4f}, Std: {np.std(recalls):.4f})",
                                            fontsize=11, fontweight="bold")
                         axes[idx].legend()
                         axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
@@ -3016,7 +3016,7 @@ class RecommendationComparator:
         # 5. NDCG@K 분포 히스토그램
         try:
             fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-            fig.suptitle(f"NDCG@{self.top_k} 분포 비교", fontsize=14, fontweight="bold")
+            fig.suptitle(f"NDCG@{self.top_k} Distribution Comparison", fontsize=14, fontweight="bold")
 
             for idx, (comp, comp_label) in enumerate(zip(comparisons, comparison_labels)):
                 if comp in user_metrics and "ndcgs" in user_metrics[comp]:
@@ -3024,10 +3024,10 @@ class RecommendationComparator:
                     if ndcgs:
                         axes[idx].hist(ndcgs, bins=50, alpha=0.7, color=colors[idx], edgecolor='black', linewidth=0.5)
                         axes[idx].axvline(np.mean(ndcgs), color='red', linestyle='--', linewidth=2,
-                                         label=f'평균: {np.mean(ndcgs):.4f}')
+                                         label=f'Mean: {np.mean(ndcgs):.4f}')
                         axes[idx].set_xlabel(f"NDCG@{self.top_k}", fontsize=11)
-                        axes[idx].set_ylabel("사용자 수", fontsize=11)
-                        axes[idx].set_title(f"{comp_label}\n(평균: {np.mean(ndcgs):.4f}, 표준편차: {np.std(ndcgs):.4f})",
+                        axes[idx].set_ylabel("Number of Users", fontsize=11)
+                        axes[idx].set_title(f"{comp_label}\n(Mean: {np.mean(ndcgs):.4f}, Std: {np.std(ndcgs):.4f})",
                                            fontsize=11, fontweight="bold")
                         axes[idx].legend()
                         axes[idx].grid(axis='y', alpha=0.3, linestyle='--')
@@ -3042,7 +3042,7 @@ class RecommendationComparator:
         # 6. 박스플롯으로 모든 지표 비교
         try:
             fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-            fig.suptitle("추천 결과 비교 분석 - 박스플롯", fontsize=16, fontweight="bold")
+            fig.suptitle("Recommendation Comparison - Boxplot", fontsize=16, fontweight="bold")
 
             metrics_for_boxplot = [
                 ("jaccard_similarities", "Jaccard Similarity", axes[0, 0]),
@@ -3062,7 +3062,7 @@ class RecommendationComparator:
                             labels.append(comp_label)
                 
                 if data_to_plot:
-                    bp = ax.boxplot(data_to_plot, labels=labels, patch_artist=True, 
+                    bp = ax.boxplot(data_to_plot, tick_labels=labels, patch_artist=True, 
                                    showmeans=True, meanline=True)
                     for patch, color in zip(bp['boxes'], colors[:len(bp['boxes'])]):
                         patch.set_facecolor(color)
@@ -3993,13 +3993,13 @@ class TestSetEvaluator:
                 plt.style.use("default")
         sns.set_palette("husl")
 
-        # 1. ROC Curve (Item-level)
-        if item_y_true and len(set(item_y_true)) > 1:
+        # 1. ROC Curve (User-level) - 사용자 레벨 ROC 커브
+        if y_true and len(set(y_true)) > 1 and y_scores:
             try:
                 from sklearn.metrics import roc_curve
 
-                y_true_arr = np.array(item_y_true)
-                y_score_arr = np.array(item_y_scores)
+                y_true_arr = np.array(y_true)
+                y_score_arr = np.array(y_scores)
                 
                 # 길이가 다를 경우 처리
                 if len(y_true_arr) != len(y_score_arr):
@@ -4017,7 +4017,7 @@ class TestSetEvaluator:
                 plt.ylim([0.0, 1.05])
                 plt.xlabel("False Positive Rate", fontsize=12)
                 plt.ylabel("True Positive Rate", fontsize=12)
-                plt.title(f"{model_name} - ROC Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
+                plt.title(f"{model_name} - ROC Curve (User-level){mode_label}", fontsize=14, fontweight="bold")
                 plt.legend(loc="lower right", fontsize=10)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
@@ -4026,6 +4026,47 @@ class TestSetEvaluator:
                 logger.info("Saved ROC curve to %s", viz_dir / f"{model_name.lower()}_roc_curve.png")
             except Exception as e:
                 logger.warning("ROC curve 생성 실패: %s", e)
+        
+        # 2. ROC Curve (Item-level) - 아이템 레벨 ROC 커브
+        if item_y_true and len(set(item_y_true)) > 1 and item_y_scores:
+            try:
+                from sklearn.metrics import roc_curve
+
+                y_true_arr = np.array(item_y_true)
+                y_score_arr = np.array(item_y_scores)
+                
+                # 길이가 다를 경우 처리
+                if len(y_true_arr) != len(y_score_arr):
+                    min_len = min(len(y_true_arr), len(y_score_arr))
+                    y_true_arr = y_true_arr[:min_len]
+                    y_score_arr = y_score_arr[:min_len]
+                
+                # 아이템 레벨 ROC-AUC 계산
+                try:
+                    from sklearn.metrics import roc_auc_score
+                    item_roc_auc = roc_auc_score(y_true_arr, y_score_arr)
+                except ValueError:
+                    item_roc_auc = 0.0
+                
+                fpr, tpr, _ = roc_curve(y_true_arr, y_score_arr)
+
+                plt.figure(figsize=(8, 6))
+                mode_label = f" (mode: {self.evaluation_mode})" if hasattr(self, 'evaluation_mode') else ""
+                plt.plot(fpr, tpr, linewidth=2, label=f"ROC Curve (AUC = {item_roc_auc:.4f})")
+                plt.plot([0, 1], [0, 1], "k--", linewidth=1, label="Random Classifier")
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel("False Positive Rate", fontsize=12)
+                plt.ylabel("True Positive Rate", fontsize=12)
+                plt.title(f"{model_name} - ROC Curve (Item-level){mode_label}", fontsize=14, fontweight="bold")
+                plt.legend(loc="lower right", fontsize=10)
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                plt.savefig(viz_dir / f"{model_name.lower()}_roc_curve_item.png", dpi=300, bbox_inches="tight")
+                plt.close()
+                logger.info("Saved ROC curve (item-level) to %s", viz_dir / f"{model_name.lower()}_roc_curve_item.png")
+            except Exception as e:
+                logger.warning("ROC curve (item-level) 생성 실패: %s", e)
 
         # 2. Precision-Recall Curve (Item-level)
         if item_y_true and len(set(item_y_true)) > 1:
