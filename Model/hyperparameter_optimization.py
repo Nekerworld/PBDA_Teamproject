@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -40,11 +41,18 @@ from Model.model import (
     IsolationForestPreprocessor,
     ReRanker,
     TestSetEvaluator,
+    set_global_seed,
+    GLOBAL_SEED,
 )
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+
+# 전역 시드 고정 (재현가능성 보장)
+set_global_seed(GLOBAL_SEED)
+np.random.seed(GLOBAL_SEED)
+random.seed(GLOBAL_SEED)
 
 
 @dataclass
@@ -80,7 +88,7 @@ class HyperparameterConfig:
 
     # ReRanker
     reranker_top_k: int = 200
-    reranker_random_seed: Optional[int] = 42
+    reranker_random_seed: int = 42
     reranker_als_candidate_k: int = 500
     reranker_als_weight: float = 0.4
 
@@ -574,8 +582,9 @@ class BayesianOptimizer:
                 )
                 return -np.inf
 
-        # Optuna 스터디 생성 및 최적화 실행
-        study = optuna.create_study(direction="maximize")
+        # Optuna 스터디 생성 및 최적화 실행 (시드 고정)
+        sampler = optuna.samplers.TPESampler(seed=GLOBAL_SEED)
+        study = optuna.create_study(direction="maximize", sampler=sampler)
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
         # 최적 파라미터 추출
@@ -887,8 +896,9 @@ class BOHBOptimizer:
         if len(resource_history) < self.min_samples:
             return self._sample_random_params()
 
-        # Optuna study 생성 (TPE sampler 사용)
-        study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler())
+        # Optuna study 생성 (TPE sampler 사용, 시드 고정)
+        sampler = optuna.samplers.TPESampler(seed=GLOBAL_SEED)
+        study = optuna.create_study(direction="maximize", sampler=sampler)
 
         # 히스토리 데이터를 study에 추가
         for h in resource_history:

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import math
+import random
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +33,37 @@ from sklearn.metrics import mean_squared_error
 # 로깅 설정
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+
+# 전역 시드 고정 (재현가능성 보장)
+GLOBAL_SEED = 42
+
+def set_global_seed(seed: int = GLOBAL_SEED) -> None:
+    """
+    모든 랜덤 시드를 고정하여 재현가능성을 보장합니다.
+    
+    Args:
+        seed: 고정할 시드 값 (기본값: 42)
+    """
+    # Python random 모듈
+    random.seed(seed)
+    
+    # NumPy
+    np.random.seed(seed)
+    
+    # PyTorch (가능한 경우)
+    try:
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # 멀티 GPU 환경
+        # 재현가능성을 위한 추가 설정
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    except ImportError:
+        pass  # PyTorch가 설치되지 않은 경우 무시
+
+# 전역 시드 설정 실행
+set_global_seed(GLOBAL_SEED)
 
 # 이벤트 타입을 숫자 코드로 매핑 (view=0, addtocart=1, transaction=2)
 EVENT_TO_CODE: Dict[str, int] = {"view": 0, "addtocart": 1, "transaction": 2}
@@ -105,6 +137,10 @@ class IsolationForestPreprocessor:
         5. 정상 데이터와 이상치 데이터 분리 및 저장
         6. 시각화 생성
         """
+        # 시드 고정 (재현가능성 보장)
+        np.random.seed(self.random_state)
+        random.seed(self.random_state)
+        
         logger.info("Loading raw datasets…")
         datasets = self._load_raw()
 
@@ -572,6 +608,10 @@ class ALSRecommender:
         4. 사용자별 상위 K개 아이템 추천 생성
         5. 결과 저장 및 시각화
         """
+        # 시드 고정 (재현가능성 보장)
+        np.random.seed(self.random_state)
+        random.seed(self.random_state)
+        
         try:
             from implicit.als import AlternatingLeastSquares as ALSModel
         except ImportError as exc:  # pragma: no cover - runtime dependency may be missing in dev env
@@ -1260,8 +1300,15 @@ class GNNEmbeddingGenerator:
                 "GNN 임베딩 생성을 위해 PyTorch가 필요합니다. `pip install torch` 후 다시 실행해 주세요."
             ) from exc
 
+        # 시드 고정 (전역 시드와 동일하게 42로 설정)
         torch.manual_seed(self.seed)
+        torch.cuda.manual_seed(self.seed)
+        torch.cuda.manual_seed_all(self.seed)  # 멀티 GPU 환경
         np.random.seed(self.seed)
+        random.seed(self.seed)
+        # 재현가능성을 위한 추가 설정
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
         logger.info("Preparing inputs for GNN embedding generation on device %s…", self.device)
         datasets = self._load_inputs()
@@ -2126,7 +2173,7 @@ class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 200
-    random_seed: Optional[int] = 42
+    random_seed: int = 42
     als_candidate_k: int = 500
     als_weight: float = 0.4
 
@@ -2134,8 +2181,8 @@ class ReRanker:
         """
         랜덤 시드를 설정합니다.
         """
-        if self.random_seed is not None:
-            np.random.seed(self.random_seed)
+        np.random.seed(self.random_seed)
+        random.seed(self.random_seed)
 
     def run(self) -> None:
         """
