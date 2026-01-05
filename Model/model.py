@@ -4175,6 +4175,143 @@ class TestSetEvaluator:
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
+def run_single_experiment(
+    als_factors: int = 32,
+    gnn_embedding_dim: int = 8,
+    gnn_layers: int = 2,
+    als_weight: float = 0.4,
+    evaluation_mode: str = "score_based",
+    top_k: int = 50,
+    score_percentile: float = 75.0,
+    run_preprocessing: bool = True,
+    run_comparison: bool = True,
+):
+    """
+    단일 실험을 실행하는 함수
+    
+    Args:
+        als_factors: ALS 임베딩 차원 [16, 32, 64, 128]
+        gnn_embedding_dim: GNN 임베딩 차원 [8, 16, 32, 64]
+        gnn_layers: GNN 레이어 수 [1, 2, 3]
+        als_weight: ALS 가중치 [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] (GNN weight = 1.0 - als_weight)
+        evaluation_mode: 평가 모드 ["strict", "weighted", "partial", "score_based", "rank_based"]
+        top_k: 평가에 사용할 추천 아이템 수
+        score_percentile: score_based 모드에서 사용할 백분위수
+        run_preprocessing: 전처리 실행 여부 (False면 이미 전처리된 데이터 사용)
+        run_comparison: 추천 결과 비교 분석 실행 여부
+    """
+    logger.info("=" * 80)
+    logger.info("실험 시작: ALS factors=%d, GNN embedding_dim=%d, GNN layers=%d, ALS weight=%.1f",
+                als_factors, gnn_embedding_dim, gnn_layers, als_weight)
+    logger.info("=" * 80)
+    
+    # 1. 데이터 전처리
+    if run_preprocessing:
+        logger.info("데이터 전처리 실행 중...")
+        preprocessor = IsolationForestPreprocessor()
+        preprocessor.run()
+    else:
+        logger.info("전처리 건너뜀 (기존 데이터 사용)")
+
+    # 2. ALS 추천 생성
+    logger.info("ALS 추천 생성 중 (factors=%d)...", als_factors)
+    als_recommender = ALSRecommender(factors=als_factors)
+    als_recommender.run()
+
+    # 3. GNN 임베딩 생성
+    logger.info("GNN 임베딩 생성 중 (embedding_dim=%d, layers=%d)...", gnn_embedding_dim, gnn_layers)
+    gnn_generator = GNNEmbeddingGenerator(
+        embedding_dim=gnn_embedding_dim,
+        layers=gnn_layers
+    )
+    gnn_generator.run()
+
+    # 4. 리랭킹
+    logger.info("리랭킹 실행 중 (ALS weight=%.1f, GNN weight=%.1f)...", als_weight, 1.0 - als_weight)
+    reranker = ReRanker(als_weight=als_weight)
+    reranker.run()
+    
+    # 5. 평가
+    logger.info("평가 실행 중 (mode=%s, top_k=%d)...", evaluation_mode, top_k)
+    evaluator = TestSetEvaluator(
+        evaluation_mode=evaluation_mode,
+        top_k=top_k,
+        score_percentile=score_percentile
+    )
+    evaluator.run()
+    
+    # 6. 추천 결과 비교 분석
+    if run_comparison:
+        logger.info("추천 결과 비교 분석 실행 중...")
+        comparator = RecommendationComparator(top_k=200)
+        comparator.run()
+    
+    logger.info("=" * 80)
+    logger.info("실험 완료: ALS factors=%d, GNN embedding_dim=%d, GNN layers=%d, ALS weight=%.1f",
+                als_factors, gnn_embedding_dim, gnn_layers, als_weight)
+    logger.info("=" * 80)
+
+
+def run_grid_search_experiments(
+    als_factors_list: List[int] = [16, 32, 64, 128],
+    gnn_embedding_dim_list: List[int] = [8, 16, 32, 64],
+    gnn_layers_list: List[int] = [1, 2, 3],
+    als_weight_list: List[float] = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+    evaluation_mode: str = "score_based",
+    top_k: int = 50,
+    score_percentile: float = 75.0,
+    run_preprocessing_once: bool = True,
+):
+    """
+    Grid Search 방식으로 여러 실험을 자동 실행하는 함수
+    
+    Args:
+        als_factors_list: ALS factors 값 리스트
+        gnn_embedding_dim_list: GNN embedding_dim 값 리스트
+        gnn_layers_list: GNN layers 값 리스트
+        als_weight_list: ALS weight 값 리스트
+        evaluation_mode: 평가 모드
+        top_k: 평가에 사용할 추천 아이템 수
+        score_percentile: score_based 모드에서 사용할 백분위수
+        run_preprocessing_once: 전처리를 한 번만 실행할지 여부 (True면 첫 실험에서만 실행)
+    """
+    total_experiments = len(als_factors_list) * len(gnn_embedding_dim_list) * len(gnn_layers_list) * len(als_weight_list)
+    logger.info("=" * 80)
+    logger.info("Grid Search 실험 시작: 총 %d개 실험", total_experiments)
+    logger.info("ALS factors: %s", als_factors_list)
+    logger.info("GNN embedding_dim: %s", gnn_embedding_dim_list)
+    logger.info("GNN layers: %s", gnn_layers_list)
+    logger.info("ALS weight: %s", als_weight_list)
+    logger.info("=" * 80)
+    
+    experiment_count = 0
+    
+    for als_factors in als_factors_list:
+        for gnn_embedding_dim in gnn_embedding_dim_list:
+            for gnn_layers in gnn_layers_list:
+                for als_weight in als_weight_list:
+                    experiment_count += 1
+                    logger.info("\n" + "=" * 80)
+                    logger.info("실험 %d/%d", experiment_count, total_experiments)
+                    logger.info("=" * 80)
+                    
+                    run_single_experiment(
+                        als_factors=als_factors,
+                        gnn_embedding_dim=gnn_embedding_dim,
+                        gnn_layers=gnn_layers,
+                        als_weight=als_weight,
+                        evaluation_mode=evaluation_mode,
+                        top_k=top_k,
+                        score_percentile=score_percentile,
+                        run_preprocessing=(run_preprocessing_once and experiment_count == 1),
+                        run_comparison=False,  # Grid Search에서는 비교 분석 생략 (시간 절약)
+                    )
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("모든 Grid Search 실험 완료: 총 %d개 실험", total_experiments)
+    logger.info("=" * 80)
+
+
 if __name__ == "__main__":
     """
     전체 추천 시스템 파이프라인을 실행합니다.
@@ -4186,30 +4323,60 @@ if __name__ == "__main__":
     4. ReRanker: ALS와 GNN 결과 결합 및 리랭킹
     5. TestSetEvaluator: 최종 추천 결과 평가
     
-    각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
+    사용 방법:
+    - 단일 실험: run_single_experiment() 함수 사용
+    - Grid Search: run_grid_search_experiments() 함수 사용
+    - 직접 실행: 아래 파라미터를 설정하고 직접 실행
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
-
-    als_recommender = ALSRecommender()
-    als_recommender.run()
-
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
-
-    reranker = ReRanker()
-    reranker.run()
     
-    # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    evaluator = TestSetEvaluator(
-        evaluation_mode="score_based",
-        top_k=50,
-        score_percentile=50.0 # score-based 모드일 시 주석해제
-        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    )
-    evaluator.run()
+    # ============================================================================
+    # 실험 파라미터 설정 (여기서 쉽게 변경 가능)
+    # ============================================================================
     
-    # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
-    comparator = RecommendationComparator(top_k=200)
-    comparator.run()
+    # ALS 하이퍼파라미터
+    ALS_FACTORS = 32  # [16, 32, 64, 128] 중 선택
+    
+    # GNN 하이퍼파라미터
+    GNN_EMBEDDING_DIM = 8  # [8, 16, 32, 64] 중 선택
+    GNN_LAYERS = 2  # [1, 2, 3] 중 선택
+    
+    # ReRanker 하이퍼파라미터
+    ALS_WEIGHT = 0.4  # [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] 중 선택 (GNN weight = 1.0 - ALS_WEIGHT)
+    
+    # 평가 설정
+    EVALUATION_MODE = "score_based"  # "strict", "weighted", "partial", "score_based", "rank_based"
+    TOP_K = 50
+    SCORE_PERCENTILE = 75.0  # score_based 모드에서 사용
+    
+    # Grid Search 실행 여부
+    RUN_GRID_SEARCH = False  # True로 설정하면 Grid Search 실행, False면 단일 실험 실행
+    
+    # ============================================================================
+    # 파이프라인 실행
+    # ============================================================================
+    
+    if RUN_GRID_SEARCH:
+        # Grid Search 실행 (모든 파라미터 조합 실험)
+        run_grid_search_experiments(
+            als_factors_list=[16, 32, 64, 128],
+            gnn_embedding_dim_list=[8, 16, 32, 64],
+            gnn_layers_list=[1, 2, 3],
+            als_weight_list=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+            evaluation_mode=EVALUATION_MODE,
+            top_k=TOP_K,
+            score_percentile=SCORE_PERCENTILE,
+            run_preprocessing_once=True,  # 첫 실험에서만 전처리 실행
+        )
+    else:
+        # 단일 실험 실행
+        run_single_experiment(
+            als_factors=ALS_FACTORS,
+            gnn_embedding_dim=GNN_EMBEDDING_DIM,
+            gnn_layers=GNN_LAYERS,
+            als_weight=ALS_WEIGHT,
+            evaluation_mode=EVALUATION_MODE,
+            top_k=TOP_K,
+            score_percentile=SCORE_PERCENTILE,
+            run_preprocessing=True,
+            run_comparison=True,
+        )
