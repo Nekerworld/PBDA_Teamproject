@@ -560,6 +560,37 @@ class ALSRecommender:
     min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
     loss_batch_size: int = 1000  # Loss 계산 시 배치 크기 (메모리 효율성)
     loss_sample_size: Optional[int] = None  # Loss 계산 시 샘플링할 사용자 수 (None이면 전체 사용)
+    device: Optional[str] = None  # "cuda" 또는 "cpu", None이면 자동 감지
+
+    def __post_init__(self) -> None:
+        """
+        디바이스를 자동으로 설정합니다.
+        """
+        if self.device is None:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    self.device = "cuda"
+                    logger.info("GPU detected for ALS: %s", torch.cuda.get_device_name(0))
+                else:
+                    self.device = "cpu"
+                    logger.info("CUDA not available. Using CPU for ALS.")
+            except ImportError:
+                self.device = "cpu"
+                logger.warning("PyTorch not available. Using CPU for ALS.")
+        
+        # device가 명시적으로 설정된 경우 확인
+        if self.device == "cuda":
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    logger.warning("CUDA device requested but not available. Falling back to CPU.")
+                    self.device = "cpu"
+                else:
+                    logger.info("Using GPU for ALS: %s", torch.cuda.get_device_name(0))
+            except ImportError:
+                logger.warning("PyTorch not available. Using CPU.")
+                self.device = "cpu"
 
     def run(self) -> None:
         """
@@ -568,15 +599,15 @@ class ALSRecommender:
         실행 순서:
         1. 전처리된 이벤트 데이터 로드
         2. 사용자-아이템 상호작용 행렬 생성
-        3. ALS 모델 학습
+        3. ALS 모델 학습 (PyTorch 기반, GPU 가속 지원)
         4. 사용자별 상위 K개 아이템 추천 생성
         5. 결과 저장 및 시각화
         """
         try:
-            from implicit.als import AlternatingLeastSquares as ALSModel
-        except ImportError as exc:  # pragma: no cover - runtime dependency may be missing in dev env
+            import torch
+        except ImportError as exc:
             raise ImportError(
-                "implicit 패키지가 필요합니다. `pip install implicit` 명령으로 설치한 뒤 다시 실행해 주세요."
+                "PyTorch가 필요합니다. `pip install torch` 명령으로 설치한 뒤 다시 실행해 주세요."
             ) from exc
 
         events_path = self.processed_dir / "events_train_clean.csv"
@@ -598,13 +629,6 @@ class ALSRecommender:
             len(users),
             len(items),
             user_item_matrix.nnz,
-        )
-
-        model = ALSModel(
-            factors=self.factors,
-            regularization=self.regularization,
-            iterations=self.iterations,
-            random_state=self.random_state,
         )
 
         confidence_matrix = user_item_matrix * self.alpha
@@ -638,25 +662,44 @@ class ALSRecommender:
             train_sample_indices = np.arange(n_train_users)
             val_sample_indices = np.arange(n_val_users)
         
-        # 학습 중 loss 추적
-        train_losses = []
-        val_losses = []
-        
-        # Early stopping 변수
-        best_val_loss = float("inf")
-        patience_counter = 0
-        best_iteration = 0
-        best_user_factors = None
-        best_item_factors = None
-        
-        # 각 iteration마다 모델을 학습하고 loss 계산
-        temp_model = ALSModel(
-            factors=self.factors,
-            regularization=self.regularization,
-            iterations=1,  # 한 번씩 학습
-            random_state=self.random_state,
+        # PyTorch 기반 ALS 학습
+        model, train_losses, val_losses, best_iteration = self._train_als_pytorch(
+            train_matrix, val_matrix, train_user_indices, val_user_indices,
+            train_sample_indices, val_sample_indices, len(users), len(items)
         )
         
+        # 최종 모델을 전체 데이터로 학습 (최적 factors를 초기값으로 사용)
+        if self.early_stopping_patience is not None and best_iteration > 0:
+            logger.info("Retraining on full dataset with best factors from iteration %d", best_iteration)
+            model = self._train_als_pytorch_full(
+                confidence_matrix, model.user_factors, model.item_factors
+            )
+        else:
+            logger.info("Retraining on full dataset")
+            model = self._train_als_pytorch_full(confidence_matrix, None, None)
+        
+        # Loss 그래프 출력
+        self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
+        
+        logger.info("Generating top-%d recommendations per user…", self.top_k)
+        recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
+        logger.info("ALS recommendation generation completed for %d users", len(recommendations.groupby("visitorid")))
+
+        self._save_outputs(recommendations, users, items, model)
+        logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
+
+        # 시각화 생성
+        self._create_visualizations(
+            interactions=interactions,
+            recommendations=recommendations,
+            user_item_matrix=user_item_matrix,
+            users=users,
+            items=items,
+        )
+        
+        return  # 함수 종료
+        
+        # 아래 코드는 더 이상 사용되지 않음 (PyTorch 구현으로 대체됨)
         # 초기 loss 계산 (학습 전) - 샘플링 및 배치 처리로 메모리 효율성 향상
         initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
         initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
@@ -700,12 +743,17 @@ class ALSRecommender:
             # Validation loss 계산 - 샘플링 및 배치 처리로 메모리 효율성 향상
             # Validation loss를 계산하기 위해 validation 데이터로 별도 모델 학습
             # (시간이 걸리지만 정확한 validation loss를 얻기 위해 필요)
-            val_temp_model = ALSModel(
-                factors=self.factors,
-                regularization=self.regularization,
-                iterations=1,
-                random_state=self.random_state,
-            )
+            val_temp_model_kwargs = {
+                "factors": self.factors,
+                "regularization": self.regularization,
+                "iterations": 1,
+                "random_state": self.random_state,
+            }
+            # num_threads 파라미터 지원 확인 (이미 위에서 확인했으므로 재사용)
+            if supports_num_threads:
+                val_temp_model_kwargs["num_threads"] = self.num_threads
+            
+            val_temp_model = ALSModel(**val_temp_model_kwargs)
             val_temp_model.fit(val_matrix.T.tocsr())
             # val_temp_model도 val_matrix.T로 학습했으므로:
             # - user_factors는 아이템 factors (행: 아이템)
@@ -866,6 +914,338 @@ class ALSRecommender:
             shape=(len(unique_users), len(unique_items)),
         )
         return matrix.tocsr(), unique_users.tolist(), unique_items.tolist()
+
+    def _train_als_pytorch(
+        self,
+        train_matrix: sp.csr_matrix,
+        val_matrix: sp.csr_matrix,
+        train_user_indices: np.ndarray,
+        val_user_indices: np.ndarray,
+        train_sample_indices: np.ndarray,
+        val_sample_indices: np.ndarray,
+        n_users: int,
+        n_items: int,
+    ) -> Tuple[Any, List[float], List[float], int]:
+        """
+        PyTorch 기반 ALS 학습 함수 (GPU 가속 지원)
+        
+        Returns:
+            (model, train_losses, val_losses, best_iteration) 튜플
+            model은 user_factors와 item_factors 속성을 가진 객체
+        """
+        import torch
+        
+        device = torch.device(self.device)
+        torch.manual_seed(self.random_state)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(self.random_state)
+            torch.cuda.manual_seed_all(self.random_state)
+        np.random.seed(self.random_state)
+        
+        # 희소 행렬을 PyTorch sparse tensor로 변환
+        # 희소 행렬은 scipy sparse matrix로 유지 (PyTorch sparse tensor는 행/열 접근이 비효율적)
+        train_sparse = train_matrix
+        val_sparse = val_matrix
+        
+        # Factors 초기화
+        user_factors = torch.randn(n_users, self.factors, dtype=torch.float32, device=device) * 0.01
+        item_factors = torch.randn(n_items, self.factors, dtype=torch.float32, device=device) * 0.01
+        
+        train_losses = []
+        val_losses = []
+        best_val_loss = float("inf")
+        patience_counter = 0
+        best_iteration = 0
+        best_user_factors = None
+        best_item_factors = None
+        
+        # 초기 loss 계산
+        train_loss_init = self._compute_als_loss_pytorch(
+            user_factors[train_user_indices], item_factors, train_sparse, 
+            train_sample_indices, train_user_indices, device
+        )
+        val_loss_init = self._compute_als_loss_pytorch(
+            user_factors[val_user_indices], item_factors, val_sparse,
+            val_sample_indices, val_user_indices, device
+        )
+        train_losses.append(train_loss_init)
+        val_losses.append(val_loss_init)
+        logger.info("Initial - Train Loss: %.6f, Val Loss: %.6f", train_loss_init, val_loss_init)
+        
+        # ALS 학습 루프
+        for iteration in range(1, self.iterations + 1):
+            # 사용자 factors 업데이트 (아이템 factors 고정)
+            user_factors = self._update_user_factors(
+                item_factors, train_sparse, self.regularization, device
+            )
+            
+            # 아이템 factors 업데이트 (사용자 factors 고정)
+            item_factors = self._update_item_factors(
+                user_factors, train_sparse, self.regularization, device
+            )
+            
+            # Loss 계산
+            train_loss = self._compute_als_loss_pytorch(
+                user_factors[train_user_indices], item_factors, train_sparse,
+                train_sample_indices, train_user_indices, device
+            )
+            val_loss = self._compute_als_loss_pytorch(
+                user_factors[val_user_indices], item_factors, val_sparse,
+                val_sample_indices, val_user_indices, device
+            )
+            
+            train_losses.append(train_loss)
+            val_losses.append(val_loss)
+            
+            logger.info("Iteration %d/%d - Train Loss: %.6f, Val Loss: %.6f",
+                       iteration, self.iterations, train_loss, val_loss)
+            
+            # Early stopping 체크
+            if self.early_stopping_patience is not None:
+                if val_loss < best_val_loss - self.min_delta:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                    best_iteration = iteration
+                    best_user_factors = user_factors.clone().cpu().numpy()
+                    best_item_factors = item_factors.clone().cpu().numpy()
+                    logger.info("  *** Best validation loss improved to %.6f at iteration %d ***",
+                               best_val_loss, best_iteration)
+                else:
+                    patience_counter += 1
+                    logger.info("  No improvement for %d iteration(s) (patience: %d)",
+                               patience_counter, self.early_stopping_patience)
+                    
+                    if patience_counter >= self.early_stopping_patience:
+                        logger.info("Early stopping triggered at iteration %d. Best iteration: %d (Val Loss: %.6f)",
+                                   iteration, best_iteration, best_val_loss)
+                        break
+        
+        # 최적 모델 선택
+        if best_user_factors is not None:
+            user_factors_np = best_user_factors
+            item_factors_np = best_item_factors
+        else:
+            user_factors_np = user_factors.cpu().numpy()
+            item_factors_np = item_factors.cpu().numpy()
+        
+        # 모델 객체 생성 (기존 인터페이스 유지)
+        class ALSModel:
+            def __init__(self, user_factors, item_factors):
+                self.user_factors = user_factors
+                self.item_factors = item_factors
+        
+        model = ALSModel(user_factors_np, item_factors_np)
+        return model, train_losses, val_losses, best_iteration
+    
+    def _train_als_pytorch_full(
+        self,
+        matrix: sp.csr_matrix,
+        init_user_factors: Optional[np.ndarray],
+        init_item_factors: Optional[np.ndarray],
+    ) -> Any:
+        """
+        전체 데이터로 ALS 학습 (최종 모델)
+        """
+        import torch
+        
+        device = torch.device(self.device)
+        torch.manual_seed(self.random_state)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(self.random_state)
+            torch.cuda.manual_seed_all(self.random_state)
+        
+        # 희소 행렬은 scipy sparse matrix로 유지
+        sparse_matrix = matrix
+        n_users, n_items = matrix.shape
+        
+        # 초기화
+        if init_user_factors is not None and init_item_factors is not None:
+            user_factors = torch.from_numpy(init_user_factors).float().to(device)
+            item_factors = torch.from_numpy(init_item_factors).float().to(device)
+        else:
+            user_factors = torch.randn(n_users, self.factors, dtype=torch.float32, device=device) * 0.01
+            item_factors = torch.randn(n_items, self.factors, dtype=torch.float32, device=device) * 0.01
+        
+        # 간단한 학습 (전체 데이터)
+        for _ in range(min(10, self.iterations)):  # 빠른 재학습
+            user_factors = self._update_user_factors(item_factors, sparse_matrix, self.regularization, device)
+            item_factors = self._update_item_factors(user_factors, sparse_matrix, self.regularization, device)
+        
+        class ALSModel:
+            def __init__(self, user_factors, item_factors):
+                self.user_factors = user_factors
+                self.item_factors = item_factors
+        
+        model = ALSModel(user_factors.cpu().numpy(), item_factors.cpu().numpy())
+        return model
+    
+    def _get_sparse_row(self, matrix: sp.csr_matrix, row_idx: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
+        """희소 행렬의 특정 행을 가져와서 PyTorch tensor로 변환 (메모리 효율적)"""
+        import torch
+        
+        # scipy sparse matrix에서 직접 인덱스와 값 가져오기 (toarray() 호출 없이)
+        row = matrix[row_idx]
+        if isinstance(row, sp.spmatrix):
+            # scipy sparse matrix (1xN 형태)
+            row_coo = row.tocoo()
+            indices = torch.from_numpy(row_coo.col).long().to(device)
+            values = torch.from_numpy(row_coo.data).float().to(device)
+        else:
+            # 이미 dense인 경우
+            row_np = np.array(row).flatten()
+            nonzero_mask = row_np != 0
+            indices = torch.from_numpy(np.where(nonzero_mask)[0]).long().to(device)
+            values = torch.from_numpy(row_np[nonzero_mask]).float().to(device)
+        
+        return indices, values
+    
+    def _update_user_factors(
+        self, item_factors: torch.Tensor, matrix: torch.Tensor, 
+        regularization: float, device: torch.device
+    ) -> torch.Tensor:
+        """ALS: 사용자 factors 업데이트 (아이템 factors 고정)"""
+        import torch
+        
+        # (n_items, factors) @ (factors, n_items) = (n_items, n_items)
+        # 하지만 실제로는 각 사용자별로 업데이트해야 함
+        # 효율적인 구현: 배치로 처리
+        
+        n_users = matrix.shape[0]
+        n_items = matrix.shape[1]
+        factors = item_factors.shape[1]
+        
+        # 정규화 항 추가
+        reg_matrix = torch.eye(factors, device=device) * regularization
+        
+        # 각 사용자별로 업데이트 (배치 처리로 최적화 가능하지만 간단한 구현)
+        user_factors_list = []
+        for u in range(n_users):
+            # 사용자 u의 아이템 인덱스와 값 가져오기
+            indices, values = self._get_sparse_row(matrix, u, device)
+            
+            if len(indices) == 0:
+                # 상호작용이 없는 사용자
+                user_factors_list.append(torch.zeros(factors, device=device))
+                continue
+            
+            # 해당 아이템 factors
+            item_factors_selected = item_factors[indices]  # (n_items_u, factors)
+            
+            # 가중치 적용
+            if len(values.shape) == 0:
+                values = values.unsqueeze(0)
+            item_factors_weighted = item_factors_selected * values.unsqueeze(1)  # (n_items_u, factors)
+            
+            # 최소 제곱 해: (V^T V + λI)^(-1) V^T R
+            VtV = item_factors_selected.T @ item_factors_weighted  # (factors, factors)
+            A = VtV + reg_matrix
+            
+            # R은 가중치가 적용된 값들의 합
+            R = item_factors_weighted.sum(dim=0)  # (factors,)
+            
+            try:
+                user_factor = torch.linalg.solve(A, R)  # (factors,)
+            except:
+                # 역행렬이 없는 경우 pseudo-inverse 사용
+                user_factor = torch.linalg.pinv(A) @ R
+            
+            user_factors_list.append(user_factor)
+        
+        return torch.stack(user_factors_list)
+    
+    def _update_item_factors(
+        self, user_factors: torch.Tensor, matrix: torch.Tensor,
+        regularization: float, device: torch.device
+    ) -> torch.Tensor:
+        """ALS: 아이템 factors 업데이트 (사용자 factors 고정)"""
+        import torch
+        
+        n_users = matrix.shape[0]
+        n_items = matrix.shape[1]
+        factors = user_factors.shape[1]
+        
+        reg_matrix = torch.eye(factors, device=device) * regularization
+        
+        item_factors_list = []
+        # 열 접근을 위해 transpose 사용
+        matrix_T = matrix.T.tocsr()
+        for i in range(n_items):
+            # 아이템 i와 상호작용한 사용자들 (transpose된 행렬의 i번째 행)
+            indices, values = self._get_sparse_row(matrix_T, i, device)
+            
+            if len(indices) == 0:
+                item_factors_list.append(torch.zeros(factors, device=device))
+                continue
+            
+            user_factors_selected = user_factors[indices]
+            if len(values.shape) == 0:
+                values = values.unsqueeze(0)
+            user_factors_weighted = user_factors_selected * values.unsqueeze(1)
+            
+            UtU = user_factors_selected.T @ user_factors_weighted
+            A = UtU + reg_matrix
+            R = user_factors_weighted.sum(dim=0)
+            
+            try:
+                item_factor = torch.linalg.solve(A, R)
+            except:
+                item_factor = torch.linalg.pinv(A) @ R
+            
+            item_factors_list.append(item_factor)
+        
+        return torch.stack(item_factors_list)
+    
+    def _compute_als_loss_pytorch(
+        self,
+        user_factors: torch.Tensor,
+        item_factors: torch.Tensor,
+        matrix: torch.Tensor,
+        sample_indices: np.ndarray,
+        user_indices: np.ndarray,
+        device: torch.device,
+    ) -> float:
+        """PyTorch 기반 ALS loss 계산 (메모리 효율적)"""
+        import torch
+        
+        if len(sample_indices) == 0:
+            return 0.0
+        
+        # 샘플링된 사용자 factors
+        sampled_user_factors = user_factors[sample_indices]  # (n_samples, factors)
+        sampled_user_indices = user_indices[sample_indices]  # 원본 인덱스
+        
+        # 전체 예측 행렬을 생성하지 않고, 각 사용자별로 실제 상호작용이 있는 아이템에 대해서만 계산
+        total_loss = 0.0
+        count = 0
+        
+        # 배치 처리로 메모리 효율성 향상
+        batch_size = min(100, len(sampled_user_indices))  # 작은 배치로 처리
+        
+        for batch_start in range(0, len(sampled_user_indices), batch_size):
+            batch_end = min(batch_start + batch_size, len(sampled_user_indices))
+            batch_indices = range(batch_start, batch_end)
+            
+            for idx in batch_indices:
+                u_idx = sampled_user_indices[idx]
+                user_factor = sampled_user_factors[idx]  # (factors,)
+                
+                # 희소 행렬에서 사용자 u의 상호작용 가져오기
+                actual_indices, actual_values = self._get_sparse_row(matrix, u_idx, device)
+                
+                if len(actual_indices) > 0:
+                    # 해당 아이템 factors만 선택하여 예측값 계산 (메모리 효율적)
+                    item_factors_selected = item_factors[actual_indices]  # (n_items_u, factors)
+                    pred_values = (user_factor.unsqueeze(0) @ item_factors_selected.T).squeeze(0)  # (n_items_u,)
+                    
+                    # Loss 계산
+                    loss = torch.mean((pred_values - actual_values) ** 2)
+                    total_loss += loss.item()
+                    count += 1
+            
+            # 메모리 정리
+            torch.cuda.empty_cache() if device.type == 'cuda' else None
+        
+        return total_loss / count if count > 0 else 0.0
 
     def _compute_als_loss_batch(
         self,
@@ -1215,15 +1595,15 @@ class GNNEmbeddingGenerator:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     embedding_dim: int = 8
     layers: int = 2
-    epochs: int = 200
+    epochs: int = 500
     batch_size: int = 8192
     learning_rate: float = 1e-3
     reg: float = 1e-4
     num_negative: int = 1
     seed: int = 42
     device: Optional[str] = None
-    early_stopping_patience: Optional[int] = None  # None이면 early stopping 비활성화
-    min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
+    early_stopping_patience: Optional[int] = 25  # None이면 early stopping 비활성화
+    min_delta: float = 1e-3  # 개선으로 간주할 최소 변화량
 
     def __post_init__(self) -> None:
         """
