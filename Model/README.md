@@ -371,11 +371,6 @@ python Model/example_hyperparameter_optimization.py bayesian
 
 ## 문제 해결
 
-### ImportError: optuna가 없습니다
-```bash
-pip install optuna
-```
-
 ### 메모리가 부족하대요
 - 파라미터 그리드 크기 줄이기
 - `cache_preprocessing=True`로 설정하여 중간 결과를 재사용하는건 어떨까요
