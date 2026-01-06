@@ -943,9 +943,8 @@ class ALSRecommender:
         np.random.seed(self.random_state)
         
         # 희소 행렬을 PyTorch sparse tensor로 변환
-        # 희소 행렬은 scipy sparse matrix로 유지 (PyTorch sparse tensor는 행/열 접근이 비효율적)
-        train_sparse = train_matrix
-        val_sparse = val_matrix
+        train_sparse = self._csr_to_torch_sparse(train_matrix, device)
+        val_sparse = self._csr_to_torch_sparse(val_matrix, device)
         
         # Factors 초기화
         user_factors = torch.randn(n_users, self.factors, dtype=torch.float32, device=device) * 0.01
@@ -1054,8 +1053,7 @@ class ALSRecommender:
             torch.cuda.manual_seed(self.random_state)
             torch.cuda.manual_seed_all(self.random_state)
         
-        # 희소 행렬은 scipy sparse matrix로 유지
-        sparse_matrix = matrix
+        sparse_matrix = self._csr_to_torch_sparse(matrix, device)
         n_users, n_items = matrix.shape
         
         # 초기화
@@ -1079,25 +1077,17 @@ class ALSRecommender:
         model = ALSModel(user_factors.cpu().numpy(), item_factors.cpu().numpy())
         return model
     
-    def _get_sparse_row(self, matrix: sp.csr_matrix, row_idx: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-        """희소 행렬의 특정 행을 가져와서 PyTorch tensor로 변환 (메모리 효율적)"""
+    def _csr_to_torch_sparse(self, csr_matrix: sp.csr_matrix, device: torch.device) -> torch.Tensor:
+        """CSR 행렬을 PyTorch sparse tensor로 변환"""
         import torch
         
-        # scipy sparse matrix에서 직접 인덱스와 값 가져오기 (toarray() 호출 없이)
-        row = matrix[row_idx]
-        if isinstance(row, sp.spmatrix):
-            # scipy sparse matrix (1xN 형태)
-            row_coo = row.tocoo()
-            indices = torch.from_numpy(row_coo.col).long().to(device)
-            values = torch.from_numpy(row_coo.data).float().to(device)
-        else:
-            # 이미 dense인 경우
-            row_np = np.array(row).flatten()
-            nonzero_mask = row_np != 0
-            indices = torch.from_numpy(np.where(nonzero_mask)[0]).long().to(device)
-            values = torch.from_numpy(row_np[nonzero_mask]).float().to(device)
+        coo = csr_matrix.tocoo()
+        indices = torch.from_numpy(np.vstack([coo.row, coo.col])).long()
+        values = torch.from_numpy(coo.data).float()
+        shape = torch.Size(coo.shape)
         
-        return indices, values
+        sparse_tensor = torch.sparse_coo_tensor(indices, values, shape, device=device)
+        return sparse_tensor.coalesce()
     
     def _update_user_factors(
         self, item_factors: torch.Tensor, matrix: torch.Tensor, 
@@ -1121,7 +1111,19 @@ class ALSRecommender:
         user_factors_list = []
         for u in range(n_users):
             # 사용자 u의 아이템 인덱스와 값 가져오기
-            indices, values = self._get_sparse_row(matrix, u, device)
+            row = matrix[u]
+            if isinstance(row, torch.Tensor):
+                if row.is_sparse:
+                    indices = row.indices()[0]
+                    values = row.values()
+                else:
+                    indices = torch.nonzero(row, as_tuple=False).squeeze(1)
+                    values = row[indices]
+            else:
+                # CPU에서 처리
+                row_np = row.to_dense().cpu().numpy() if hasattr(row, 'to_dense') else row
+                indices = torch.from_numpy(np.nonzero(row_np)[0]).to(device)
+                values = torch.from_numpy(row_np[indices.cpu().numpy()]).float().to(device)
             
             if len(indices) == 0:
                 # 상호작용이 없는 사용자
@@ -1167,11 +1169,20 @@ class ALSRecommender:
         reg_matrix = torch.eye(factors, device=device) * regularization
         
         item_factors_list = []
-        # 열 접근을 위해 transpose 사용
-        matrix_T = matrix.T.tocsr()
         for i in range(n_items):
-            # 아이템 i와 상호작용한 사용자들 (transpose된 행렬의 i번째 행)
-            indices, values = self._get_sparse_row(matrix_T, i, device)
+            # 아이템 i와 상호작용한 사용자들
+            col = matrix[:, i]
+            if isinstance(col, torch.Tensor):
+                if col.is_sparse:
+                    indices = col.indices()[0]
+                    values = col.values()
+                else:
+                    indices = torch.nonzero(col, as_tuple=False).squeeze(1)
+                    values = col[indices]
+            else:
+                col_np = col.to_dense().cpu().numpy() if hasattr(col, 'to_dense') else col
+                indices = torch.from_numpy(np.nonzero(col_np)[0]).to(device)
+                values = torch.from_numpy(col_np[indices.cpu().numpy()]).float().to(device)
             
             if len(indices) == 0:
                 item_factors_list.append(torch.zeros(factors, device=device))
@@ -1204,7 +1215,7 @@ class ALSRecommender:
         user_indices: np.ndarray,
         device: torch.device,
     ) -> float:
-        """PyTorch 기반 ALS loss 계산 (메모리 효율적)"""
+        """PyTorch 기반 ALS loss 계산 (메모리 효율적 - 전체 예측 행렬 생성하지 않음)"""
         import torch
         
         if len(sample_indices) == 0:
@@ -1230,7 +1241,21 @@ class ALSRecommender:
                 user_factor = sampled_user_factors[idx]  # (factors,)
                 
                 # 희소 행렬에서 사용자 u의 상호작용 가져오기
-                actual_indices, actual_values = self._get_sparse_row(matrix, u_idx, device)
+                row = matrix[u_idx]
+                if isinstance(row, torch.Tensor):
+                    if row.is_sparse:
+                        actual_indices = row.indices()[0]
+                        actual_values = row.values()
+                    else:
+                        actual_indices = torch.nonzero(row, as_tuple=False).squeeze(1)
+                        if len(actual_indices.shape) == 0:
+                            actual_indices = actual_indices.unsqueeze(0)
+                        actual_values = row[actual_indices]
+                else:
+                    # scipy sparse matrix인 경우
+                    row_np = row.toarray().flatten() if hasattr(row, 'toarray') else row
+                    actual_indices = torch.from_numpy(np.nonzero(row_np)[0]).long().to(device)
+                    actual_values = torch.from_numpy(row_np[actual_indices.cpu().numpy()]).float().to(device)
                 
                 if len(actual_indices) > 0:
                     # 해당 아이템 factors만 선택하여 예측값 계산 (메모리 효율적)
@@ -1243,7 +1268,8 @@ class ALSRecommender:
                     count += 1
             
             # 메모리 정리
-            torch.cuda.empty_cache() if device.type == 'cuda' else None
+            if device.type == 'cuda':
+                torch.cuda.empty_cache()
         
         return total_loss / count if count > 0 else 0.0
 
@@ -1596,7 +1622,7 @@ class GNNEmbeddingGenerator:
     embedding_dim: int = 8
     layers: int = 2
     epochs: int = 500
-    batch_size: int = 8192
+    batch_size: int = 1024
     learning_rate: float = 1e-3
     reg: float = 1e-4
     num_negative: int = 1
@@ -4592,7 +4618,8 @@ def _execute_single_experiment(
 
         # 2. ALS 추천 생성
         logger.info("ALS 추천 생성 중 (factors=%d)...", als_factors)
-        als_recommender = ALSRecommender(factors=als_factors)
+        # loss_sample_size를 1000으로 설정하여 메모리 사용량 제한
+        als_recommender = ALSRecommender(factors=als_factors, loss_sample_size=1000)
         als_recommender.run()
 
         # 3. GNN 임베딩 생성
