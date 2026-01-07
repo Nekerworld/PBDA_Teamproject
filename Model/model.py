@@ -3274,6 +3274,8 @@ class TestSetEvaluator:
 
         # 1. ALS 추천 결과 평가
         als_rec_path = self.processed_dir / "als_recommendations.csv"
+        als_test_recs = None
+        als_results = None
         if als_rec_path.exists():
             logger.info("=" * 80)
             logger.info("ALS 추천 결과 평가 시작")
@@ -3307,6 +3309,8 @@ class TestSetEvaluator:
         # 2. GNN 추천 결과 평가
         gnn_user_emb_path = self.processed_dir / "gnn_user_embeddings.csv"
         gnn_item_emb_path = self.processed_dir / "gnn_item_embeddings.csv"
+        gnn_recommendations = None
+        gnn_results = None
         if gnn_user_emb_path.exists() and gnn_item_emb_path.exists():
             logger.info("=" * 80)
             logger.info("GNN 추천 결과 평가 시작")
@@ -3362,15 +3366,153 @@ class TestSetEvaluator:
             model_name="Final"
         )
 
-        # 최종 요약 출력
+        # 최종 요약 출력 (표 형식)
+        from sklearn.metrics import precision_score, recall_score
+        
         logger.info("=" * 80)
         logger.info("전체 평가 결과 요약")
         logger.info("=" * 80)
-        if als_f1 is not None:
-            logger.info("ALS F1 Score: %.4f", als_f1)
-        if gnn_f1 is not None:
-            logger.info("GNN F1 Score: %.4f", gnn_f1)
-        logger.info("최종 F1 Score: %.4f", final_f1)
+        
+        # 헬퍼 함수 정의
+        def calculate_precision_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+            """Precision@K를 계산합니다."""
+            precisions = []
+            for visitor_id, recs in recommendations.groupby("visitorid"):
+                predicted_items = recs["itemid"].astype(int).tolist()[:k]
+                relevant_items = positives.get(visitor_id, set())
+                if not predicted_items:
+                    continue
+                hits = len(set(predicted_items) & relevant_items)
+                precision = hits / len(predicted_items) if predicted_items else 0.0
+                precisions.append(precision)
+            return np.mean(precisions) if precisions else 0.0
+
+        def calculate_recall_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+            """Recall@K를 계산합니다."""
+            recalls = []
+            for visitor_id, recs in recommendations.groupby("visitorid"):
+                predicted_items = recs["itemid"].astype(int).tolist()[:k]
+                relevant_items = positives.get(visitor_id, set())
+                if not relevant_items:
+                    continue
+                hits = len(set(predicted_items) & relevant_items)
+                recall = hits / len(relevant_items) if relevant_items else 0.0
+                recalls.append(recall)
+            return np.mean(recalls) if recalls else 0.0
+
+        def calculate_ndcg_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+            """NDCG@K를 계산합니다."""
+            ndcgs = []
+            for visitor_id, recs in recommendations.groupby("visitorid"):
+                relevant_items = positives.get(visitor_id, set())
+                if not relevant_items:
+                    continue
+                
+                # 추천 아이템 리스트 (상위 K개)
+                predicted_items = recs["itemid"].astype(int).tolist()[:k]
+                if not predicted_items:
+                    continue
+                
+                # Ideal DCG 계산 (모든 relevant items가 상위에 있다고 가정)
+                ideal_gains = []
+                for idx in range(min(len(relevant_items), k)):
+                    ideal_gains.append(1.0 / np.log2(idx + 2))
+                ideal_dcg = sum(ideal_gains)
+                
+                if ideal_dcg == 0:
+                    ndcgs.append(0.0)
+                    continue
+                
+                # DCG 계산
+                dcg = 0.0
+                for idx, item_id in enumerate(predicted_items):
+                    if item_id in relevant_items:
+                        dcg += 1.0 / np.log2(idx + 2)
+                
+                ndcg = dcg / ideal_dcg if ideal_dcg > 0 else 0.0
+                ndcgs.append(ndcg)
+            
+            return np.mean(ndcgs) if ndcgs else 0.0
+        
+        # 결과 수집
+        results_data = []
+        
+        # ALS 결과
+        if als_f1 is not None and als_results is not None and als_test_recs is not None:
+            als_precision = precision_score(als_results["y_true"], als_results["y_pred"], zero_division=0) if als_results["y_true"] else 0.0
+            als_recall = recall_score(als_results["y_true"], als_results["y_pred"], zero_division=0) if als_results["y_true"] else 0.0
+            als_roc_auc = als_results.get("roc_auc", 0.0)
+            als_ap = als_results.get("average_precision", 0.0)
+            als_precision_at_50 = calculate_precision_at_k(als_test_recs, positives, k=self.top_k)
+            als_recall_at_50 = calculate_recall_at_k(als_test_recs, positives, k=self.top_k)
+            als_ndcg_at_50 = calculate_ndcg_at_k(als_test_recs, positives, k=self.top_k)
+            
+            results_data.append({
+                "Model": "ALS",
+                "Precision": als_precision,
+                "Recall": als_recall,
+                "F1": als_f1,
+                "ROC-AUC": als_roc_auc,
+                "AP": als_ap,
+                "Precision@50": als_precision_at_50,
+                "Recall@50": als_recall_at_50,
+                "NDCG@50": als_ndcg_at_50
+            })
+        
+        # GNN 결과
+        if gnn_f1 is not None and gnn_results is not None and gnn_recommendations is not None:
+            gnn_precision = precision_score(gnn_results["y_true"], gnn_results["y_pred"], zero_division=0) if gnn_results["y_true"] else 0.0
+            gnn_recall = recall_score(gnn_results["y_true"], gnn_results["y_pred"], zero_division=0) if gnn_results["y_true"] else 0.0
+            gnn_roc_auc = gnn_results.get("roc_auc", 0.0)
+            gnn_ap = gnn_results.get("average_precision", 0.0)
+            gnn_precision_at_50 = calculate_precision_at_k(gnn_recommendations, positives, k=self.top_k)
+            gnn_recall_at_50 = calculate_recall_at_k(gnn_recommendations, positives, k=self.top_k)
+            gnn_ndcg_at_50 = calculate_ndcg_at_k(gnn_recommendations, positives, k=self.top_k)
+            
+            results_data.append({
+                "Model": "GNN",
+                "Precision": gnn_precision,
+                "Recall": gnn_recall,
+                "F1": gnn_f1,
+                "ROC-AUC": gnn_roc_auc,
+                "AP": gnn_ap,
+                "Precision@50": gnn_precision_at_50,
+                "Recall@50": gnn_recall_at_50,
+                "NDCG@50": gnn_ndcg_at_50
+            })
+        
+        # 최종 결과
+        final_precision = precision_score(final_results["y_true"], final_results["y_pred"], zero_division=0) if final_results["y_true"] else 0.0
+        final_recall = recall_score(final_results["y_true"], final_results["y_pred"], zero_division=0) if final_results["y_true"] else 0.0
+        final_roc_auc = final_results.get("roc_auc", 0.0)
+        final_ap = final_results.get("average_precision", 0.0)
+        final_precision_at_50 = calculate_precision_at_k(test_recommendations, positives, k=self.top_k)
+        final_recall_at_50 = calculate_recall_at_k(test_recommendations, positives, k=self.top_k)
+        final_ndcg_at_50 = calculate_ndcg_at_k(test_recommendations, positives, k=self.top_k)
+        
+        results_data.append({
+            "Model": "Hybrid",
+            "Precision": final_precision,
+            "Recall": final_recall,
+            "F1": final_f1,
+            "ROC-AUC": final_roc_auc,
+            "AP": final_ap,
+            "Precision@50": final_precision_at_50,
+            "Recall@50": final_recall_at_50,
+            "NDCG@50": final_ndcg_at_50
+        })
+        
+        # 표 형식으로 출력
+        print("\n" + "=" * 120)
+        print("평가 결과 요약")
+        print("=" * 120)
+        print(f"{'Model':<10} {'Precision':<12} {'Recall':<12} {'F1':<12} {'ROC-AUC':<12} {'AP':<12} {'Precision@50':<15} {'Recall@50':<15} {'NDCG@50':<12}")
+        print("-" * 120)
+        
+        for result in results_data:
+            print(f"{result['Model']:<10} {result['Precision']:<12.4f} {result['Recall']:<12.4f} {result['F1']:<12.4f} {result['ROC-AUC']:<12.4f} {result['AP']:<12.4f} {result['Precision@50']:<15.4f} {result['Recall@50']:<15.4f} {result['NDCG@50']:<12.4f}")
+        
+        print("=" * 120)
         logger.info("=" * 80)
 
         # 최종 추천 결과에 대한 시각화 생성
@@ -4197,8 +4339,8 @@ if __name__ == "__main__":
     gnn_generator = GNNEmbeddingGenerator()
     gnn_generator.run()
 
-    reranker = ReRanker()
-    reranker.run()
+    # reranker = ReRanker()
+    # reranker.run()
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
@@ -4210,6 +4352,6 @@ if __name__ == "__main__":
     )
     evaluator.run()
     
-    # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
-    comparator = RecommendationComparator(top_k=200)
-    comparator.run()
+    # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
+    # comparator = RecommendationComparator(top_k=200)
+    # comparator.run()
