@@ -4317,6 +4317,599 @@ class TestSetEvaluator:
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
+
+def evaluate_ablation_study():
+    """
+    Ablation study를 수행합니다.
+    
+    각 단계별로:
+    1. ALS only: ALS -> 평가
+    2. + Isolation Forest: 전처리 -> ALS -> 평가
+    3. + GNN Embedding: 전처리 -> ALS -> GNN -> 단순 합 (리랭킹 안함) -> 평가
+    4. + Hybrid Reranking: 전처리 -> ALS -> GNN -> 리랭킹 -> 평가
+    
+    각 단계마다 F1, Precision, Recall을 계산하고, 이전 단계와 비교해서 델타 F1도 출력합니다.
+    """
+    from sklearn.metrics import precision_score, recall_score
+    
+    logger.info("=" * 80)
+    logger.info("Ablation Study 시작")
+    logger.info("=" * 80)
+    
+    # 기본 파라미터 설정
+    DEFAULT_ALS_FACTORS = 32
+    DEFAULT_GNN_EMBEDDING_DIM = 8
+    DEFAULT_GNN_LAYERS = 2
+    DEFAULT_ALS_WEIGHT = 0.4
+    
+    # 평가 설정
+    TOP_K = 50
+    processed_dir = Path("data/processed")
+    
+    results = []
+    previous_f1 = None
+    
+    # 1. ALS only: ALS -> 평가 (원본 데이터 사용)
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 1: ALS only (원본 데이터 -> ALS -> 평가)")
+    logger.info("=" * 80)
+    
+    try:
+        from sklearn.model_selection import train_test_split
+        
+        # 원본 데이터 로드
+        data_dir = Path("data")
+        events_raw_path = data_dir / "events.csv"
+        if not events_raw_path.exists():
+            raise FileNotFoundError(f"원본 데이터 파일이 없습니다: {events_raw_path}")
+        
+        logger.info("원본 데이터 로드 중...")
+        events_raw = pd.read_csv(
+            events_raw_path,
+            usecols=["timestamp", "visitorid", "event", "itemid", "transactionid"]
+        )
+        
+        # Train/Test 분할 (이벤트 레벨로 분할 - 같은 사용자의 일부 이벤트는 train, 일부는 test)
+        logger.info("Train/Test 분할 중 (이벤트 레벨)...")
+        # 타임스탬프 기준으로 정렬하여 시간 순서 유지
+        events_raw = events_raw.sort_values("timestamp")
+        events_raw = events_raw.dropna(subset=["visitorid", "itemid"])
+        
+        # 이벤트 레벨로 train/test 분할 (80/20)
+        events_train_raw, events_test_raw = train_test_split(
+            events_raw, test_size=0.2, random_state=42, shuffle=False
+        )
+        
+        logger.info("Train events: %d, Test events: %d", len(events_train_raw), len(events_test_raw))
+        logger.info("Train users: %d, Test users: %d", 
+                   events_train_raw["visitorid"].nunique(), 
+                   events_test_raw["visitorid"].nunique())
+        
+        # ALS 추천 생성 (원본 train 데이터 사용)
+        logger.info("ALS 추천 생성 중 (원본 데이터 사용)...")
+        als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+        
+        # 원본 데이터로 ALS 학습 및 추천 생성
+        from implicit.als import AlternatingLeastSquares as ALSModel
+        
+        # 상호작용 데이터 준비
+        interactions = als_recommender._prepare_interactions(events_train_raw)
+        if interactions.empty:
+            raise ValueError("ALS 학습에 사용할 상호작용 데이터가 비어 있습니다.")
+        
+        user_item_matrix, users, items = als_recommender._build_matrix(interactions)
+        logger.info(
+            "Constructed user-item matrix with %d users, %d items, %d interactions",
+            len(users), len(items), user_item_matrix.nnz
+        )
+        
+        # ALS 모델 학습
+        model = ALSModel(
+            factors=DEFAULT_ALS_FACTORS,
+            regularization=als_recommender.regularization,
+            iterations=als_recommender.iterations,
+            random_state=als_recommender.random_state,
+        )
+        
+        confidence_matrix = user_item_matrix * als_recommender.alpha
+        model.fit(confidence_matrix.T.tocsr())
+        
+        # 모든 사용자에 대해 추천 생성 (train_users + test_users 모두 포함)
+        # test_users도 train 데이터에 일부 이벤트가 있으므로 추천 가능
+        logger.info("모든 사용자에 대해 추천 생성 중...")
+        recommendations = als_recommender._generate_recommendations(model, user_item_matrix, users, items)
+        
+        # 테스트 데이터 준비
+        test_users = events_test_raw["visitorid"].dropna().astype(int).unique()
+        logger.info("Test users: %d, Recommendations for test users: %d", 
+                   len(test_users), 
+                   len(recommendations[recommendations["visitorid"].isin(test_users)]))
+        
+        # Train 아이템 집합 (ALS가 추천할 수 있는 아이템만)
+        train_items_set = set(items)
+        
+        # Positive 이벤트 정의 (단, train에 있는 아이템만 고려)
+        positive_events = events_test_raw[events_test_raw["event"].isin(["addtocart", "transaction"])]
+        positive_events = positive_events.dropna(subset=["visitorid", "itemid"])
+        positive_events = positive_events.assign(
+            visitorid=lambda df: df["visitorid"].astype(int), 
+            itemid=lambda df: df["itemid"].astype(int)
+        )
+        # Train에 있는 아이템만 positive로 간주 (ALS가 추천할 수 있는 아이템만)
+        positive_events = positive_events[positive_events["itemid"].isin(train_items_set)]
+        
+        positives: Dict[int, set[int]] = (
+            positive_events.groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+        
+        logger.info("Train items: %d, Positive users in test set: %d (train 아이템만 고려)", 
+                   len(train_items_set), len(positives))
+        
+        # ALS 추천 결과 필터링 및 평가
+        als_test_recs = recommendations[recommendations["visitorid"].isin(test_users)]
+        if als_test_recs.empty:
+            logger.warning("Test users에 대한 추천이 없습니다. Train users와 test users의 교집합을 확인하세요.")
+            # Train users와 test users의 교집합 확인
+            train_users_set = set(users)
+            test_users_set = set(test_users)
+            common_users = train_users_set & test_users_set
+            logger.info("Train users: %d, Test users: %d, Common users: %d", 
+                       len(train_users_set), len(test_users_set), len(common_users))
+            # 공통 사용자만 평가
+            als_test_recs = recommendations[recommendations["visitorid"].isin(common_users)]
+            test_users = list(common_users)
+            # positives도 공통 사용자만 필터링
+            positives = {uid: items for uid, items in positives.items() if uid in common_users}
+        
+        als_test_recs = (
+            als_test_recs.sort_values(["visitorid", "score"], ascending=[True, False])
+            .groupby("visitorid")
+            .head(TOP_K)
+        )
+        
+        logger.info("Filtered recommendations for evaluation: %d users, %d recommendations", 
+                   als_test_recs["visitorid"].nunique(), len(als_test_recs))
+        
+        # 디버깅: 추천 아이템과 positive 아이템 매칭 확인
+        if len(als_test_recs) > 0 and len(positives) > 0:
+            sample_rec_user = als_test_recs["visitorid"].iloc[0]
+            sample_rec_items = set(als_test_recs[als_test_recs["visitorid"] == sample_rec_user]["itemid"].astype(int).tolist())
+            sample_pos_items = positives.get(int(sample_rec_user), set())
+            logger.info("Sample user %d: 추천 아이템 %d개, positive 아이템 %d개, 교집합 %d개", 
+                       sample_rec_user, len(sample_rec_items), len(sample_pos_items), 
+                       len(sample_rec_items & sample_pos_items))
+            
+            # 아이템 ID 범위 확인
+            all_rec_items = set(als_test_recs["itemid"].astype(int).unique())
+            all_pos_items = set()
+            for items in positives.values():
+                all_pos_items.update(items)
+            logger.info("전체 추천 아이템 수: %d, 전체 positive 아이템 수: %d, 교집합: %d", 
+                       len(all_rec_items), len(all_pos_items), len(all_rec_items & all_pos_items))
+            
+            # 공통 사용자 확인
+            rec_users = set(als_test_recs["visitorid"].astype(int).unique())
+            pos_users = set(positives.keys())
+            common_eval_users = rec_users & pos_users
+            logger.info("평가 가능한 공통 사용자 수: %d (추천: %d, positive: %d)", 
+                       len(common_eval_users), len(rec_users), len(pos_users))
+        
+        evaluator = TestSetEvaluator(evaluation_mode="strict", top_k=TOP_K)
+        als_results = evaluator._evaluate_recommendations(
+            als_test_recs, positives, events_test_raw, "ALS", score_col="score"
+        )
+        
+        y_true = als_results["y_true"]
+        y_pred = als_results["y_pred"]
+        f1 = als_results["f1"]
+        precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        delta_f1 = None  # 첫 번째 단계이므로 델타 없음
+        
+        results.append({
+            "Configuration": "ALS only",
+            "F1": f1,
+            "Precision": precision,
+            "Recall": recall,
+            "ΔF1": delta_f1
+        })
+        
+        previous_f1 = f1
+        logger.info("ALS only - F1: %.4f, Precision: %.4f, Recall: %.4f", f1, precision, recall)
+    except Exception as e:
+        logger.error("ALS only 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        results.append({
+            "Configuration": "ALS only",
+            "F1": 0.0,
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "ΔF1": None
+        })
+    
+    # 2. + Isolation Forest: 전처리 -> ALS -> 평가
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 2: + Isolation Forest (전처리 -> ALS -> 평가)")
+    logger.info("=" * 80)
+    
+    try:
+        # 전처리
+        logger.info("전처리 실행 중...")
+        preprocessor = IsolationForestPreprocessor()
+        preprocessor.run()
+        
+        # ALS 추천 생성
+        logger.info("ALS 추천 생성 중...")
+        als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+        als_recommender.run()
+        
+        # 테스트 데이터 로드
+        events_test_path = processed_dir / "events_test.csv"
+        events_test = pd.read_csv(events_test_path)
+        test_users = events_test["visitorid"].dropna().astype(int).unique()
+        
+        # Positive 이벤트 정의
+        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+        positives: Dict[int, set[int]] = (
+            positive_events.dropna(subset=["visitorid", "itemid"])
+            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            .groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+        
+        # ALS 추천 결과 로드 및 평가
+        als_rec_path = processed_dir / "als_recommendations.csv"
+        if als_rec_path.exists():
+            als_recommendations = pd.read_csv(als_rec_path)
+            als_test_recs = als_recommendations[als_recommendations["visitorid"].isin(test_users)]
+            als_test_recs = (
+                als_test_recs.sort_values(["visitorid", "score"], ascending=[True, False])
+                .groupby("visitorid")
+                .head(TOP_K)
+            )
+            
+            evaluator = TestSetEvaluator(evaluation_mode="strict", top_k=TOP_K)
+            als_results = evaluator._evaluate_recommendations(
+                als_test_recs, positives, events_test, "ALS", score_col="score"
+            )
+            
+            y_true = als_results["y_true"]
+            y_pred = als_results["y_pred"]
+            f1 = als_results["f1"]
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            delta_f1 = f1 - previous_f1 if previous_f1 is not None else None
+            
+            results.append({
+                "Configuration": "+ Isolation Forest",
+                "F1": f1,
+                "Precision": precision,
+                "Recall": recall,
+                "ΔF1": delta_f1
+            })
+            
+            previous_f1 = f1
+            logger.info("+ Isolation Forest - F1: %.4f, Precision: %.4f, Recall: %.4f, ΔF1: %.4f", 
+                       f1, precision, recall, delta_f1 if delta_f1 is not None else 0.0)
+        else:
+            logger.error("ALS 추천 결과 파일을 찾을 수 없습니다.")
+            results.append({
+                "Configuration": "+ Isolation Forest",
+                "F1": 0.0,
+                "Precision": 0.0,
+                "Recall": 0.0,
+                "ΔF1": None
+            })
+    except Exception as e:
+        logger.error("+ Isolation Forest 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        results.append({
+            "Configuration": "+ Isolation Forest",
+            "F1": 0.0,
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "ΔF1": None
+        })
+    
+    # 3. + GNN Embedding: 전처리 -> ALS -> GNN -> 단순 합 (리랭킹 안함) -> 평가
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 3: + GNN Embedding (전처리 -> ALS -> GNN -> 단순 합 -> 평가)")
+    logger.info("=" * 80)
+    
+    try:
+        # GNN 임베딩 생성
+        logger.info("GNN 임베딩 생성 중...")
+        gnn_generator = GNNEmbeddingGenerator(
+            embedding_dim=DEFAULT_GNN_EMBEDDING_DIM,
+            layers=DEFAULT_GNN_LAYERS
+        )
+        gnn_generator.run()
+        
+        # 테스트 데이터 로드 (Step 2에서 생성된 것 사용)
+        events_test_path = processed_dir / "events_test.csv"
+        events_test = pd.read_csv(events_test_path)
+        test_users = events_test["visitorid"].dropna().astype(int).unique()
+        
+        # Positive 이벤트 정의
+        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+        positives: Dict[int, set[int]] = (
+            positive_events.dropna(subset=["visitorid", "itemid"])
+            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            .groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+        
+        # 단순 합 추천 생성 (리랭킹 없이)
+        logger.info("단순 합 추천 생성 중...")
+        simple_combined_recs = _generate_simple_combined_recommendations(
+            processed_dir, test_users, positives, DEFAULT_ALS_WEIGHT, TOP_K
+        )
+        
+        # 평가
+        evaluator = TestSetEvaluator(evaluation_mode="strict", top_k=TOP_K)
+        combined_results = evaluator._evaluate_recommendations(
+            simple_combined_recs, positives, events_test, "Simple Combined", score_col="combined_score"
+        )
+        
+        y_true = combined_results["y_true"]
+        y_pred = combined_results["y_pred"]
+        f1 = combined_results["f1"]
+        precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        delta_f1 = f1 - previous_f1 if previous_f1 is not None else None
+        
+        results.append({
+            "Configuration": "+ GNN Embedding",
+            "F1": f1,
+            "Precision": precision,
+            "Recall": recall,
+            "ΔF1": delta_f1
+        })
+        
+        previous_f1 = f1
+        logger.info("+ GNN Embedding - F1: %.4f, Precision: %.4f, Recall: %.4f, ΔF1: %.4f", 
+                   f1, precision, recall, delta_f1 if delta_f1 is not None else 0.0)
+    except Exception as e:
+        logger.error("+ GNN Embedding 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        # 이전 F1을 유지하여 다음 단계의 델타 계산에 영향 주지 않음
+        results.append({
+            "Configuration": "+ GNN Embedding",
+            "F1": 0.0,
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "ΔF1": None if previous_f1 is None else (0.0 - previous_f1)
+        })
+    
+    # 4. + Hybrid Reranking: 전처리 -> ALS -> GNN -> 리랭킹 -> 평가
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 4: + Hybrid Reranking (전처리 -> ALS -> GNN -> 리랭킹 -> 평가)")
+    logger.info("=" * 80)
+    
+    try:
+        # 리랭킹
+        logger.info("리랭킹 실행 중...")
+        reranker = ReRanker(als_weight=DEFAULT_ALS_WEIGHT)
+        reranker.run()
+        
+        # 최종 추천 결과 로드 및 평가
+        final_rec_path = processed_dir / "final_recommendations.csv"
+        if final_rec_path.exists():
+            recommendations = pd.read_csv(final_rec_path)
+            test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+            test_recommendations = (
+                test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(TOP_K)
+            )
+            
+            evaluator = TestSetEvaluator(evaluation_mode="strict", top_k=TOP_K)
+            final_results = evaluator._evaluate_recommendations(
+                test_recommendations, positives, events_test, "Hybrid", score_col="final_score"
+            )
+            
+            y_true = final_results["y_true"]
+            y_pred = final_results["y_pred"]
+            f1 = final_results["f1"]
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            delta_f1 = f1 - previous_f1 if previous_f1 is not None else None
+            
+            results.append({
+                "Configuration": "+ Hybrid Reranking",
+                "F1": f1,
+                "Precision": precision,
+                "Recall": recall,
+                "ΔF1": delta_f1
+            })
+            
+            logger.info("+ Hybrid Reranking - F1: %.4f, Precision: %.4f, Recall: %.4f, ΔF1: %.4f", 
+                       f1, precision, recall, delta_f1 if delta_f1 is not None else 0.0)
+        else:
+            logger.error("최종 추천 결과 파일을 찾을 수 없습니다.")
+            results.append({
+                "Configuration": "+ Hybrid Reranking",
+                "F1": 0.0,
+                "Precision": 0.0,
+                "Recall": 0.0,
+                "ΔF1": None
+            })
+    except Exception as e:
+        logger.error("+ Hybrid Reranking 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        results.append({
+            "Configuration": "+ Hybrid Reranking",
+            "F1": 0.0,
+            "Precision": 0.0,
+            "Recall": 0.0,
+            "ΔF1": None
+        })
+    
+    # 결과 표 출력
+    logger.info("\n" + "=" * 80)
+    logger.info("Ablation Study 결과")
+    logger.info("=" * 80)
+    
+    print("\n" + "=" * 100)
+    print("Ablation Study 결과")
+    print("=" * 100)
+    print(f"{'Configuration':<25} {'F1':<12} {'Precision':<12} {'Recall':<12} {'ΔF1':<12}")
+    print("-" * 100)
+    
+    for result in results:
+        config = result["Configuration"]
+        f1 = result["F1"]
+        precision = result["Precision"]
+        recall = result["Recall"]
+        delta_f1 = result["ΔF1"]
+        
+        if delta_f1 is not None:
+            print(f"{config:<25} {f1:<12.4f} {precision:<12.4f} {recall:<12.4f} {delta_f1:<12.4f}")
+        else:
+            print(f"{config:<25} {f1:<12.4f} {precision:<12.4f} {recall:<12.4f} {'-':<12}")
+    
+    print("=" * 100)
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("Ablation Study 완료")
+    logger.info("=" * 80)
+    
+    return results
+
+
+def _generate_simple_combined_recommendations(
+    processed_dir: Path,
+    test_users: np.ndarray,
+    positives: Dict[int, set[int]],
+    als_weight: float,
+    top_k: int
+) -> pd.DataFrame:
+    """
+    ALS와 GNN 점수를 단순 합하여 추천 결과를 생성합니다 (리랭킹 없이).
+    
+    ReRanker와 유사하지만 리랭킹 로직(보너스 점수, 재고 가중치 등) 없이 단순히 점수만 결합합니다.
+    
+    Args:
+        processed_dir: 전처리된 데이터 디렉토리
+        test_users: 테스트 사용자 배열
+        positives: 사용자별 positive 아이템 딕셔너리
+        als_weight: ALS 가중치
+        top_k: 상위 K개 추천
+        
+    Returns:
+        추천 결과 DataFrame
+    """
+    # ALS 결과 로드
+    als_user_factors_path = processed_dir / "als_user_factors.npy"
+    als_item_factors_path = processed_dir / "als_item_factors.npy"
+    als_user_ids_path = processed_dir / "als_user_ids.npy"
+    als_item_ids_path = processed_dir / "als_item_ids.npy"
+    
+    als_user_factors = np.load(als_user_factors_path)
+    als_item_factors = np.load(als_item_factors_path)
+    als_user_ids = np.load(als_user_ids_path).tolist()
+    als_item_ids = np.load(als_item_ids_path).tolist()
+    
+    # GNN 임베딩 로드
+    gnn_user_embeddings_df = pd.read_csv(processed_dir / "gnn_user_embeddings.csv")
+    gnn_item_embeddings_df = pd.read_csv(processed_dir / "gnn_item_embeddings.csv")
+    
+    # 임베딩 배열로 변환
+    gnn_user_ids = gnn_user_embeddings_df["visitorid"].values.astype(int)
+    gnn_item_ids = gnn_item_embeddings_df["itemid"].values.astype(int)
+    
+    user_embedding_cols = [col for col in gnn_user_embeddings_df.columns if col.startswith("embedding_")]
+    item_embedding_cols = [col for col in gnn_item_embeddings_df.columns if col.startswith("embedding_")]
+    
+    gnn_user_embeddings = gnn_user_embeddings_df[user_embedding_cols].values.astype(np.float32)
+    gnn_item_embeddings = gnn_item_embeddings_df[item_embedding_cols].values.astype(np.float32)
+    
+    # 매핑 생성
+    als_user_map = {user_id: idx for idx, user_id in enumerate(als_user_ids)}
+    als_item_map = {item_id: idx for idx, item_id in enumerate(als_item_ids)}
+    gnn_user_map = {user_id: idx for idx, user_id in enumerate(gnn_user_ids)}
+    gnn_item_map = {item_id: idx for idx, item_id in enumerate(gnn_item_ids)}
+    
+    results: List[Dict[str, Any]] = []
+    
+    # Min-Max 정규화 함수
+    def minmax_scale(scores: np.ndarray) -> np.ndarray:
+        if len(scores) == 0:
+            return scores
+        min_val = np.min(scores)
+        max_val = np.max(scores)
+        if max_val - min_val == 0:
+            return np.zeros_like(scores)
+        return (scores - min_val) / (max_val - min_val)
+    
+    item_id_array = np.array(als_item_ids, dtype=int)
+    gnn_index_lookup = np.array([gnn_item_map.get(item_id, -1) for item_id in item_id_array], dtype=int)
+    
+    for visitor_id in test_users:
+        if visitor_id not in als_user_map or visitor_id not in gnn_user_map:
+            continue
+        
+        user_index = als_user_map[visitor_id]
+        user_idx_gnn = gnn_user_map[visitor_id]
+        
+        # ALS 점수 계산
+        als_user_vector = als_user_factors[user_index]
+        als_scores_full = als_user_vector @ als_item_factors.T
+        
+        # GNN 점수 계산
+        gnn_user_vector = gnn_user_embeddings[user_idx_gnn]
+        gnn_scores_all = gnn_item_embeddings @ gnn_user_vector
+        
+        # 모든 아이템에 대해 점수 결합
+        combined_scores_list = []
+        item_ids_list = []
+        
+        for idx, item_id in enumerate(als_item_ids):
+            als_score = float(als_scores_full[idx])
+            
+            # GNN 점수 가져오기
+            gnn_idx = gnn_index_lookup[idx]
+            if gnn_idx >= 0:
+                gnn_score = float(gnn_scores_all[gnn_idx])
+            else:
+                gnn_score = 0.0
+            
+            combined_scores_list.append((item_id, als_score, gnn_score))
+            item_ids_list.append(item_id)
+        
+        # 점수 배열 생성
+        als_scores_array = np.array([score for _, score, _ in combined_scores_list])
+        gnn_scores_array = np.array([score for _, _, score in combined_scores_list])
+        
+        # 정규화
+        als_norm = minmax_scale(als_scores_array)
+        gnn_norm = minmax_scale(gnn_scores_array)
+        
+        # 가중 결합
+        combined_scores = als_weight * als_norm + (1 - als_weight) * gnn_norm
+        
+        # 상위 K개 선택
+        top_indices = np.argsort(combined_scores)[::-1][:top_k]
+        
+        for rank, idx in enumerate(top_indices, start=1):
+            item_id = item_ids_list[idx]
+            combined_score = float(combined_scores[idx])
+            results.append({
+                "visitorid": int(visitor_id),
+                "itemid": int(item_id),
+                "combined_score": combined_score,
+                "rank": rank
+            })
+    
+    return pd.DataFrame(results)
+
+
 if __name__ == "__main__":
     """
     전체 추천 시스템 파이프라인을 실행합니다.
@@ -4336,22 +4929,24 @@ if __name__ == "__main__":
     # als_recommender = ALSRecommender()
     # als_recommender.run()
 
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    # # reranker = ReRanker()
+    # # reranker.run()
     
-    # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    evaluator = TestSetEvaluator(
-        evaluation_mode="score_based",
-        top_k=50,
-        score_percentile=50.0 # score-based 모드일 시 주석해제
-        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    )
-    evaluator.run()
+    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
+    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
+    # evaluator = TestSetEvaluator(
+    #     evaluation_mode="score_based",
+    #     top_k=50,
+    #     score_percentile=50.0 # score-based 모드일 시 주석해제
+    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    # )
+    # evaluator.run()
     
     # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
     # comparator = RecommendationComparator(top_k=200)
     # comparator.run()
+    
+    evaluate_ablation_study()
