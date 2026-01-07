@@ -4175,13 +4175,371 @@ class TestSetEvaluator:
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
+def calculate_precision_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+    """Precision@K를 계산합니다."""
+    precisions = []
+    for visitor_id, recs in recommendations.groupby("visitorid"):
+        predicted_items = recs["itemid"].astype(int).tolist()[:k]
+        relevant_items = positives.get(visitor_id, set())
+        if not predicted_items:
+            continue
+        hits = len(set(predicted_items) & relevant_items)
+        precision = hits / len(predicted_items) if predicted_items else 0.0
+        precisions.append(precision)
+    return np.mean(precisions) if precisions else 0.0
+
+
+def calculate_recall_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+    """Recall@K를 계산합니다."""
+    recalls = []
+    for visitor_id, recs in recommendations.groupby("visitorid"):
+        predicted_items = recs["itemid"].astype(int).tolist()[:k]
+        relevant_items = positives.get(visitor_id, set())
+        if not relevant_items:
+            continue
+        hits = len(set(predicted_items) & relevant_items)
+        recall = hits / len(relevant_items) if relevant_items else 0.0
+        recalls.append(recall)
+    return np.mean(recalls) if recalls else 0.0
+
+
+def calculate_ndcg_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+    """NDCG@K를 계산합니다."""
+    ndcgs = []
+    for visitor_id, recs in recommendations.groupby("visitorid"):
+        relevant_items = positives.get(visitor_id, set())
+        if not relevant_items:
+            continue
+        
+        # 추천 아이템 리스트 (상위 K개)
+        predicted_items = recs["itemid"].astype(int).tolist()[:k]
+        if not predicted_items:
+            continue
+        
+        # Ideal DCG 계산 (모든 relevant items가 상위에 있다고 가정)
+        ideal_gains = []
+        for idx in range(min(len(relevant_items), k)):
+            ideal_gains.append(1.0 / np.log2(idx + 2))
+        ideal_dcg = sum(ideal_gains)
+        
+        if ideal_dcg == 0:
+            ndcgs.append(0.0)
+            continue
+        
+        # DCG 계산
+        dcg = 0.0
+        for idx, item_id in enumerate(predicted_items):
+            if item_id in relevant_items:
+                dcg += 1.0 / np.log2(idx + 2)
+        
+        ndcg = dcg / ideal_dcg if ideal_dcg > 0 else 0.0
+        ndcgs.append(ndcg)
+    
+    return np.mean(ndcgs) if ndcgs else 0.0
+
+
+def evaluate_baseline_models():
+    """
+    베이스라인 모델들(ALS, GNN, Hybrid)의 성능을 평가합니다.
+    
+    각 모델에 대해 다음 지표를 계산합니다:
+    - Precision (사용자 레벨)
+    - Recall (사용자 레벨)
+    - F1 (사용자 레벨)
+    - ROC-AUC
+    - AP (Average Precision)
+    - Precision@50
+    - Recall@50
+    - NDCG@50
+    """
+    from sklearn.metrics import precision_score, recall_score, roc_auc_score, average_precision_score
+    
+    logger.info("=" * 80)
+    logger.info("베이스라인 모델 성능 평가 시작")
+    logger.info("=" * 80)
+    
+    # 기본 파라미터 설정
+    DEFAULT_ALS_FACTORS = 32
+    DEFAULT_GNN_EMBEDDING_DIM = 8
+    DEFAULT_GNN_LAYERS = 2
+    DEFAULT_ALS_WEIGHT = 0.4
+    
+    # 평가 설정
+    TOP_K = 50
+    processed_dir = Path("data/processed")
+    
+    # 테스트 데이터 로드
+    events_test_path = processed_dir / "events_test.csv"
+    if not events_test_path.exists():
+        logger.error("events_test.csv 파일이 없습니다. 전처리를 먼저 실행해주세요.")
+        return
+    
+    events_test = pd.read_csv(events_test_path)
+    test_users = events_test["visitorid"].dropna().astype(int).unique()
+    
+    # Positive 이벤트 정의
+    positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+    positives: Dict[int, set[int]] = (
+        positive_events.dropna(subset=["visitorid", "itemid"])
+        .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+        .groupby("visitorid")["itemid"]
+        .apply(lambda items: set(items.tolist()))
+        .to_dict()
+    )
+    
+    results = {}
+    
+    # 1. ALS만 평가
+    logger.info("\n" + "=" * 80)
+    logger.info("ALS 모델 평가 중...")
+    logger.info("=" * 80)
+    
+    try:
+        # ALS 추천 생성
+        als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+        als_recommender.run()
+        
+        # ALS 추천 결과 로드
+        als_rec_path = processed_dir / "als_recommendations.csv"
+        if als_rec_path.exists():
+            als_recommendations = pd.read_csv(als_rec_path)
+            als_test_recs = als_recommendations[als_recommendations["visitorid"].isin(test_users)]
+            als_test_recs = (
+                als_test_recs.sort_values(["visitorid", "score"], ascending=[True, False])
+                .groupby("visitorid")
+                .head(TOP_K)
+            )
+            
+            # 평가 수행
+            evaluator = TestSetEvaluator(
+                evaluation_mode="strict",
+                top_k=TOP_K
+            )
+            
+            als_eval_results = evaluator._evaluate_recommendations(
+                als_test_recs, positives, events_test, "ALS", score_col="score"
+            )
+            
+            # 추가 지표 계산
+            y_true = als_eval_results["y_true"]
+            y_pred = als_eval_results["y_pred"]
+            y_scores = als_eval_results["y_scores"]
+            
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            f1 = als_eval_results["f1"]
+            roc_auc = als_eval_results.get("roc_auc", 0.0)
+            ap = als_eval_results.get("average_precision", 0.0)
+            
+            precision_at_k = calculate_precision_at_k(als_test_recs, positives, k=TOP_K)
+            recall_at_k = calculate_recall_at_k(als_test_recs, positives, k=TOP_K)
+            ndcg_at_k = calculate_ndcg_at_k(als_test_recs, positives, k=TOP_K)
+            
+            results["ALS"] = {
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                "roc_auc": roc_auc,
+                "ap": ap,
+                "precision_at_50": precision_at_k,
+                "recall_at_50": recall_at_k,
+                "ndcg_at_50": ndcg_at_k
+            }
+            
+            logger.info("ALS 평가 완료: F1=%.4f, Precision=%.4f, Recall=%.4f", f1, precision, recall)
+        else:
+            logger.warning("ALS 추천 결과 파일을 찾을 수 없습니다.")
+            results["ALS"] = {key: 0.0 for key in ["precision", "recall", "f1", "roc_auc", "ap", "precision_at_50", "recall_at_50", "ndcg_at_50"]}
+    except Exception as e:
+        logger.error("ALS 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        results["ALS"] = {key: 0.0 for key in ["precision", "recall", "f1", "roc_auc", "ap", "precision_at_50", "recall_at_50", "ndcg_at_50"]}
+    
+    # 2. GNN만 평가
+    logger.info("\n" + "=" * 80)
+    logger.info("GNN 모델 평가 중...")
+    logger.info("=" * 80)
+    
+    try:
+        # GNN 임베딩 생성
+        gnn_generator = GNNEmbeddingGenerator(
+            embedding_dim=DEFAULT_GNN_EMBEDDING_DIM,
+            layers=DEFAULT_GNN_LAYERS
+        )
+        gnn_generator.run()
+        
+        # GNN 추천 생성
+        evaluator = TestSetEvaluator(
+            evaluation_mode="strict",
+            top_k=TOP_K
+        )
+        gnn_recommendations = evaluator._generate_gnn_recommendations(test_users)
+        gnn_test_recs = (
+            gnn_recommendations.sort_values(["visitorid", "score"], ascending=[True, False])
+            .groupby("visitorid")
+            .head(TOP_K)
+        )
+        
+        # 평가 수행
+        gnn_eval_results = evaluator._evaluate_recommendations(
+            gnn_test_recs, positives, events_test, "GNN", score_col="score"
+        )
+        
+        # 추가 지표 계산
+        y_true = gnn_eval_results["y_true"]
+        y_pred = gnn_eval_results["y_pred"]
+        y_scores = gnn_eval_results["y_scores"]
+        
+        precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        f1 = gnn_eval_results["f1"]
+        roc_auc = gnn_eval_results.get("roc_auc", 0.0)
+        ap = gnn_eval_results.get("average_precision", 0.0)
+        
+        precision_at_k = calculate_precision_at_k(gnn_test_recs, positives, k=TOP_K)
+        recall_at_k = calculate_recall_at_k(gnn_test_recs, positives, k=TOP_K)
+        ndcg_at_k = calculate_ndcg_at_k(gnn_test_recs, positives, k=TOP_K)
+        
+        results["GNN"] = {
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "roc_auc": roc_auc,
+            "ap": ap,
+            "precision_at_50": precision_at_k,
+            "recall_at_50": recall_at_k,
+            "ndcg_at_50": ndcg_at_k
+        }
+        
+        logger.info("GNN 평가 완료: F1=%.4f, Precision=%.4f, Recall=%.4f", f1, precision, recall)
+    except Exception as e:
+        logger.error("GNN 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        results["GNN"] = {key: 0.0 for key in ["precision", "recall", "f1", "roc_auc", "ap", "precision_at_50", "recall_at_50", "ndcg_at_50"]}
+    
+    # 3. Hybrid (ALS + GNN) 평가
+    logger.info("\n" + "=" * 80)
+    logger.info("Hybrid 모델 평가 중...")
+    logger.info("=" * 80)
+    
+    try:
+        # ALS 추천 생성 (이미 생성되어 있을 수 있음)
+        als_rec_path = processed_dir / "als_recommendations.csv"
+        if not als_rec_path.exists():
+            als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+            als_recommender.run()
+        
+        # GNN 임베딩 생성 (이미 생성되어 있을 수 있음)
+        gnn_user_emb_path = processed_dir / "gnn_user_embeddings.csv"
+        if not gnn_user_emb_path.exists():
+            gnn_generator = GNNEmbeddingGenerator(
+                embedding_dim=DEFAULT_GNN_EMBEDDING_DIM,
+                layers=DEFAULT_GNN_LAYERS
+            )
+            gnn_generator.run()
+        
+        # 리랭킹
+        reranker = ReRanker(als_weight=DEFAULT_ALS_WEIGHT)
+        reranker.run()
+        
+        # 최종 추천 결과 로드
+        final_rec_path = processed_dir / "final_recommendations.csv"
+        if final_rec_path.exists():
+            recommendations = pd.read_csv(final_rec_path)
+            test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+            test_recommendations = (
+                test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(TOP_K)
+            )
+            
+            # 평가 수행
+            evaluator = TestSetEvaluator(
+                evaluation_mode="strict",
+                top_k=TOP_K
+            )
+            
+            hybrid_eval_results = evaluator._evaluate_recommendations(
+                test_recommendations, positives, events_test, "Hybrid", score_col="final_score"
+            )
+            
+            # 추가 지표 계산
+            y_true = hybrid_eval_results["y_true"]
+            y_pred = hybrid_eval_results["y_pred"]
+            y_scores = hybrid_eval_results["y_scores"]
+            
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            f1 = hybrid_eval_results["f1"]
+            roc_auc = hybrid_eval_results.get("roc_auc", 0.0)
+            ap = hybrid_eval_results.get("average_precision", 0.0)
+            
+            precision_at_k = calculate_precision_at_k(test_recommendations, positives, k=TOP_K)
+            recall_at_k = calculate_recall_at_k(test_recommendations, positives, k=TOP_K)
+            ndcg_at_k = calculate_ndcg_at_k(test_recommendations, positives, k=TOP_K)
+            
+            results["Hybrid"] = {
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                "roc_auc": roc_auc,
+                "ap": ap,
+                "precision_at_50": precision_at_k,
+                "recall_at_50": recall_at_k,
+                "ndcg_at_50": ndcg_at_k
+            }
+            
+            logger.info("Hybrid 평가 완료: F1=%.4f, Precision=%.4f, Recall=%.4f", f1, precision, recall)
+        else:
+            logger.warning("최종 추천 결과 파일을 찾을 수 없습니다.")
+            results["Hybrid"] = {key: 0.0 for key in ["precision", "recall", "f1", "roc_auc", "ap", "precision_at_50", "recall_at_50", "ndcg_at_50"]}
+    except Exception as e:
+        logger.error("Hybrid 평가 중 오류 발생: %s", e)
+        import traceback
+        logger.error(traceback.format_exc())
+        results["Hybrid"] = {key: 0.0 for key in ["precision", "recall", "f1", "roc_auc", "ap", "precision_at_50", "recall_at_50", "ndcg_at_50"]}
+    
+    # 결과 표 출력
+    logger.info("\n" + "=" * 80)
+    logger.info("베이스라인 모델 성능 평가 결과")
+    logger.info("=" * 80)
+    
+    print("\n" + "=" * 120)
+    print("베이스라인 모델 성능 평가 결과")
+    print("=" * 120)
+    print(f"{'Model':<10} {'Precision':<12} {'Recall':<12} {'F1':<12} {'ROC-AUC':<12} {'AP':<12} {'Precision@50':<15} {'Recall@50':<15} {'NDCG@50':<12}")
+    print("-" * 120)
+    
+    for model_name in ["ALS", "GNN", "Hybrid"]:
+        if model_name in results:
+            r = results[model_name]
+            print(f"{model_name:<10} {r['precision']:<12.4f} {r['recall']:<12.4f} {r['f1']:<12.4f} {r['roc_auc']:<12.4f} {r['ap']:<12.4f} {r['precision_at_50']:<15.4f} {r['recall_at_50']:<15.4f} {r['ndcg_at_50']:<12.4f}")
+    
+    print("=" * 120)
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("베이스라인 모델 성능 평가 완료")
+    logger.info("=" * 80)
+    
+    return results
+
 if __name__ == "__main__":
     """
-    파라미터별 영향력 분석 실험을 수행합니다.
+    파라미터별 영향력 분석 실험 또는 베이스라인 모델 평가를 수행합니다.
     
-    각 파라미터를 하나씩만 변경하면서 실험하고, 결과를 표 형식으로 출력합니다.
+    실행 모드:
+    1. 파라미터별 영향력 분석: 각 파라미터를 하나씩만 변경하면서 실험하고, 결과를 표 형식으로 출력
+    2. 베이스라인 모델 평가: ALS, GNN, Hybrid 모델의 성능을 평가하고 표 형식으로 출력
     """
-    from sklearn.metrics import precision_score, recall_score
+    # 실행 모드 선택
+    RUN_BASELINE_EVALUATION = True  # True: 베이스라인 모델 평가, False: 파라미터별 영향력 분석
+    
+    if RUN_BASELINE_EVALUATION:
+        # 베이스라인 모델 평가 실행
+        evaluate_baseline_models()
+    else:
+        # 파라미터별 영향력 분석 실행
+        from sklearn.metrics import precision_score, recall_score
     
     # 기본 파라미터 설정
     DEFAULT_ALS_FACTORS = 32
