@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import math
+import random
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +33,37 @@ from sklearn.metrics import mean_squared_error
 # 로깅 설정
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+
+# 전역 시드 고정 (재현가능성 보장)
+GLOBAL_SEED = 42
+
+def set_global_seed(seed: int = GLOBAL_SEED) -> None:
+    """
+    모든 랜덤 시드를 고정하여 재현가능성을 보장합니다.
+    
+    Args:
+        seed: 고정할 시드 값 (기본값: 42)
+    """
+    # Python random 모듈
+    random.seed(seed)
+    
+    # NumPy
+    np.random.seed(seed)
+    
+    # PyTorch (가능한 경우)
+    try:
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  # 멀티 GPU 환경
+        # 재현가능성을 위한 추가 설정
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    except ImportError:
+        pass  # PyTorch가 설치되지 않은 경우 무시
+
+# 전역 시드 설정 실행
+set_global_seed(GLOBAL_SEED)
 
 # 이벤트 타입을 숫자 코드로 매핑 (view=0, addtocart=1, transaction=2)
 EVENT_TO_CODE: Dict[str, int] = {"view": 0, "addtocart": 1, "transaction": 2}
@@ -105,6 +137,10 @@ class IsolationForestPreprocessor:
         5. 정상 데이터와 이상치 데이터 분리 및 저장
         6. 시각화 생성
         """
+        # 시드 고정 (재현가능성 보장)
+        np.random.seed(self.random_state)
+        random.seed(self.random_state)
+        
         logger.info("Loading raw datasets…")
         datasets = self._load_raw()
 
@@ -560,37 +596,6 @@ class ALSRecommender:
     min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
     loss_batch_size: int = 1000  # Loss 계산 시 배치 크기 (메모리 효율성)
     loss_sample_size: Optional[int] = None  # Loss 계산 시 샘플링할 사용자 수 (None이면 전체 사용)
-    device: Optional[str] = None  # "cuda" 또는 "cpu", None이면 자동 감지
-
-    def __post_init__(self) -> None:
-        """
-        디바이스를 자동으로 설정합니다.
-        """
-        if self.device is None:
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    self.device = "cuda"
-                    logger.info("GPU detected for ALS: %s", torch.cuda.get_device_name(0))
-                else:
-                    self.device = "cpu"
-                    logger.info("CUDA not available. Using CPU for ALS.")
-            except ImportError:
-                self.device = "cpu"
-                logger.warning("PyTorch not available. Using CPU for ALS.")
-        
-        # device가 명시적으로 설정된 경우 확인
-        if self.device == "cuda":
-            try:
-                import torch
-                if not torch.cuda.is_available():
-                    logger.warning("CUDA device requested but not available. Falling back to CPU.")
-                    self.device = "cpu"
-                else:
-                    logger.info("Using GPU for ALS: %s", torch.cuda.get_device_name(0))
-            except ImportError:
-                logger.warning("PyTorch not available. Using CPU.")
-                self.device = "cpu"
 
     def run(self) -> None:
         """
@@ -599,15 +604,19 @@ class ALSRecommender:
         실행 순서:
         1. 전처리된 이벤트 데이터 로드
         2. 사용자-아이템 상호작용 행렬 생성
-        3. ALS 모델 학습 (PyTorch 기반, GPU 가속 지원)
+        3. ALS 모델 학습
         4. 사용자별 상위 K개 아이템 추천 생성
         5. 결과 저장 및 시각화
         """
+        # 시드 고정 (재현가능성 보장)
+        np.random.seed(self.random_state)
+        random.seed(self.random_state)
+        
         try:
-            import torch
-        except ImportError as exc:
+            from implicit.als import AlternatingLeastSquares as ALSModel
+        except ImportError as exc:  # pragma: no cover - runtime dependency may be missing in dev env
             raise ImportError(
-                "PyTorch가 필요합니다. `pip install torch` 명령으로 설치한 뒤 다시 실행해 주세요."
+                "implicit 패키지가 필요합니다. `pip install implicit` 명령으로 설치한 뒤 다시 실행해 주세요."
             ) from exc
 
         events_path = self.processed_dir / "events_train_clean.csv"
@@ -629,6 +638,13 @@ class ALSRecommender:
             len(users),
             len(items),
             user_item_matrix.nnz,
+        )
+
+        model = ALSModel(
+            factors=self.factors,
+            regularization=self.regularization,
+            iterations=self.iterations,
+            random_state=self.random_state,
         )
 
         confidence_matrix = user_item_matrix * self.alpha
@@ -662,44 +678,25 @@ class ALSRecommender:
             train_sample_indices = np.arange(n_train_users)
             val_sample_indices = np.arange(n_val_users)
         
-        # PyTorch 기반 ALS 학습
-        model, train_losses, val_losses, best_iteration = self._train_als_pytorch(
-            train_matrix, val_matrix, train_user_indices, val_user_indices,
-            train_sample_indices, val_sample_indices, len(users), len(items)
+        # 학습 중 loss 추적
+        train_losses = []
+        val_losses = []
+        
+        # Early stopping 변수
+        best_val_loss = float("inf")
+        patience_counter = 0
+        best_iteration = 0
+        best_user_factors = None
+        best_item_factors = None
+        
+        # 각 iteration마다 모델을 학습하고 loss 계산
+        temp_model = ALSModel(
+            factors=self.factors,
+            regularization=self.regularization,
+            iterations=1,  # 한 번씩 학습
+            random_state=self.random_state,
         )
         
-        # 최종 모델을 전체 데이터로 학습 (최적 factors를 초기값으로 사용)
-        if self.early_stopping_patience is not None and best_iteration > 0:
-            logger.info("Retraining on full dataset with best factors from iteration %d", best_iteration)
-            model = self._train_als_pytorch_full(
-                confidence_matrix, model.user_factors, model.item_factors
-            )
-        else:
-            logger.info("Retraining on full dataset")
-            model = self._train_als_pytorch_full(confidence_matrix, None, None)
-        
-        # Loss 그래프 출력
-        self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
-        
-        logger.info("Generating top-%d recommendations per user…", self.top_k)
-        recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
-        logger.info("ALS recommendation generation completed for %d users", len(recommendations.groupby("visitorid")))
-
-        self._save_outputs(recommendations, users, items, model)
-        logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
-
-        # 시각화 생성
-        self._create_visualizations(
-            interactions=interactions,
-            recommendations=recommendations,
-            user_item_matrix=user_item_matrix,
-            users=users,
-            items=items,
-        )
-        
-        return  # 함수 종료
-        
-        # 아래 코드는 더 이상 사용되지 않음 (PyTorch 구현으로 대체됨)
         # 초기 loss 계산 (학습 전) - 샘플링 및 배치 처리로 메모리 효율성 향상
         initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
         initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
@@ -743,17 +740,12 @@ class ALSRecommender:
             # Validation loss 계산 - 샘플링 및 배치 처리로 메모리 효율성 향상
             # Validation loss를 계산하기 위해 validation 데이터로 별도 모델 학습
             # (시간이 걸리지만 정확한 validation loss를 얻기 위해 필요)
-            val_temp_model_kwargs = {
-                "factors": self.factors,
-                "regularization": self.regularization,
-                "iterations": 1,
-                "random_state": self.random_state,
-            }
-            # num_threads 파라미터 지원 확인 (이미 위에서 확인했으므로 재사용)
-            if supports_num_threads:
-                val_temp_model_kwargs["num_threads"] = self.num_threads
-            
-            val_temp_model = ALSModel(**val_temp_model_kwargs)
+            val_temp_model = ALSModel(
+                factors=self.factors,
+                regularization=self.regularization,
+                iterations=1,
+                random_state=self.random_state,
+            )
             val_temp_model.fit(val_matrix.T.tocsr())
             # val_temp_model도 val_matrix.T로 학습했으므로:
             # - user_factors는 아이템 factors (행: 아이템)
@@ -914,364 +906,6 @@ class ALSRecommender:
             shape=(len(unique_users), len(unique_items)),
         )
         return matrix.tocsr(), unique_users.tolist(), unique_items.tolist()
-
-    def _train_als_pytorch(
-        self,
-        train_matrix: sp.csr_matrix,
-        val_matrix: sp.csr_matrix,
-        train_user_indices: np.ndarray,
-        val_user_indices: np.ndarray,
-        train_sample_indices: np.ndarray,
-        val_sample_indices: np.ndarray,
-        n_users: int,
-        n_items: int,
-    ) -> Tuple[Any, List[float], List[float], int]:
-        """
-        PyTorch 기반 ALS 학습 함수 (GPU 가속 지원)
-        
-        Returns:
-            (model, train_losses, val_losses, best_iteration) 튜플
-            model은 user_factors와 item_factors 속성을 가진 객체
-        """
-        import torch
-        
-        device = torch.device(self.device)
-        torch.manual_seed(self.random_state)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(self.random_state)
-            torch.cuda.manual_seed_all(self.random_state)
-        np.random.seed(self.random_state)
-        
-        # 희소 행렬을 PyTorch sparse tensor로 변환
-        train_sparse = self._csr_to_torch_sparse(train_matrix, device)
-        val_sparse = self._csr_to_torch_sparse(val_matrix, device)
-        
-        # Factors 초기화
-        user_factors = torch.randn(n_users, self.factors, dtype=torch.float32, device=device) * 0.01
-        item_factors = torch.randn(n_items, self.factors, dtype=torch.float32, device=device) * 0.01
-        
-        train_losses = []
-        val_losses = []
-        best_val_loss = float("inf")
-        patience_counter = 0
-        best_iteration = 0
-        best_user_factors = None
-        best_item_factors = None
-        
-        # 초기 loss 계산
-        train_loss_init = self._compute_als_loss_pytorch(
-            user_factors[train_user_indices], item_factors, train_sparse, 
-            train_sample_indices, train_user_indices, device
-        )
-        val_loss_init = self._compute_als_loss_pytorch(
-            user_factors[val_user_indices], item_factors, val_sparse,
-            val_sample_indices, val_user_indices, device
-        )
-        train_losses.append(train_loss_init)
-        val_losses.append(val_loss_init)
-        logger.info("Initial - Train Loss: %.6f, Val Loss: %.6f", train_loss_init, val_loss_init)
-        
-        # ALS 학습 루프
-        for iteration in range(1, self.iterations + 1):
-            # 사용자 factors 업데이트 (아이템 factors 고정)
-            user_factors = self._update_user_factors(
-                item_factors, train_sparse, self.regularization, device
-            )
-            
-            # 아이템 factors 업데이트 (사용자 factors 고정)
-            item_factors = self._update_item_factors(
-                user_factors, train_sparse, self.regularization, device
-            )
-            
-            # Loss 계산
-            train_loss = self._compute_als_loss_pytorch(
-                user_factors[train_user_indices], item_factors, train_sparse,
-                train_sample_indices, train_user_indices, device
-            )
-            val_loss = self._compute_als_loss_pytorch(
-                user_factors[val_user_indices], item_factors, val_sparse,
-                val_sample_indices, val_user_indices, device
-            )
-            
-            train_losses.append(train_loss)
-            val_losses.append(val_loss)
-            
-            logger.info("Iteration %d/%d - Train Loss: %.6f, Val Loss: %.6f",
-                       iteration, self.iterations, train_loss, val_loss)
-            
-            # Early stopping 체크
-            if self.early_stopping_patience is not None:
-                if val_loss < best_val_loss - self.min_delta:
-                    best_val_loss = val_loss
-                    patience_counter = 0
-                    best_iteration = iteration
-                    best_user_factors = user_factors.clone().cpu().numpy()
-                    best_item_factors = item_factors.clone().cpu().numpy()
-                    logger.info("  *** Best validation loss improved to %.6f at iteration %d ***",
-                               best_val_loss, best_iteration)
-                else:
-                    patience_counter += 1
-                    logger.info("  No improvement for %d iteration(s) (patience: %d)",
-                               patience_counter, self.early_stopping_patience)
-                    
-                    if patience_counter >= self.early_stopping_patience:
-                        logger.info("Early stopping triggered at iteration %d. Best iteration: %d (Val Loss: %.6f)",
-                                   iteration, best_iteration, best_val_loss)
-                        break
-        
-        # 최적 모델 선택
-        if best_user_factors is not None:
-            user_factors_np = best_user_factors
-            item_factors_np = best_item_factors
-        else:
-            user_factors_np = user_factors.cpu().numpy()
-            item_factors_np = item_factors.cpu().numpy()
-        
-        # 모델 객체 생성 (기존 인터페이스 유지)
-        class ALSModel:
-            def __init__(self, user_factors, item_factors):
-                self.user_factors = user_factors
-                self.item_factors = item_factors
-        
-        model = ALSModel(user_factors_np, item_factors_np)
-        return model, train_losses, val_losses, best_iteration
-    
-    def _train_als_pytorch_full(
-        self,
-        matrix: sp.csr_matrix,
-        init_user_factors: Optional[np.ndarray],
-        init_item_factors: Optional[np.ndarray],
-    ) -> Any:
-        """
-        전체 데이터로 ALS 학습 (최종 모델)
-        """
-        import torch
-        
-        device = torch.device(self.device)
-        torch.manual_seed(self.random_state)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(self.random_state)
-            torch.cuda.manual_seed_all(self.random_state)
-        
-        sparse_matrix = self._csr_to_torch_sparse(matrix, device)
-        n_users, n_items = matrix.shape
-        
-        # 초기화
-        if init_user_factors is not None and init_item_factors is not None:
-            user_factors = torch.from_numpy(init_user_factors).float().to(device)
-            item_factors = torch.from_numpy(init_item_factors).float().to(device)
-        else:
-            user_factors = torch.randn(n_users, self.factors, dtype=torch.float32, device=device) * 0.01
-            item_factors = torch.randn(n_items, self.factors, dtype=torch.float32, device=device) * 0.01
-        
-        # 간단한 학습 (전체 데이터)
-        for _ in range(min(10, self.iterations)):  # 빠른 재학습
-            user_factors = self._update_user_factors(item_factors, sparse_matrix, self.regularization, device)
-            item_factors = self._update_item_factors(user_factors, sparse_matrix, self.regularization, device)
-        
-        class ALSModel:
-            def __init__(self, user_factors, item_factors):
-                self.user_factors = user_factors
-                self.item_factors = item_factors
-        
-        model = ALSModel(user_factors.cpu().numpy(), item_factors.cpu().numpy())
-        return model
-    
-    def _csr_to_torch_sparse(self, csr_matrix: sp.csr_matrix, device: torch.device) -> torch.Tensor:
-        """CSR 행렬을 PyTorch sparse tensor로 변환"""
-        import torch
-        
-        coo = csr_matrix.tocoo()
-        indices = torch.from_numpy(np.vstack([coo.row, coo.col])).long()
-        values = torch.from_numpy(coo.data).float()
-        shape = torch.Size(coo.shape)
-        
-        sparse_tensor = torch.sparse_coo_tensor(indices, values, shape, device=device)
-        return sparse_tensor.coalesce()
-    
-    def _update_user_factors(
-        self, item_factors: torch.Tensor, matrix: torch.Tensor, 
-        regularization: float, device: torch.device
-    ) -> torch.Tensor:
-        """ALS: 사용자 factors 업데이트 (아이템 factors 고정)"""
-        import torch
-        
-        # (n_items, factors) @ (factors, n_items) = (n_items, n_items)
-        # 하지만 실제로는 각 사용자별로 업데이트해야 함
-        # 효율적인 구현: 배치로 처리
-        
-        n_users = matrix.shape[0]
-        n_items = matrix.shape[1]
-        factors = item_factors.shape[1]
-        
-        # 정규화 항 추가
-        reg_matrix = torch.eye(factors, device=device) * regularization
-        
-        # 각 사용자별로 업데이트 (배치 처리로 최적화 가능하지만 간단한 구현)
-        user_factors_list = []
-        for u in range(n_users):
-            # 사용자 u의 아이템 인덱스와 값 가져오기
-            row = matrix[u]
-            if isinstance(row, torch.Tensor):
-                if row.is_sparse:
-                    indices = row.indices()[0]
-                    values = row.values()
-                else:
-                    indices = torch.nonzero(row, as_tuple=False).squeeze(1)
-                    values = row[indices]
-            else:
-                # CPU에서 처리
-                row_np = row.to_dense().cpu().numpy() if hasattr(row, 'to_dense') else row
-                indices = torch.from_numpy(np.nonzero(row_np)[0]).to(device)
-                values = torch.from_numpy(row_np[indices.cpu().numpy()]).float().to(device)
-            
-            if len(indices) == 0:
-                # 상호작용이 없는 사용자
-                user_factors_list.append(torch.zeros(factors, device=device))
-                continue
-            
-            # 해당 아이템 factors
-            item_factors_selected = item_factors[indices]  # (n_items_u, factors)
-            
-            # 가중치 적용
-            if len(values.shape) == 0:
-                values = values.unsqueeze(0)
-            item_factors_weighted = item_factors_selected * values.unsqueeze(1)  # (n_items_u, factors)
-            
-            # 최소 제곱 해: (V^T V + λI)^(-1) V^T R
-            VtV = item_factors_selected.T @ item_factors_weighted  # (factors, factors)
-            A = VtV + reg_matrix
-            
-            # R은 가중치가 적용된 값들의 합
-            R = item_factors_weighted.sum(dim=0)  # (factors,)
-            
-            try:
-                user_factor = torch.linalg.solve(A, R)  # (factors,)
-            except:
-                # 역행렬이 없는 경우 pseudo-inverse 사용
-                user_factor = torch.linalg.pinv(A) @ R
-            
-            user_factors_list.append(user_factor)
-        
-        return torch.stack(user_factors_list)
-    
-    def _update_item_factors(
-        self, user_factors: torch.Tensor, matrix: torch.Tensor,
-        regularization: float, device: torch.device
-    ) -> torch.Tensor:
-        """ALS: 아이템 factors 업데이트 (사용자 factors 고정)"""
-        import torch
-        
-        n_users = matrix.shape[0]
-        n_items = matrix.shape[1]
-        factors = user_factors.shape[1]
-        
-        reg_matrix = torch.eye(factors, device=device) * regularization
-        
-        item_factors_list = []
-        for i in range(n_items):
-            # 아이템 i와 상호작용한 사용자들
-            col = matrix[:, i]
-            if isinstance(col, torch.Tensor):
-                if col.is_sparse:
-                    indices = col.indices()[0]
-                    values = col.values()
-                else:
-                    indices = torch.nonzero(col, as_tuple=False).squeeze(1)
-                    values = col[indices]
-            else:
-                col_np = col.to_dense().cpu().numpy() if hasattr(col, 'to_dense') else col
-                indices = torch.from_numpy(np.nonzero(col_np)[0]).to(device)
-                values = torch.from_numpy(col_np[indices.cpu().numpy()]).float().to(device)
-            
-            if len(indices) == 0:
-                item_factors_list.append(torch.zeros(factors, device=device))
-                continue
-            
-            user_factors_selected = user_factors[indices]
-            if len(values.shape) == 0:
-                values = values.unsqueeze(0)
-            user_factors_weighted = user_factors_selected * values.unsqueeze(1)
-            
-            UtU = user_factors_selected.T @ user_factors_weighted
-            A = UtU + reg_matrix
-            R = user_factors_weighted.sum(dim=0)
-            
-            try:
-                item_factor = torch.linalg.solve(A, R)
-            except:
-                item_factor = torch.linalg.pinv(A) @ R
-            
-            item_factors_list.append(item_factor)
-        
-        return torch.stack(item_factors_list)
-    
-    def _compute_als_loss_pytorch(
-        self,
-        user_factors: torch.Tensor,
-        item_factors: torch.Tensor,
-        matrix: torch.Tensor,
-        sample_indices: np.ndarray,
-        user_indices: np.ndarray,
-        device: torch.device,
-    ) -> float:
-        """PyTorch 기반 ALS loss 계산 (메모리 효율적 - 전체 예측 행렬 생성하지 않음)"""
-        import torch
-        
-        if len(sample_indices) == 0:
-            return 0.0
-        
-        # 샘플링된 사용자 factors
-        sampled_user_factors = user_factors[sample_indices]  # (n_samples, factors)
-        sampled_user_indices = user_indices[sample_indices]  # 원본 인덱스
-        
-        # 전체 예측 행렬을 생성하지 않고, 각 사용자별로 실제 상호작용이 있는 아이템에 대해서만 계산
-        total_loss = 0.0
-        count = 0
-        
-        # 배치 처리로 메모리 효율성 향상
-        batch_size = min(100, len(sampled_user_indices))  # 작은 배치로 처리
-        
-        for batch_start in range(0, len(sampled_user_indices), batch_size):
-            batch_end = min(batch_start + batch_size, len(sampled_user_indices))
-            batch_indices = range(batch_start, batch_end)
-            
-            for idx in batch_indices:
-                u_idx = sampled_user_indices[idx]
-                user_factor = sampled_user_factors[idx]  # (factors,)
-                
-                # 희소 행렬에서 사용자 u의 상호작용 가져오기
-                row = matrix[u_idx]
-                if isinstance(row, torch.Tensor):
-                    if row.is_sparse:
-                        actual_indices = row.indices()[0]
-                        actual_values = row.values()
-                    else:
-                        actual_indices = torch.nonzero(row, as_tuple=False).squeeze(1)
-                        if len(actual_indices.shape) == 0:
-                            actual_indices = actual_indices.unsqueeze(0)
-                        actual_values = row[actual_indices]
-                else:
-                    # scipy sparse matrix인 경우
-                    row_np = row.toarray().flatten() if hasattr(row, 'toarray') else row
-                    actual_indices = torch.from_numpy(np.nonzero(row_np)[0]).long().to(device)
-                    actual_values = torch.from_numpy(row_np[actual_indices.cpu().numpy()]).float().to(device)
-                
-                if len(actual_indices) > 0:
-                    # 해당 아이템 factors만 선택하여 예측값 계산 (메모리 효율적)
-                    item_factors_selected = item_factors[actual_indices]  # (n_items_u, factors)
-                    pred_values = (user_factor.unsqueeze(0) @ item_factors_selected.T).squeeze(0)  # (n_items_u,)
-                    
-                    # Loss 계산
-                    loss = torch.mean((pred_values - actual_values) ** 2)
-                    total_loss += loss.item()
-                    count += 1
-            
-            # 메모리 정리
-            if device.type == 'cuda':
-                torch.cuda.empty_cache()
-        
-        return total_loss / count if count > 0 else 0.0
 
     def _compute_als_loss_batch(
         self,
@@ -1621,15 +1255,15 @@ class GNNEmbeddingGenerator:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     embedding_dim: int = 8
     layers: int = 2
-    epochs: int = 500
-    batch_size: int = 1024
+    epochs: int = 100
+    batch_size: int = 8192
     learning_rate: float = 1e-3
     reg: float = 1e-4
     num_negative: int = 1
     seed: int = 42
     device: Optional[str] = None
-    early_stopping_patience: Optional[int] = 25  # None이면 early stopping 비활성화
-    min_delta: float = 1e-3  # 개선으로 간주할 최소 변화량
+    early_stopping_patience: Optional[int] = None  # None이면 early stopping 비활성화
+    min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
 
     def __post_init__(self) -> None:
         """
@@ -1642,30 +1276,8 @@ class GNNEmbeddingGenerator:
             try:
                 import torch
 
-                if torch.cuda.is_available():
-                    self.device = "cuda"
-                    logger.info("GPU detected: %s (device: %s)", torch.cuda.get_device_name(0), self.device)
-                else:
-                    self.device = "cpu"
-                    logger.warning("CUDA is not available. Using CPU for GNN training.")
-                    logger.warning("GPU를 사용하려면 CUDA 지원 PyTorch를 설치하세요:")
-                    logger.warning("  pip uninstall torch")
-                    logger.warning("  pip install torch --index-url https://download.pytorch.org/whl/cu121")
+                self.device = "cuda" if torch.cuda.is_available() else "cpu"
             except ImportError:
-                self.device = "cpu"
-                logger.warning("PyTorch not available. Using CPU for GNN training.")
-        
-        # device가 명시적으로 설정된 경우 확인
-        if self.device == "cuda":
-            try:
-                import torch
-                if not torch.cuda.is_available():
-                    logger.warning("CUDA device requested but not available. Falling back to CPU.")
-                    self.device = "cpu"
-                else:
-                    logger.info("Using GPU: %s", torch.cuda.get_device_name(0))
-            except ImportError:
-                logger.warning("PyTorch not available. Using CPU.")
                 self.device = "cpu"
 
     def run(self) -> None:
@@ -1688,8 +1300,15 @@ class GNNEmbeddingGenerator:
                 "GNN 임베딩 생성을 위해 PyTorch가 필요합니다. `pip install torch` 후 다시 실행해 주세요."
             ) from exc
 
+        # 시드 고정 (전역 시드와 동일하게 42로 설정)
         torch.manual_seed(self.seed)
+        torch.cuda.manual_seed(self.seed)
+        torch.cuda.manual_seed_all(self.seed)  # 멀티 GPU 환경
         np.random.seed(self.seed)
+        random.seed(self.seed)
+        # 재현가능성을 위한 추가 설정
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
         logger.info("Preparing inputs for GNN embedding generation on device %s…", self.device)
         datasets = self._load_inputs()
@@ -2203,18 +1822,7 @@ class GNNEmbeddingGenerator:
         indices_tensor = torch.from_numpy(indices).long()
         values_tensor = torch.from_numpy(normalized.data.astype(np.float32))
         adjacency_tensor = torch.sparse.FloatTensor(indices_tensor, values_tensor, torch.Size(normalized.shape))
-        adjacency_tensor = adjacency_tensor.coalesce()
-        
-        # GPU로 이동 (device가 설정되어 있는 경우)
-        if self.device and self.device != "cpu":
-            try:
-                device_obj = torch.device(self.device)
-                adjacency_tensor = adjacency_tensor.to(device_obj)
-                logger.info("Adjacency matrix moved to %s", self.device)
-            except Exception as e:
-                logger.warning("Failed to move adjacency matrix to %s: %s. Using CPU.", self.device, e)
-        
-        return adjacency_tensor
+        return adjacency_tensor.coalesce()
 
     def _build_model(self, adjacency: Any, torch_module: Any) -> Any:
         """
@@ -2255,13 +1863,6 @@ class GNNEmbeddingGenerator:
         )
         device = torch_module.device(self.device)
         model = model.to(device)
-        
-        # 인접 행렬도 같은 디바이스로 이동 (register_buffer로 등록된 경우)
-        if hasattr(model, 'adjacency') and model.adjacency.device != device:
-            model.adjacency = model.adjacency.to(device)
-            logger.info("Model adjacency matrix moved to %s", self.device)
-        
-        logger.info("Model moved to %s (device: %s)", self.device, device)
         return model
 
     def _train_step(
@@ -2572,7 +2173,7 @@ class ReRanker:
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 200
-    random_seed: Optional[int] = 42
+    random_seed: int = 42
     als_candidate_k: int = 500
     als_weight: float = 0.4
 
@@ -2580,8 +2181,8 @@ class ReRanker:
         """
         랜덤 시드를 설정합니다.
         """
-        if self.random_seed is not None:
-            np.random.seed(self.random_seed)
+        np.random.seed(self.random_seed)
+        random.seed(self.random_seed)
 
     def run(self) -> None:
         """
@@ -4574,310 +4175,387 @@ class TestSetEvaluator:
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
-def _execute_single_experiment(
-    als_factors: int = 32,
-    gnn_embedding_dim: int = 8,
-    gnn_layers: int = 2,
-    als_weight: float = 0.4,
-    evaluation_mode: str = "score_based",
-    top_k: int = 50,
-    score_percentile: float = 75.0,
-    run_preprocessing: bool = True,
-    run_comparison: bool = False,
-) -> Optional[Dict[str, float]]:
+if __name__ == "__main__":
     """
-    단일 실험을 실행하는 함수
+    파라미터별 영향력 분석 실험을 수행합니다.
     
-    Args:
-        als_factors: ALS 임베딩 차원 [16, 32, 64, 128]
-        gnn_embedding_dim: GNN 임베딩 차원 [8, 16, 32, 64]
-        gnn_layers: GNN 레이어 수 [1, 2, 3]
-        als_weight: ALS 가중치 [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] (GNN weight = 1.0 - als_weight)
-        evaluation_mode: 평가 모드 ["strict", "weighted", "partial", "score_based", "rank_based"]
-        top_k: 평가에 사용할 추천 아이템 수
-        score_percentile: score_based 모드에서 사용할 백분위수
-        run_preprocessing: 전처리 실행 여부 (False면 이미 전처리된 데이터 사용)
-        run_comparison: 추천 결과 비교 분석 실행 여부
-    
-    Returns:
-        평가 결과 딕셔너리 (f1, precision, recall, hit_rate) 또는 None (실패 시)
+    각 파라미터를 하나씩만 변경하면서 실험하고, 결과를 표 형식으로 출력합니다.
     """
-    logger.info("=" * 80)
-    logger.info("실험 시작: ALS factors=%d, GNN embedding_dim=%d, GNN layers=%d, ALS weight=%.1f",
-                als_factors, gnn_embedding_dim, gnn_layers, als_weight)
-    logger.info("=" * 80)
+    from sklearn.metrics import precision_score, recall_score
     
-    try:
-        # 1. 데이터 전처리
-        if run_preprocessing:
-            logger.info("데이터 전처리 실행 중...")
-            preprocessor = IsolationForestPreprocessor()
-            preprocessor.run()
-        else:
-            logger.info("전처리 건너뜀 (기존 데이터 사용)")
-
-        # 2. ALS 추천 생성
-        logger.info("ALS 추천 생성 중 (factors=%d)...", als_factors)
-        # loss_sample_size를 1000으로 설정하여 메모리 사용량 제한
-        als_recommender = ALSRecommender(factors=als_factors, loss_sample_size=1000)
-        als_recommender.run()
-
-        # 3. GNN 임베딩 생성
-        logger.info("GNN 임베딩 생성 중 (embedding_dim=%d, layers=%d)...", gnn_embedding_dim, gnn_layers)
-        gnn_generator = GNNEmbeddingGenerator(
-            embedding_dim=gnn_embedding_dim,
-            layers=gnn_layers
-        )
-        gnn_generator.run()
-
-        # 4. 리랭킹
-        logger.info("리랭킹 실행 중 (ALS weight=%.1f, GNN weight=%.1f)...", als_weight, 1.0 - als_weight)
-        reranker = ReRanker(als_weight=als_weight)
-        reranker.run()
-        
-        # 5. 평가 및 결과 수집
-        logger.info("평가 실행 중 (mode=%s, top_k=%d)...", evaluation_mode, top_k)
-        evaluator = TestSetEvaluator(
-            evaluation_mode=evaluation_mode,
-            top_k=top_k,
-            score_percentile=score_percentile
-        )
-        
-        # 평가 결과를 직접 가져오기 위해 내부 메서드 호출
-        events_test_path = evaluator.processed_dir / "events_test.csv"
-        if not events_test_path.exists():
-            logger.error("events_test.csv 파일이 없습니다.")
-            return None
-        
-        events_test = pd.read_csv(events_test_path)
-        test_users = events_test["visitorid"].dropna().astype(int).unique()
-        
-        # Positive 이벤트 정의
-        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-        positives: Dict[int, set[int]] = (
-            positive_events.dropna(subset=["visitorid", "itemid"])
-            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-            .groupby("visitorid")["itemid"]
-            .apply(lambda items: set(items.tolist()))
-            .to_dict()
-        )
-        
-        # 최종 추천 결과 평가
-        final_rec_path = evaluator.processed_dir / "final_recommendations.csv"
-        if not final_rec_path.exists():
-            logger.error("final_recommendations.csv 파일이 없습니다.")
-            return None
-        
-        recommendations = pd.read_csv(final_rec_path)
-        test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
-        test_recommendations = (
-            test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(top_k)
-        )
-        
-        final_results = evaluator._evaluate_recommendations(
-            test_recommendations, positives, events_test, "최종", score_col="final_score"
-        )
-        
-        # Hit Rate 계산
-        y_true = final_results["y_true"]
-        y_pred = final_results["y_pred"]
-        y_scores = final_results["y_scores"]
-        hit_rate = sum(1 for t, p in zip(y_true, y_pred) if t == 1 and p == 1) / len(y_true) if y_true else 0.0
-        
-        # Precision, Recall 계산
-        from sklearn.metrics import precision_score, recall_score, roc_auc_score, average_precision_score
-        precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        f1 = final_results["f1"]
-        
-        # ROC-AUC 계산
-        try:
-            roc_auc = roc_auc_score(y_true, y_scores) if y_true and len(set(y_true)) > 1 else 0.0
-        except ValueError:
-            roc_auc = 0.0
-        
-        # Average Precision 계산
-        ap = average_precision_score(y_true, y_scores) if y_true else 0.0
-        
-        result = {
-            "f1": f1,
-            "precision": precision,
-            "recall": recall,
-            "hit_rate": hit_rate,
-            "roc_auc": roc_auc,
-            "ap": ap,
-        }
-        
-        # 시각화는 생략 (Grid Search에서는 불필요)
-        if run_comparison:
-            logger.info("추천 결과 비교 분석 실행 중...")
-            comparator = RecommendationComparator(top_k=200)
-            comparator.run()
-        
-        logger.info("=" * 80)
-        logger.info("실험 완료: ALS factors=%d, GNN embedding_dim=%d, GNN layers=%d, ALS weight=%.1f",
-                    als_factors, gnn_embedding_dim, gnn_layers, als_weight)
-        logger.info("결과: F1=%.4f, Precision=%.4f, Recall=%.4f, Hit Rate=%.4f, ROC-AUC=%.4f, AP=%.4f",
-                    f1, precision, recall, hit_rate, roc_auc, ap)
-        logger.info("=" * 80)
-        
-        return result
-        
-    except Exception as e:
-        logger.error("실험 실행 중 오류 발생: %s", e)
-        import traceback
-        logger.error(traceback.format_exc())
-        return None
-
-
-def run_single_experiment(
-    als_factors_list: List[int] = [16, 32, 64, 128],
-    gnn_embedding_dim_list: List[int] = [8, 16, 32, 64],
-    gnn_layers_list: List[int] = [1, 2, 3],
-    als_weight_list: List[float] = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-    evaluation_mode: str = "score_based",
-    top_k: int = 50,
-    score_percentile: float = 75.0,
-    default_als_factors: int = 32,
-    default_gnn_embedding_dim: int = 8,
-    default_gnn_layers: int = 2,
-    default_als_weight: float = 0.4,
-    run_preprocessing: bool = True,
-):
-    """
-    각 파라미터를 하나씩만 바꿔가며 실험하는 함수 (파라미터별 영향력 분석)
+    # 기본 파라미터 설정
+    DEFAULT_ALS_FACTORS = 32
+    DEFAULT_GNN_EMBEDDING_DIM = 8
+    DEFAULT_GNN_LAYERS = 2
+    DEFAULT_ALS_WEIGHT = 0.4
     
-    각 파라미터를 기본값에서 하나씩만 변경하여 실험하고, 결과를 표로 출력합니다.
-    총 실험 수 = len(als_factors_list) + len(gnn_embedding_dim_list) + len(gnn_layers_list) + len(als_weight_list)
+    # 실험할 파라미터 값들
+    ALS_FACTORS_LIST = [16, 32, 64, 128]
+    GNN_EMBEDDING_DIM_LIST = [8, 16, 32, 64]
+    ALS_WEIGHT_LIST = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    GNN_LAYERS_LIST = [1, 2, 3]
     
-    Args:
-        als_factors_list: ALS factors 값 리스트
-        gnn_embedding_dim_list: GNN embedding_dim 값 리스트
-        gnn_layers_list: GNN layers 값 리스트
-        als_weight_list: ALS weight 값 리스트
-        evaluation_mode: 평가 모드
-        top_k: 평가에 사용할 추천 아이템 수
-        score_percentile: score_based 모드에서 사용할 백분위수
-        default_als_factors: 기본 ALS factors 값
-        default_gnn_embedding_dim: 기본 GNN embedding_dim 값
-        default_gnn_layers: 기본 GNN layers 값
-        default_als_weight: 기본 ALS weight 값
-        run_preprocessing: 전처리 실행 여부 (True면 첫 실험에서만 실행)
-    """
-    total_experiments = len(als_factors_list) + len(gnn_embedding_dim_list) + len(gnn_layers_list) + len(als_weight_list)
-    logger.info("=" * 80)
-    logger.info("파라미터별 영향력 분석 실험 시작: 총 %d개 실험", total_experiments)
-    logger.info("기본값: ALS factors=%d, GNN embedding_dim=%d, GNN layers=%d, ALS weight=%.1f",
-                default_als_factors, default_gnn_embedding_dim, default_gnn_layers, default_als_weight)
-    logger.info("=" * 80)
+    # 평가 설정
+    EVALUATION_MODE = "score_based"
+    TOP_K = 50
+    SCORE_PERCENTILE = 50.0
     
     # 결과 저장용 리스트
     results = []
     
-    experiment_count = 0
+    # 전처리 실행 (한 번만)
+    logger.info("=" * 80)
+    logger.info("데이터 전처리 실행 중...")
+    logger.info("=" * 80)
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
     
     # 1. ALS factors 실험
-    for als_factors in als_factors_list:
-        experiment_count += 1
+    for als_factors in ALS_FACTORS_LIST:
         logger.info("\n" + "=" * 80)
-        logger.info("실험 %d/%d: ALS factors=%d (다른 파라미터는 기본값)", experiment_count, total_experiments, als_factors)
+        logger.info("실험: ALS factors=%d (다른 파라미터는 기본값)", als_factors)
         logger.info("=" * 80)
         
-        result = _execute_single_experiment(
-            als_factors=als_factors,
-            gnn_embedding_dim=default_gnn_embedding_dim,
-            gnn_layers=default_gnn_layers,
-            als_weight=default_als_weight,
-            evaluation_mode=evaluation_mode,
-            top_k=top_k,
-            score_percentile=score_percentile,
-            run_preprocessing=(run_preprocessing and experiment_count == 1),
-            run_comparison=False,
-        )
-        
-        if result is not None:
+        try:
+            # ALS 추천 생성
+            als_recommender = ALSRecommender(factors=als_factors)
+            als_recommender.run()
+            
+            # GNN 임베딩 생성 (기본값)
+            gnn_generator = GNNEmbeddingGenerator(
+                embedding_dim=DEFAULT_GNN_EMBEDDING_DIM,
+                layers=DEFAULT_GNN_LAYERS
+            )
+            gnn_generator.run()
+            
+            # 리랭킹 (기본값)
+            reranker = ReRanker(als_weight=DEFAULT_ALS_WEIGHT)
+            reranker.run()
+            
+            # 평가
+            evaluator = TestSetEvaluator(
+                evaluation_mode=EVALUATION_MODE,
+                top_k=TOP_K,
+                score_percentile=SCORE_PERCENTILE
+            )
+            
+            # 평가 결과 가져오기
+            events_test_path = evaluator.processed_dir / "events_test.csv"
+            events_test = pd.read_csv(events_test_path)
+            test_users = events_test["visitorid"].dropna().astype(int).unique()
+            
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            
+            final_rec_path = evaluator.processed_dir / "final_recommendations.csv"
+            recommendations = pd.read_csv(final_rec_path)
+            test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+            test_recommendations = (
+                test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(TOP_K)
+            )
+            
+            final_results = evaluator._evaluate_recommendations(
+                test_recommendations, positives, events_test, "최종", score_col="final_score"
+            )
+            
+            # 지표 계산
+            y_true = final_results["y_true"]
+            y_pred = final_results["y_pred"]
+            f1 = final_results["f1"]
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            hit_rate = final_results.get("hit_rate", 0.0)
+            
             results.append({
                 "parameter": "ALS factors",
                 "value": als_factors,
-                **result
+                "f1": f1,
+                "precision": precision,
+                "recall": recall,
+                "hit_rate": hit_rate
+            })
+            
+            logger.info("결과: F1=%.4f, Precision=%.4f, Recall=%.4f, Hit Rate=%.4f",
+                       f1, precision, recall, hit_rate)
+            
+        except Exception as e:
+            logger.error("실험 실행 중 오류 발생: %s", e)
+            import traceback
+            logger.error(traceback.format_exc())
+            results.append({
+                "parameter": "ALS factors",
+                "value": als_factors,
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "hit_rate": 0.0
             })
     
     # 2. GNN embedding_dim 실험
-    for gnn_embedding_dim in gnn_embedding_dim_list:
-        experiment_count += 1
+    for gnn_embedding_dim in GNN_EMBEDDING_DIM_LIST:
         logger.info("\n" + "=" * 80)
-        logger.info("실험 %d/%d: GNN embedding_dim=%d (다른 파라미터는 기본값)", experiment_count, total_experiments, gnn_embedding_dim)
+        logger.info("실험: GNN embedding_dim=%d (다른 파라미터는 기본값)", gnn_embedding_dim)
         logger.info("=" * 80)
         
-        result = _execute_single_experiment(
-            als_factors=default_als_factors,
-            gnn_embedding_dim=gnn_embedding_dim,
-            gnn_layers=default_gnn_layers,
-            als_weight=default_als_weight,
-            evaluation_mode=evaluation_mode,
-            top_k=top_k,
-            score_percentile=score_percentile,
-            run_preprocessing=(run_preprocessing and experiment_count == 1),
-            run_comparison=False,
-        )
-        
-        if result is not None:
+        try:
+            # ALS 추천 생성 (기본값)
+            als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+            als_recommender.run()
+            
+            # GNN 임베딩 생성
+            gnn_generator = GNNEmbeddingGenerator(
+                embedding_dim=gnn_embedding_dim,
+                layers=DEFAULT_GNN_LAYERS
+            )
+            gnn_generator.run()
+            
+            # 리랭킹 (기본값)
+            reranker = ReRanker(als_weight=DEFAULT_ALS_WEIGHT)
+            reranker.run()
+            
+            # 평가
+            evaluator = TestSetEvaluator(
+                evaluation_mode=EVALUATION_MODE,
+                top_k=TOP_K,
+                score_percentile=SCORE_PERCENTILE
+            )
+            
+            # 평가 결과 가져오기
+            events_test_path = evaluator.processed_dir / "events_test.csv"
+            events_test = pd.read_csv(events_test_path)
+            test_users = events_test["visitorid"].dropna().astype(int).unique()
+            
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            
+            final_rec_path = evaluator.processed_dir / "final_recommendations.csv"
+            recommendations = pd.read_csv(final_rec_path)
+            test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+            test_recommendations = (
+                test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(TOP_K)
+            )
+            
+            final_results = evaluator._evaluate_recommendations(
+                test_recommendations, positives, events_test, "최종", score_col="final_score"
+            )
+            
+            # 지표 계산
+            y_true = final_results["y_true"]
+            y_pred = final_results["y_pred"]
+            f1 = final_results["f1"]
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            hit_rate = final_results.get("hit_rate", 0.0)
+            
             results.append({
                 "parameter": "GNN embedding_dim",
                 "value": gnn_embedding_dim,
-                **result
+                "f1": f1,
+                "precision": precision,
+                "recall": recall,
+                "hit_rate": hit_rate
+            })
+            
+            logger.info("결과: F1=%.4f, Precision=%.4f, Recall=%.4f, Hit Rate=%.4f",
+                       f1, precision, recall, hit_rate)
+            
+        except Exception as e:
+            logger.error("실험 실행 중 오류 발생: %s", e)
+            import traceback
+            logger.error(traceback.format_exc())
+            results.append({
+                "parameter": "GNN embedding_dim",
+                "value": gnn_embedding_dim,
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "hit_rate": 0.0
             })
     
     # 3. ALS weight 실험
-    for als_weight in als_weight_list:
-        experiment_count += 1
+    for als_weight in ALS_WEIGHT_LIST:
         logger.info("\n" + "=" * 80)
-        logger.info("실험 %d/%d: ALS weight=%.1f (다른 파라미터는 기본값)", experiment_count, total_experiments, als_weight)
+        logger.info("실험: ALS weight=%.1f (다른 파라미터는 기본값)", als_weight)
         logger.info("=" * 80)
         
-        result = _execute_single_experiment(
-            als_factors=default_als_factors,
-            gnn_embedding_dim=default_gnn_embedding_dim,
-            gnn_layers=default_gnn_layers,
-            als_weight=als_weight,
-            evaluation_mode=evaluation_mode,
-            top_k=top_k,
-            score_percentile=score_percentile,
-            run_preprocessing=(run_preprocessing and experiment_count == 1),
-            run_comparison=False,
-        )
-        
-        if result is not None:
+        try:
+            # ALS 추천 생성 (기본값)
+            als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+            als_recommender.run()
+            
+            # GNN 임베딩 생성 (기본값)
+            gnn_generator = GNNEmbeddingGenerator(
+                embedding_dim=DEFAULT_GNN_EMBEDDING_DIM,
+                layers=DEFAULT_GNN_LAYERS
+            )
+            gnn_generator.run()
+            
+            # 리랭킹
+            reranker = ReRanker(als_weight=als_weight)
+            reranker.run()
+            
+            # 평가
+            evaluator = TestSetEvaluator(
+                evaluation_mode=EVALUATION_MODE,
+                top_k=TOP_K,
+                score_percentile=SCORE_PERCENTILE
+            )
+            
+            # 평가 결과 가져오기
+            events_test_path = evaluator.processed_dir / "events_test.csv"
+            events_test = pd.read_csv(events_test_path)
+            test_users = events_test["visitorid"].dropna().astype(int).unique()
+            
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            
+            final_rec_path = evaluator.processed_dir / "final_recommendations.csv"
+            recommendations = pd.read_csv(final_rec_path)
+            test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+            test_recommendations = (
+                test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(TOP_K)
+            )
+            
+            final_results = evaluator._evaluate_recommendations(
+                test_recommendations, positives, events_test, "최종", score_col="final_score"
+            )
+            
+            # 지표 계산
+            y_true = final_results["y_true"]
+            y_pred = final_results["y_pred"]
+            f1 = final_results["f1"]
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            hit_rate = final_results.get("hit_rate", 0.0)
+            
             results.append({
                 "parameter": "ALS weight",
                 "value": als_weight,
-                **result
+                "f1": f1,
+                "precision": precision,
+                "recall": recall,
+                "hit_rate": hit_rate
+            })
+            
+            logger.info("결과: F1=%.4f, Precision=%.4f, Recall=%.4f, Hit Rate=%.4f",
+                       f1, precision, recall, hit_rate)
+            
+        except Exception as e:
+            logger.error("실험 실행 중 오류 발생: %s", e)
+            import traceback
+            logger.error(traceback.format_exc())
+            results.append({
+                "parameter": "ALS weight",
+                "value": als_weight,
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "hit_rate": 0.0
             })
     
     # 4. GNN layers 실험
-    for gnn_layers in gnn_layers_list:
-        experiment_count += 1
+    for gnn_layers in GNN_LAYERS_LIST:
         logger.info("\n" + "=" * 80)
-        logger.info("실험 %d/%d: GNN layers=%d (다른 파라미터는 기본값)", experiment_count, total_experiments, gnn_layers)
+        logger.info("실험: GNN layers=%d (다른 파라미터는 기본값)", gnn_layers)
         logger.info("=" * 80)
         
-        result = _execute_single_experiment(
-            als_factors=default_als_factors,
-            gnn_embedding_dim=default_gnn_embedding_dim,
-            gnn_layers=gnn_layers,
-            als_weight=default_als_weight,
-            evaluation_mode=evaluation_mode,
-            top_k=top_k,
-            score_percentile=score_percentile,
-            run_preprocessing=(run_preprocessing and experiment_count == 1),
-            run_comparison=False,
-        )
-        
-        if result is not None:
+        try:
+            # ALS 추천 생성 (기본값)
+            als_recommender = ALSRecommender(factors=DEFAULT_ALS_FACTORS)
+            als_recommender.run()
+            
+            # GNN 임베딩 생성
+            gnn_generator = GNNEmbeddingGenerator(
+                embedding_dim=DEFAULT_GNN_EMBEDDING_DIM,
+                layers=gnn_layers
+            )
+            gnn_generator.run()
+            
+            # 리랭킹 (기본값)
+            reranker = ReRanker(als_weight=DEFAULT_ALS_WEIGHT)
+            reranker.run()
+            
+            # 평가
+            evaluator = TestSetEvaluator(
+                evaluation_mode=EVALUATION_MODE,
+                top_k=TOP_K,
+                score_percentile=SCORE_PERCENTILE
+            )
+            
+            # 평가 결과 가져오기
+            events_test_path = evaluator.processed_dir / "events_test.csv"
+            events_test = pd.read_csv(events_test_path)
+            test_users = events_test["visitorid"].dropna().astype(int).unique()
+            
+            positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+            positives: Dict[int, set[int]] = (
+                positive_events.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .apply(lambda items: set(items.tolist()))
+                .to_dict()
+            )
+            
+            final_rec_path = evaluator.processed_dir / "final_recommendations.csv"
+            recommendations = pd.read_csv(final_rec_path)
+            test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+            test_recommendations = (
+                test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(TOP_K)
+            )
+            
+            final_results = evaluator._evaluate_recommendations(
+                test_recommendations, positives, events_test, "최종", score_col="final_score"
+            )
+            
+            # 지표 계산
+            y_true = final_results["y_true"]
+            y_pred = final_results["y_pred"]
+            f1 = final_results["f1"]
+            precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+            hit_rate = final_results.get("hit_rate", 0.0)
+            
             results.append({
                 "parameter": "GNN layers",
                 "value": gnn_layers,
-                **result
+                "f1": f1,
+                "precision": precision,
+                "recall": recall,
+                "hit_rate": hit_rate
+            })
+            
+            logger.info("결과: F1=%.4f, Precision=%.4f, Recall=%.4f, Hit Rate=%.4f",
+                       f1, precision, recall, hit_rate)
+            
+        except Exception as e:
+            logger.error("실험 실행 중 오류 발생: %s", e)
+            import traceback
+            logger.error(traceback.format_exc())
+            results.append({
+                "parameter": "GNN layers",
+                "value": gnn_layers,
+                "f1": 0.0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "hit_rate": 0.0
             })
     
     # 결과 표 출력
@@ -4885,11 +4563,11 @@ def run_single_experiment(
     logger.info("파라미터별 영향력 분석 결과")
     logger.info("=" * 80)
     
-    print("\n" + "=" * 120)
+    print("\n" + "=" * 100)
     print("파라미터별 영향력 분석 결과")
-    print("=" * 120)
-    print(f"{'Parameter':<20} {'Value':<15} {'F1':<12} {'Precision':<12} {'Recall':<12} {'Hit Rate':<12} {'ROC-AUC':<12} {'AP':<12}")
-    print("-" * 120)
+    print("=" * 100)
+    print(f"{'Parameter':<20} {'Value':<15} {'F1':<12} {'Precision':<12} {'Recall':<12} {'Hit Rate':<12}")
+    print("-" * 100)
     
     # 파라미터별로 그룹화하여 출력
     current_param = None
@@ -4906,207 +4584,15 @@ def run_single_experiment(
         precision = r.get("precision", 0.0)
         recall = r.get("recall", 0.0)
         hit_rate = r.get("hit_rate", 0.0)
-        roc_auc = r.get("roc_auc", 0.0)
-        ap = r.get("ap", 0.0)
         
         if current_param == param and current_param is not None:
             # 같은 파라미터 그룹이면 Parameter 컬럼은 비움
-            print(f"{'':<20} {value:<15} {f1:<12.4f} {precision:<12.4f} {recall:<12.4f} {hit_rate:<12.4f} {roc_auc:<12.4f} {ap:<12.4f}")
+            print(f"{'':<20} {value:<15} {f1:<12.4f} {precision:<12.4f} {recall:<12.4f} {hit_rate:<12.4f}")
         else:
-            print(f"{param:<20} {value:<15} {f1:<12.4f} {precision:<12.4f} {recall:<12.4f} {hit_rate:<12.4f} {roc_auc:<12.4f} {ap:<12.4f}")
+            print(f"{param:<20} {value:<15} {f1:<12.4f} {precision:<12.4f} {recall:<12.4f} {hit_rate:<12.4f}")
     
-    print("=" * 120)
-    
-    logger.info("\n" + "=" * 80)
-    logger.info("파라미터별 영향력 분석 완료: 총 %d개 실험", total_experiments)
-    logger.info("=" * 80)
-
-
-def run_grid_search_experiments(
-    als_factors_list: List[int] = [16, 32, 64, 128],
-    gnn_embedding_dim_list: List[int] = [8, 16, 32, 64],
-    gnn_layers_list: List[int] = [1, 2, 3],
-    als_weight_list: List[float] = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-    evaluation_mode: str = "score_based",
-    top_k: int = 50,
-    score_percentile: float = 75.0,
-    run_preprocessing_once: bool = True,
-):
-    """
-    Grid Search 방식으로 여러 실험을 자동 실행하는 함수
-    
-    Args:
-        als_factors_list: ALS factors 값 리스트
-        gnn_embedding_dim_list: GNN embedding_dim 값 리스트
-        gnn_layers_list: GNN layers 값 리스트
-        als_weight_list: ALS weight 값 리스트
-        evaluation_mode: 평가 모드
-        top_k: 평가에 사용할 추천 아이템 수
-        score_percentile: score_based 모드에서 사용할 백분위수
-        run_preprocessing_once: 전처리를 한 번만 실행할지 여부 (True면 첫 실험에서만 실행)
-    """
-    total_experiments = len(als_factors_list) * len(gnn_embedding_dim_list) * len(gnn_layers_list) * len(als_weight_list)
-    logger.info("=" * 80)
-    logger.info("Grid Search 실험 시작: 총 %d개 실험", total_experiments)
-    logger.info("ALS factors: %s", als_factors_list)
-    logger.info("GNN embedding_dim: %s", gnn_embedding_dim_list)
-    logger.info("GNN layers: %s", gnn_layers_list)
-    logger.info("ALS weight: %s", als_weight_list)
-    logger.info("=" * 80)
-    
-    # 모든 실험 결과 저장 (최고 성능 모델 찾기용)
-    all_results = []
-    best_result = None
-    best_f1 = -1.0
-    best_params = None
-    
-    experiment_count = 0
-    
-    for als_factors in als_factors_list:
-        for gnn_embedding_dim in gnn_embedding_dim_list:
-            for gnn_layers in gnn_layers_list:
-                for als_weight in als_weight_list:
-                    experiment_count += 1
-                    logger.info("\n" + "=" * 80)
-                    logger.info("실험 %d/%d", experiment_count, total_experiments)
-                    logger.info("=" * 80)
-                    
-                    result = _execute_single_experiment(
-                        als_factors=als_factors,
-                        gnn_embedding_dim=gnn_embedding_dim,
-                        gnn_layers=gnn_layers,
-                        als_weight=als_weight,
-                        evaluation_mode=evaluation_mode,
-                        top_k=top_k,
-                        score_percentile=score_percentile,
-                        run_preprocessing=(run_preprocessing_once and experiment_count == 1),
-                        run_comparison=False,  # Grid Search에서는 비교 분석 생략 (시간 절약)
-                    )
-                    
-                    # 결과 저장 및 최고 성능 모델 추적
-                    if result is not None:
-                        all_results.append({
-                            "als_factors": als_factors,
-                            "gnn_embedding_dim": gnn_embedding_dim,
-                            "gnn_layers": gnn_layers,
-                            "als_weight": als_weight,
-                            **result
-                        })
-                        
-                        # 최고 F1 스코어 모델 업데이트
-                        if result["f1"] > best_f1:
-                            best_f1 = result["f1"]
-                            best_result = result
-                            best_params = {
-                                "als_factors": als_factors,
-                                "gnn_embedding_dim": gnn_embedding_dim,
-                                "gnn_layers": gnn_layers,
-                                "als_weight": als_weight,
-                            }
-    
-    # 최고 성능 모델 출력
-    logger.info("\n" + "=" * 80)
-    logger.info("Grid Search 실험 완료: 총 %d개 실험", total_experiments)
-    logger.info("=" * 80)
-    
-    if best_params is not None and best_result is not None:
-        print("\n" + "=" * 100)
-        print("Grid Search 최고 성능 모델")
-        print("=" * 100)
-        print(f"F1 Score: {best_f1:.4f}")
-        print(f"Precision: {best_result['precision']:.4f}")
-        print(f"Recall: {best_result['recall']:.4f}")
-        print(f"Hit Rate: {best_result['hit_rate']:.4f}")
-        print(f"ROC-AUC: {best_result.get('roc_auc', 0.0):.4f}")
-        print(f"Average Precision: {best_result.get('ap', 0.0):.4f}")
-        print()
-        print("최적 파라미터:")
-        print(f"  ALS factors: {best_params['als_factors']}")
-        print(f"  GNN embedding_dim: {best_params['gnn_embedding_dim']}")
-        print(f"  GNN layers: {best_params['gnn_layers']}")
-        print(f"  ALS weight: {best_params['als_weight']:.1f} (GNN weight: {1.0 - best_params['als_weight']:.1f})")
-        print("=" * 100)
-        
-        logger.info("최고 성능 모델 - F1: %.4f", best_f1)
-        logger.info("최적 파라미터: ALS factors=%d, GNN embedding_dim=%d, GNN layers=%d, ALS weight=%.1f",
-                    best_params['als_factors'], best_params['gnn_embedding_dim'], 
-                    best_params['gnn_layers'], best_params['als_weight'])
-    else:
-        logger.warning("최고 성능 모델을 찾을 수 없습니다.")
+    print("=" * 100)
     
     logger.info("\n" + "=" * 80)
-    logger.info("모든 Grid Search 실험 완료: 총 %d개 실험", total_experiments)
+    logger.info("파라미터별 영향력 분석 완료")
     logger.info("=" * 80)
-
-
-if __name__ == "__main__":
-    """
-    전체 추천 시스템 파이프라인을 실행합니다.
-    
-    실행 순서:
-    1. IsolationForestPreprocessor: 데이터 전처리 및 이상치 제거
-    2. ALSRecommender: ALS 기반 추천 생성
-    3. GNNEmbeddingGenerator: GNN 기반 임베딩 생성
-    4. ReRanker: ALS와 GNN 결과 결합 및 리랭킹
-    5. TestSetEvaluator: 최종 추천 결과 평가
-    
-    사용 방법:
-    - 단일 실험: run_single_experiment() 함수 사용
-    - Grid Search: run_grid_search_experiments() 함수 사용
-    - 직접 실행: 아래 파라미터를 설정하고 직접 실행
-    """
-    
-    # ============================================================================
-    # 실험 파라미터 설정 (여기서 쉽게 변경 가능)
-    # ============================================================================
-    
-    # ALS 하이퍼파라미터
-    ALS_FACTORS = 32  # [16, 32, 64, 128] 중 선택
-    
-    # GNN 하이퍼파라미터
-    GNN_EMBEDDING_DIM = 8  # [8, 16, 32, 64] 중 선택
-    GNN_LAYERS = 2  # [1, 2, 3] 중 선택
-    
-    # ReRanker 하이퍼파라미터
-    ALS_WEIGHT = 0.4  # [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] 중 선택 (GNN weight = 1.0 - ALS_WEIGHT)
-    
-    # 평가 설정
-    EVALUATION_MODE = "score_based"  # "strict", "weighted", "partial", "score_based", "rank_based"
-    TOP_K = 50
-    SCORE_PERCENTILE = 75.0  # score_based 모드에서 사용
-    
-    # Grid Search 실행 여부
-    RUN_GRID_SEARCH = False # True로 설정하면 Grid Search 실행, False면 단일 실험 실행
-    
-    # ============================================================================
-    # 파이프라인 실행
-    # ============================================================================
-    
-    if RUN_GRID_SEARCH:
-        # Grid Search 실행 (모든 파라미터 조합 실험)
-        run_grid_search_experiments(
-            als_factors_list=[16, 32, 64, 128],
-            gnn_embedding_dim_list=[8, 16, 32, 64],
-            gnn_layers_list=[1, 2, 3],
-            als_weight_list=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-            evaluation_mode=EVALUATION_MODE,
-            top_k=TOP_K,
-            score_percentile=SCORE_PERCENTILE,
-            run_preprocessing_once=True,  # 첫 실험에서만 전처리 실행
-        )
-    else:
-        # 파라미터별 영향력 분석 실행 (각 파라미터를 하나씩만 변경)
-        run_single_experiment(
-            als_factors_list=[16, 32, 64, 128],
-            gnn_embedding_dim_list=[8, 16, 32, 64],
-            gnn_layers_list=[1, 2, 3],
-            als_weight_list=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
-            evaluation_mode=EVALUATION_MODE,
-            top_k=TOP_K,
-            score_percentile=SCORE_PERCENTILE,
-            default_als_factors=ALS_FACTORS,
-            default_gnn_embedding_dim=GNN_EMBEDDING_DIM,
-            default_gnn_layers=GNN_LAYERS,
-            default_als_weight=ALS_WEIGHT,
-            run_preprocessing=True,
-        )
