@@ -4188,17 +4188,17 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
 
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    als_recommender = ALSRecommender()
+    als_recommender.run()
 
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
+    gnn_generator = GNNEmbeddingGenerator()
+    gnn_generator.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    reranker = ReRanker()
+    reranker.run()
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
@@ -4210,111 +4210,34 @@ if __name__ == "__main__":
     )
     evaluator.run()
     
-    # 최종 평가 결과 요약 출력 (Precision, Recall, F1, NDCG)
-    print("\n" + "=" * 80)
-    print("최종 평가 결과")
-    print("=" * 80)
+    # 최종 평가 결과 출력 (Precision, Recall, F1, NDCG)
+    from sklearn.metrics import precision_score, recall_score, f1_score
+    recs = pd.read_csv(evaluator.processed_dir / "test_recommendations.csv")
+    events_test = pd.read_csv(evaluator.processed_dir / "events_test.csv")
+    positives = events_test[events_test["event"].isin(["addtocart", "transaction"])].groupby("visitorid")["itemid"].apply(set).to_dict()
     
-    # 최종 추천 결과 로드
-    processed_dir = Path("data/processed")
-    final_rec_path = processed_dir / "final_recommendations.csv"
-    events_test_path = processed_dir / "events_test.csv"
+    y_true, y_pred = [], []
+    for uid, items in recs.groupby("visitorid"):
+        pred_items = items["itemid"].astype(int).tolist()
+        rel_items = positives.get(int(uid), set())
+        if not rel_items: y_true.append(0); y_pred.append(0); continue
+        hits = len(set(pred_items) & rel_items)
+        y_true.append(1); y_pred.append(1 if hits > 0 else 0)
     
-    if final_rec_path.exists() and events_test_path.exists():
-        recommendations = pd.read_csv(final_rec_path)
-        events_test = pd.read_csv(events_test_path)
-        test_users = events_test["visitorid"].dropna().astype(int).unique()
-        
-        # Positive 이벤트 정의
-        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-        positives: Dict[int, set[int]] = (
-            positive_events.dropna(subset=["visitorid", "itemid"])
-            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-            .groupby("visitorid")["itemid"]
-            .apply(lambda items: set(items.tolist()))
-            .to_dict()
-        )
-        
-        # 테스트 사용자에 대한 추천만 필터링
-        test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
-        if "rank" in test_recommendations.columns:
-            test_recommendations = (
-                test_recommendations.sort_values(["visitorid", "rank"])
-                .groupby("visitorid")
-                .head(evaluator.top_k)
-            )
-        else:
-            score_col = "final_score" if "final_score" in test_recommendations.columns else "combined_score"
-            test_recommendations = (
-                test_recommendations.sort_values(["visitorid", score_col], ascending=[True, False])
-                .groupby("visitorid")
-                .head(evaluator.top_k)
-            )
-        
-        # Precision, Recall, F1 계산
-        from sklearn.metrics import precision_score, recall_score, f1_score
-        
-        y_true = []
-        y_pred = []
-        
-        for visitor_id, recs in test_recommendations.groupby("visitorid"):
-            predicted_items = recs["itemid"].astype(int).tolist()
-            relevant_items = positives.get(visitor_id, set())
-            
-            if not relevant_items:
-                y_true.append(0)
-                y_pred.append(0)
-                continue
-            
-            hits = len(set(predicted_items) & relevant_items)
-            y_true.append(1)
-            y_pred.append(1 if hits > 0 else 0)
-        
-        precision = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        recall = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        f1 = f1_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        
-        # NDCG 계산
-        def calculate_ndcg_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int) -> float:
-            """NDCG@K를 계산합니다."""
-            ndcgs = []
-            for visitor_id, recs in recommendations.groupby("visitorid"):
-                relevant_items = positives.get(visitor_id, set())
-                if not relevant_items:
-                    continue
-                
-                predicted_items = recs["itemid"].astype(int).tolist()[:k]
-                if not predicted_items:
-                    continue
-                
-                # Ideal DCG 계산
-                ideal_gains = []
-                for idx in range(min(len(relevant_items), k)):
-                    ideal_gains.append(1.0 / np.log2(idx + 2))
-                ideal_dcg = sum(ideal_gains)
-                
-                if ideal_dcg == 0:
-                    ndcgs.append(0.0)
-                    continue
-                
-                # DCG 계산
-                dcg = 0.0
-                for idx, item_id in enumerate(predicted_items):
-                    if item_id in relevant_items:
-                        dcg += 1.0 / np.log2(idx + 2)
-                
-                ndcg = dcg / ideal_dcg if ideal_dcg > 0 else 0.0
-                ndcgs.append(ndcg)
-            
-            return np.mean(ndcgs) if ndcgs else 0.0
-        
-        ndcg = calculate_ndcg_at_k(test_recommendations, positives, evaluator.top_k)
-        
-        # 결과 출력
-        print(f"Precision: {precision:.4f}")
-        print(f"Recall:    {recall:.4f}")
-        print(f"F1 Score:  {f1:.4f}")
-        print(f"NDCG@{evaluator.top_k}:  {ndcg:.4f}")
-        print("=" * 80)
-    else:
-        print("평가 결과를 계산할 수 없습니다. 필요한 파일이 없습니다.")
+    pr = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+    re = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+    f1 = f1_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+    
+    ndcgs = []
+    for uid, items in recs.groupby("visitorid"):
+        rel_items = positives.get(int(uid), set())
+        if not rel_items: continue
+        pred_items = items["itemid"].astype(int).tolist()[:evaluator.top_k]
+        if not pred_items: continue
+        ideal_dcg = sum(1.0 / np.log2(i + 2) for i in range(min(len(rel_items), evaluator.top_k)))
+        if ideal_dcg == 0: continue
+        dcg = sum(1.0 / np.log2(i + 2) for i, item in enumerate(pred_items) if item in rel_items)
+        ndcgs.append(dcg / ideal_dcg if ideal_dcg > 0 else 0.0)
+    ndcg = np.mean(ndcgs) if ndcgs else 0.0
+    
+    print(f"\nPrecision: {pr:.4f}\nRecall: {re:.4f}\nF1: {f1:.4f}\nNDCG@{evaluator.top_k}: {ndcg:.4f}")
