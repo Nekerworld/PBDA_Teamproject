@@ -4250,8 +4250,9 @@ if __name__ == "__main__":
         events_test_fold.to_csv(fold_dir / "events_test.csv", index=False)
         
         # 각 fold마다 파이프라인 실행
+        # 각 fold마다 전처리 수행 (이상치 탐지 제외, 단순히 train/test 분할만 사용)
         # 1. ALS
-        als_fold = ALSRecommender(processed_dir=fold_dir, data_dir=data_dir)
+        als_fold = ALSRecommender(processed_dir=fold_dir)
         als_fold.run()
         
         # 2. GNN
