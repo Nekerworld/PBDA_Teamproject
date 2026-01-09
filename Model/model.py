@@ -4204,40 +4204,65 @@ if __name__ == "__main__":
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
     evaluator = TestSetEvaluator(
         evaluation_mode="score_based",
-        top_k=10,
+        top_k=20,
         score_percentile=50.0 # score-based 모드일 시 주석해제
         # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
     )
     evaluator.run()
     
-    # 최종 평가 결과 출력 (Precision, Recall, F1, NDCG)
+    # 최종 평가 결과 출력 (Precision, Recall, F1, NDCG) - 여러 top_k 값으로 테스트
     from sklearn.metrics import precision_score, recall_score, f1_score
     recs = pd.read_csv(evaluator.processed_dir / "test_recommendations.csv")
     events_test = pd.read_csv(evaluator.processed_dir / "events_test.csv")
     positives = events_test[events_test["event"].isin(["addtocart", "transaction"])].groupby("visitorid")["itemid"].apply(set).to_dict()
     
-    y_true, y_pred = [], []
-    for uid, items in recs.groupby("visitorid"):
-        pred_items = items["itemid"].astype(int).tolist()
-        rel_items = positives.get(int(uid), set())
-        if not rel_items: y_true.append(0); y_pred.append(0); continue
-        hits = len(set(pred_items) & rel_items)
-        y_true.append(1); y_pred.append(1 if hits > 0 else 0)
+    # score_based 모드와 동일한 평가 방식 적용
+    score_col = "final_score" if "final_score" in recs.columns else "combined_score"
+    all_scores = recs[score_col].astype(float).values
+    score_threshold = float(np.percentile(all_scores, min(evaluator.score_percentile, 50.0))) if len(all_scores) > 0 else 0.0
     
-    pr = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-    re = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-    f1 = f1_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+    # 테스트할 top_k 값들
+    test_top_ks = [10, 20, 50, 100, 200]
     
-    ndcgs = []
-    for uid, items in recs.groupby("visitorid"):
-        rel_items = positives.get(int(uid), set())
-        if not rel_items: continue
-        pred_items = items["itemid"].astype(int).tolist()[:evaluator.top_k]
-        if not pred_items: continue
-        ideal_dcg = sum(1.0 / np.log2(i + 2) for i in range(min(len(rel_items), evaluator.top_k)))
-        if ideal_dcg == 0: continue
-        dcg = sum(1.0 / np.log2(i + 2) for i, item in enumerate(pred_items) if item in rel_items)
-        ndcgs.append(dcg / ideal_dcg if ideal_dcg > 0 else 0.0)
-    ndcg = np.mean(ndcgs) if ndcgs else 0.0
+    print("\n" + "=" * 80)
+    print("Top-K별 평가 결과")
+    print("=" * 80)
+    print(f"{'K':<6} {'Precision':<12} {'Recall':<12} {'F1':<12} {'NDCG':<12}")
+    print("-" * 80)
     
-    print(f"\nPrecision: {pr:.4f}\nRecall: {re:.4f}\nF1: {f1:.4f}\nNDCG@{evaluator.top_k}: {ndcg:.4f}")
+    for top_k in test_top_ks:
+        y_true, y_pred = [], []
+        for uid, items in recs.groupby("visitorid"):
+            pred_items = items["itemid"].astype(int).tolist()[:top_k]
+            rel_items = positives.get(int(uid), set())
+            if not rel_items: y_true.append(0); y_pred.append(0); continue
+            
+            hits = len(set(pred_items) & rel_items)
+            scores = items[score_col].astype(float).values[:top_k]
+            mean_score = np.mean(scores) if len(scores) > 0 else 0.0
+            top_n = min(10, len(scores))
+            top_mean_score = np.mean(np.sort(scores)[-top_n:]) if len(scores) > 0 else 0.0
+            predicted_positive = hits > 0 or mean_score >= score_threshold or top_mean_score >= score_threshold
+            
+            y_true.append(1)
+            y_pred.append(1 if predicted_positive else 0)
+        
+        pr = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        re = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        f1 = f1_score(y_true, y_pred, zero_division=0) if y_true else 0.0
+        
+        ndcgs = []
+        for uid, items in recs.groupby("visitorid"):
+            rel_items = positives.get(int(uid), set())
+            if not rel_items: continue
+            pred_items = items["itemid"].astype(int).tolist()[:top_k]
+            if not pred_items: continue
+            ideal_dcg = sum(1.0 / np.log2(i + 2) for i in range(min(len(rel_items), top_k)))
+            if ideal_dcg == 0: continue
+            dcg = sum(1.0 / np.log2(i + 2) for i, item in enumerate(pred_items) if item in rel_items)
+            ndcgs.append(dcg / ideal_dcg if ideal_dcg > 0 else 0.0)
+        ndcg = np.mean(ndcgs) if ndcgs else 0.0
+        
+        print(f"{top_k:<6} {pr:<12.4f} {re:<12.4f} {f1:<12.4f} {ndcg:<12.4f}")
+    
+    print("=" * 80)
