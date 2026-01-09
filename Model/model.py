@@ -4910,6 +4910,207 @@ def _generate_simple_combined_recommendations(
     return pd.DataFrame(results)
 
 
+def evaluate_top_k_experiment():
+    """
+    Top-K 값(10, 20, 50, 100, 200)을 변경하며 Precision@K, Recall@K, F1@K, NDCG@K를 계산하는 실험을 수행합니다.
+    
+    결과를 표 형식으로 출력합니다:
+    K    Precision@K    Recall@K    F1@K    NDCG@K
+    """
+    processed_dir = Path("data/processed")
+    
+    # 최종 추천 결과 로드
+    final_rec_path = processed_dir / "final_recommendations.csv"
+    if not final_rec_path.exists():
+        raise FileNotFoundError("final_recommendations.csv 파일이 없습니다. ReRanker를 먼저 실행해 주세요.")
+    
+    logger.info("=" * 80)
+    logger.info("Top-K 실험 시작")
+    logger.info("=" * 80)
+    
+    recommendations = pd.read_csv(final_rec_path)
+    
+    # 테스트 데이터 로드
+    events_test_path = processed_dir / "events_test.csv"
+    if not events_test_path.exists():
+        raise FileNotFoundError("events_test.csv 파일이 없습니다. IsolationForestPreprocessor가 생성한 데이터를 확인해 주세요.")
+    
+    events_test = pd.read_csv(events_test_path)
+    test_users = events_test["visitorid"].dropna().astype(int).unique()
+    
+    # 테스트 사용자에 대한 추천만 필터링
+    test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+    
+    # rank 컬럼이 있으면 rank 기준, 없으면 final_score 기준으로 정렬
+    if "rank" in test_recommendations.columns:
+        test_recommendations = (
+            test_recommendations.sort_values(["visitorid", "rank"])
+            .groupby("visitorid")
+            .head(200)  # 최대 K=200까지 계산할 수 있도록
+        )
+    else:
+        # rank가 없으면 final_score 또는 combined_score로 정렬
+        score_col = "final_score" if "final_score" in test_recommendations.columns else "combined_score"
+        test_recommendations = (
+            test_recommendations.sort_values(["visitorid", score_col], ascending=[True, False])
+            .groupby("visitorid")
+            .head(200)  # 최대 K=200까지 계산할 수 있도록
+        )
+    
+    # Positive 이벤트 정의
+    positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+    positives: Dict[int, set[int]] = (
+        positive_events.dropna(subset=["visitorid", "itemid"])
+        .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+        .groupby("visitorid")["itemid"]
+        .apply(lambda items: set(items.tolist()))
+        .to_dict()
+    )
+    
+    logger.info("평가 대상: %d명의 테스트 사용자, %d건의 추천", 
+               len(test_users), len(test_recommendations))
+    logger.info("Positive 사용자 수: %d", len(positives))
+    
+    # 헬퍼 함수 정의
+    def calculate_precision_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+        """Precision@K를 계산합니다."""
+        precisions = []
+        for visitor_id, recs in recommendations.groupby("visitorid"):
+            predicted_items = recs["itemid"].astype(int).tolist()[:k]
+            relevant_items = positives.get(visitor_id, set())
+            if not predicted_items:
+                continue
+            hits = len(set(predicted_items) & relevant_items)
+            precision = hits / len(predicted_items) if predicted_items else 0.0
+            precisions.append(precision)
+        return np.mean(precisions) if precisions else 0.0
+
+    def calculate_recall_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+        """Recall@K를 계산합니다."""
+        recalls = []
+        for visitor_id, recs in recommendations.groupby("visitorid"):
+            predicted_items = recs["itemid"].astype(int).tolist()[:k]
+            relevant_items = positives.get(visitor_id, set())
+            if not relevant_items:
+                continue
+            hits = len(set(predicted_items) & relevant_items)
+            recall = hits / len(relevant_items) if relevant_items else 0.0
+            recalls.append(recall)
+        return np.mean(recalls) if recalls else 0.0
+
+    def calculate_f1_at_k(precision: float, recall: float) -> float:
+        """F1@K를 계산합니다."""
+        if precision + recall == 0:
+            return 0.0
+        return 2 * (precision * recall) / (precision + recall)
+
+    def calculate_ndcg_at_k(recommendations: pd.DataFrame, positives: Dict[int, set[int]], k: int = 50) -> float:
+        """NDCG@K를 계산합니다."""
+        ndcgs = []
+        for visitor_id, recs in recommendations.groupby("visitorid"):
+            relevant_items = positives.get(visitor_id, set())
+            if not relevant_items:
+                continue
+            
+            # 추천 아이템 리스트 (상위 K개)
+            predicted_items = recs["itemid"].astype(int).tolist()[:k]
+            if not predicted_items:
+                continue
+            
+            # Ideal DCG 계산 (모든 relevant items가 상위에 있다고 가정)
+            ideal_gains = []
+            for idx in range(min(len(relevant_items), k)):
+                ideal_gains.append(1.0 / np.log2(idx + 2))
+            ideal_dcg = sum(ideal_gains)
+            
+            if ideal_dcg == 0:
+                ndcgs.append(0.0)
+                continue
+            
+            # DCG 계산
+            dcg = 0.0
+            for idx, item_id in enumerate(predicted_items):
+                if item_id in relevant_items:
+                    dcg += 1.0 / np.log2(idx + 2)
+            
+            ndcg = dcg / ideal_dcg if ideal_dcg > 0 else 0.0
+            ndcgs.append(ndcg)
+        
+        return np.mean(ndcgs) if ndcgs else 0.0
+    
+    # K 값 리스트
+    k_values = [10, 20, 50, 100, 200]
+    
+    # 결과 저장
+    results = []
+    
+    logger.info("=" * 80)
+    logger.info("K 값별 지표 계산 중...")
+    logger.info("=" * 80)
+    
+    for k in k_values:
+        logger.info("K=%d 계산 중...", k)
+        
+        precision = calculate_precision_at_k(test_recommendations, positives, k)
+        recall = calculate_recall_at_k(test_recommendations, positives, k)
+        f1 = calculate_f1_at_k(precision, recall)
+        ndcg = calculate_ndcg_at_k(test_recommendations, positives, k)
+        
+        results.append({
+            "K": k,
+            "Precision@K": precision,
+            "Recall@K": recall,
+            "F1@K": f1,
+            "NDCG@K": ndcg
+        })
+        
+        logger.info("K=%d: Precision=%.4f, Recall=%.4f, F1=%.4f, NDCG=%.4f", 
+                   k, precision, recall, f1, ndcg)
+    
+    # 결과를 표 형식으로 출력
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info("Top-K 실험 결과")
+    logger.info("=" * 80)
+    
+    # 표 헤더
+    header = f"{'K':<6} {'Precision@K':<15} {'Recall@K':<15} {'F1@K':<15} {'NDCG@K':<15}"
+    logger.info(header)
+    logger.info("-" * 80)
+    
+    # 결과 행 출력
+    for result in results:
+        row = (f"{result['K']:<6} "
+               f"{result['Precision@K']:<15.4f} "
+               f"{result['Recall@K']:<15.4f} "
+               f"{result['F1@K']:<15.4f} "
+               f"{result['NDCG@K']:<15.4f}")
+        logger.info(row)
+    
+    # 터미널 출력 (더 보기 좋게)
+    print("\n" + "=" * 80)
+    print("Top-K 실험 결과")
+    print("=" * 80)
+    print(header)
+    print("-" * 80)
+    for result in results:
+        row = (f"{result['K']:<6} "
+               f"{result['Precision@K']:<15.4f} "
+               f"{result['Recall@K']:<15.4f} "
+               f"{result['F1@K']:<15.4f} "
+               f"{result['NDCG@K']:<15.4f}")
+        print(row)
+    print("=" * 80)
+    
+    # CSV로 저장 (선택사항)
+    results_df = pd.DataFrame(results)
+    output_path = processed_dir / "top_k_experiment_results.csv"
+    results_df.to_csv(output_path, index=False)
+    logger.info("결과가 %s에 저장되었습니다.", output_path)
+    
+    return results
+
+
 if __name__ == "__main__":
     """
     전체 추천 시스템 파이프라인을 실행합니다.
@@ -4949,4 +5150,6 @@ if __name__ == "__main__":
     # comparator = RecommendationComparator(top_k=200)
     # comparator.run()
     
-    evaluate_ablation_study()
+    # evaluate_ablation_study()
+    
+    evaluate_top_k_experiment()
