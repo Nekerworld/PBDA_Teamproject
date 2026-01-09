@@ -26,7 +26,8 @@ import pandas as pd
 import scipy.sparse as sp
 from pandas import DataFrame
 from sklearn.ensemble import IsolationForest
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
+from scipy.stats import ttest_rel
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error
 
@@ -4204,65 +4205,121 @@ if __name__ == "__main__":
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
     evaluator = TestSetEvaluator(
         evaluation_mode="score_based",
-        top_k=20,
+        top_k=50,
         score_percentile=50.0 # score-based 모드일 시 주석해제
         # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
     )
     evaluator.run()
     
-    # 최종 평가 결과 출력 (Precision, Recall, F1, NDCG) - 여러 top_k 값으로 테스트
-    from sklearn.metrics import precision_score, recall_score, f1_score
-    recs = pd.read_csv(evaluator.processed_dir / "test_recommendations.csv")
-    events_test = pd.read_csv(evaluator.processed_dir / "events_test.csv")
-    positives = events_test[events_test["event"].isin(["addtocart", "transaction"])].groupby("visitorid")["itemid"].apply(set).to_dict()
+    # 5-fold 교차 검증을 통한 통계적 유의성 검정
+    logger.info("=" * 80)
+    logger.info("5-fold 교차 검증 통계적 유의성 검정 시작")
+    logger.info("=" * 80)
     
-    # score_based 모드와 동일한 평가 방식 적용
-    score_col = "final_score" if "final_score" in recs.columns else "combined_score"
-    all_scores = recs[score_col].astype(float).values
-    score_threshold = float(np.percentile(all_scores, min(evaluator.score_percentile, 50.0))) if len(all_scores) > 0 else 0.0
+    # 원본 데이터 로드
+    data_dir = Path("data")
+    events_path = data_dir / "events.csv"
+    events_df = pd.read_csv(events_path)
+    events_df = events_df.dropna(subset=["visitorid", "itemid"])
+    events_df["visitorid"] = events_df["visitorid"].astype(int)
+    events_df["itemid"] = events_df["itemid"].astype(int)
     
-    # 테스트할 top_k 값들
-    test_top_ks = [10, 20, 50, 100, 200]
+    # 사용자 기준으로 5-fold 분할
+    unique_users = events_df["visitorid"].unique()
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
     
+    hybrid_f1_scores = []
+    als_f1_scores = []
+    gnn_f1_scores = []
+    
+    for fold_idx, (train_user_indices, test_user_indices) in enumerate(kf.split(unique_users), 1):
+        logger.info("Fold %d/5 진행 중...", fold_idx)
+        
+        train_users = unique_users[train_user_indices]
+        test_users = unique_users[test_user_indices]
+        
+        # Train/Test 분할
+        events_train_fold = events_df[events_df["visitorid"].isin(train_users)].copy()
+        events_test_fold = events_df[events_df["visitorid"].isin(test_users)].copy()
+        
+        # 임시 파일로 저장
+        fold_dir = evaluator.processed_dir / f"fold_{fold_idx}"
+        fold_dir.mkdir(exist_ok=True)
+        
+        events_train_fold.to_csv(fold_dir / "events_train_clean.csv", index=False)
+        events_test_fold.to_csv(fold_dir / "events_test.csv", index=False)
+        
+        # 각 fold마다 파이프라인 실행
+        # 1. ALS
+        als_fold = ALSRecommender(processed_dir=fold_dir, data_dir=data_dir)
+        als_fold.run()
+        
+        # 2. GNN
+        gnn_fold = GNNEmbeddingGenerator(processed_dir=fold_dir, data_dir=data_dir)
+        gnn_fold.run()
+        
+        # 3. Reranker (Hybrid)
+        reranker_fold = ReRanker(processed_dir=fold_dir, data_dir=data_dir)
+        reranker_fold.run()
+        
+        # 평가 (score_based 모드와 동일한 로직)
+        evaluator_fold = TestSetEvaluator(
+            processed_dir=fold_dir,
+            evaluation_mode="score_based",
+            top_k=50,
+            score_percentile=50.0
+        )
+        
+        # ALS 평가
+        als_recs = pd.read_csv(fold_dir / "als_recommendations.csv")
+        test_users_list = events_test_fold["visitorid"].dropna().astype(int).unique()
+        als_test_recs = als_recs[als_recs["visitorid"].isin(test_users_list)]
+        als_test_recs = als_test_recs.sort_values(["visitorid", "score"], ascending=[True, False]).groupby("visitorid").head(50)
+        positives = events_test_fold[events_test_fold["event"].isin(["addtocart", "transaction"])].groupby("visitorid")["itemid"].apply(set).to_dict()
+        als_results = evaluator_fold._evaluate_recommendations(als_test_recs, positives, events_test_fold, "ALS", score_col="score")
+        als_f1_scores.append(als_results["f1"])
+        
+        # GNN 평가
+        gnn_test_recs = evaluator_fold._generate_gnn_recommendations(test_users_list)
+        gnn_results = evaluator_fold._evaluate_recommendations(gnn_test_recs, positives, events_test_fold, "GNN", score_col="score")
+        gnn_f1_scores.append(gnn_results["f1"])
+        
+        # Hybrid 평가
+        hybrid_recs = pd.read_csv(fold_dir / "final_recommendations.csv")
+        hybrid_test_recs = hybrid_recs[hybrid_recs["visitorid"].isin(test_users_list)]
+        hybrid_test_recs = hybrid_test_recs.sort_values(["visitorid", "rank"]).groupby("visitorid").head(50)
+        hybrid_results = evaluator_fold._evaluate_recommendations(hybrid_test_recs, positives, events_test_fold, "Hybrid", score_col="final_score")
+        hybrid_f1_scores.append(hybrid_results["f1"])
+        
+        logger.info("Fold %d: ALS F1=%.4f, GNN F1=%.4f, Hybrid F1=%.4f", 
+                   fold_idx, als_f1_scores[-1], gnn_f1_scores[-1], hybrid_f1_scores[-1])
+    
+    # 통계적 검정
+    hybrid_vs_als_diff = np.array(hybrid_f1_scores) - np.array(als_f1_scores)
+    hybrid_vs_gnn_diff = np.array(hybrid_f1_scores) - np.array(gnn_f1_scores)
+    
+    # Hybrid vs ALS
+    mean_diff_als = np.mean(hybrid_vs_als_diff)
+    std_diff_als = np.std(hybrid_vs_als_diff, ddof=1)
+    t_stat_als, p_value_als = ttest_rel(hybrid_f1_scores, als_f1_scores)
+    
+    # Hybrid vs GNN
+    mean_diff_gnn = np.mean(hybrid_vs_gnn_diff)
+    std_diff_gnn = np.std(hybrid_vs_gnn_diff, ddof=1)
+    t_stat_gnn, p_value_gnn = ttest_rel(hybrid_f1_scores, gnn_f1_scores)
+    
+    # 결과 출력
     print("\n" + "=" * 80)
-    print("Top-K별 평가 결과")
+    print("통계적 유의성 검정 결과 (5-fold CV)")
     print("=" * 80)
-    print(f"{'K':<6} {'Precision':<12} {'Recall':<12} {'F1':<12} {'NDCG':<12}")
+    print(f"{'Comparison':<20} {'Mean F1 Diff':<15} {'Std Dev':<15} {'t-statistic':<15} {'p-value':<15}")
     print("-" * 80)
-    
-    for top_k in test_top_ks:
-        y_true, y_pred = [], []
-        for uid, items in recs.groupby("visitorid"):
-            pred_items = items["itemid"].astype(int).tolist()[:top_k]
-            rel_items = positives.get(int(uid), set())
-            if not rel_items: y_true.append(0); y_pred.append(0); continue
-            
-            hits = len(set(pred_items) & rel_items)
-            scores = items[score_col].astype(float).values[:top_k]
-            mean_score = np.mean(scores) if len(scores) > 0 else 0.0
-            top_n = min(10, len(scores))
-            top_mean_score = np.mean(np.sort(scores)[-top_n:]) if len(scores) > 0 else 0.0
-            predicted_positive = hits > 0 or mean_score >= score_threshold or top_mean_score >= score_threshold
-            
-            y_true.append(1)
-            y_pred.append(1 if predicted_positive else 0)
-        
-        pr = precision_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        re = recall_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        f1 = f1_score(y_true, y_pred, zero_division=0) if y_true else 0.0
-        
-        ndcgs = []
-        for uid, items in recs.groupby("visitorid"):
-            rel_items = positives.get(int(uid), set())
-            if not rel_items: continue
-            pred_items = items["itemid"].astype(int).tolist()[:top_k]
-            if not pred_items: continue
-            ideal_dcg = sum(1.0 / np.log2(i + 2) for i in range(min(len(rel_items), top_k)))
-            if ideal_dcg == 0: continue
-            dcg = sum(1.0 / np.log2(i + 2) for i, item in enumerate(pred_items) if item in rel_items)
-            ndcgs.append(dcg / ideal_dcg if ideal_dcg > 0 else 0.0)
-        ndcg = np.mean(ndcgs) if ndcgs else 0.0
-        
-        print(f"{top_k:<6} {pr:<12.4f} {re:<12.4f} {f1:<12.4f} {ndcg:<12.4f}")
-    
+    print(f"{'Hybrid vs ALS':<20} {mean_diff_als:<15.4f} {std_diff_als:<15.4f} {t_stat_als:<15.4f} {p_value_als:<15.4e}")
+    print(f"{'Hybrid vs GNN':<20} {mean_diff_gnn:<15.4f} {std_diff_gnn:<15.4f} {t_stat_gnn:<15.4f} {p_value_gnn:<15.4e}")
     print("=" * 80)
+    
+    logger.info("5-fold 교차 검증 완료")
+    logger.info("Hybrid vs ALS: Mean Diff=%.4f, Std=%.4f, t=%.4f, p=%.4e", 
+               mean_diff_als, std_diff_als, t_stat_als, p_value_als)
+    logger.info("Hybrid vs GNN: Mean Diff=%.4f, Std=%.4f, t=%.4f, p=%.4e", 
+               mean_diff_gnn, std_diff_gnn, t_stat_gnn, p_value_gnn)
