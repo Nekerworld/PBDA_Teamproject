@@ -2245,8 +2245,21 @@ class ReRanker:
         ]
         total_users = len(eligible_pairs)
         if total_users == 0:
-            logger.warning("No eligible users found for reranking; skipping.")
-            return
+            # 모든 사용자에 대해 실행 (test users 제한 없이)
+            eligible_pairs = [
+                (idx, als_user_ids[idx])
+                for idx in range(max_user_index)
+                if als_user_ids[idx] in gnn_user_map
+            ]
+            total_users = len(eligible_pairs)
+            if total_users == 0:
+                logger.warning("No eligible users found for reranking; skipping.")
+                # 빈 파일 생성
+                pd.DataFrame(columns=["visitorid", "itemid", "rank", "combined_score", "final_score", "als_weight", "gnn_weight"]).to_csv(
+                    self.processed_dir / "final_recommendations.csv", index=False
+                )
+                return
+            logger.info("No test users found, reranking all %d users", total_users)
         logger.info("Reranking: processing %d users", total_users)
 
         for processed_count, (user_index, visitor_id) in enumerate(eligible_pairs, start=1):
@@ -4198,8 +4211,8 @@ if __name__ == "__main__":
     # gnn_generator = GNNEmbeddingGenerator()
     # gnn_generator.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    reranker = ReRanker()
+    reranker.run()
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
@@ -4302,15 +4315,28 @@ if __name__ == "__main__":
         
         # GNN 평가
         gnn_test_recs = evaluator_fold._generate_gnn_recommendations(test_users_list)
-        gnn_results = evaluator_fold._evaluate_recommendations(gnn_test_recs, positives, events_test_fold, "GNN", score_col="score")
-        gnn_f1_scores.append(gnn_results["f1"])
+        if gnn_test_recs.empty or "score" not in gnn_test_recs.columns:
+            logger.warning("Fold %d: GNN 추천 결과가 비어있거나 score 컬럼이 없습니다.", fold_idx)
+            gnn_f1_scores.append(0.0)
+        else:
+            gnn_results = evaluator_fold._evaluate_recommendations(gnn_test_recs, positives, events_test_fold, "GNN", score_col="score")
+            gnn_f1_scores.append(gnn_results["f1"])
         
         # Hybrid 평가
-        hybrid_recs = pd.read_csv(fold_dir / "final_recommendations.csv")
-        hybrid_test_recs = hybrid_recs[hybrid_recs["visitorid"].isin(test_users_list)]
-        hybrid_test_recs = hybrid_test_recs.sort_values(["visitorid", "rank"]).groupby("visitorid").head(50)
-        hybrid_results = evaluator_fold._evaluate_recommendations(hybrid_test_recs, positives, events_test_fold, "Hybrid", score_col="final_score")
-        hybrid_f1_scores.append(hybrid_results["f1"])
+        hybrid_recs_path = fold_dir / "final_recommendations.csv"
+        if not hybrid_recs_path.exists():
+            logger.warning("Fold %d: final_recommendations.csv가 없습니다. Reranker가 실행되지 않았습니다.", fold_idx)
+            hybrid_f1_scores.append(0.0)
+        else:
+            hybrid_recs = pd.read_csv(hybrid_recs_path)
+            hybrid_test_recs = hybrid_recs[hybrid_recs["visitorid"].isin(test_users_list)]
+            if hybrid_test_recs.empty:
+                logger.warning("Fold %d: Hybrid 추천 결과가 비어있습니다.", fold_idx)
+                hybrid_f1_scores.append(0.0)
+            else:
+                hybrid_test_recs = hybrid_test_recs.sort_values(["visitorid", "rank"]).groupby("visitorid").head(50)
+                hybrid_results = evaluator_fold._evaluate_recommendations(hybrid_test_recs, positives, events_test_fold, "Hybrid", score_col="final_score")
+                hybrid_f1_scores.append(hybrid_results["f1"])
         
         logger.info("Fold %d: ALS F1=%.4f, GNN F1=%.4f, Hybrid F1=%.4f", 
                    fold_idx, als_f1_scores[-1], gnn_f1_scores[-1], hybrid_f1_scores[-1])
