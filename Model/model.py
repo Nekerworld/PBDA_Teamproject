@@ -4189,17 +4189,17 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
 
-    als_recommender = ALSRecommender()
-    als_recommender.run()
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
 
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
 
-    reranker = ReRanker()
-    reranker.run()
+    # reranker = ReRanker()
+    # reranker.run()
     
     # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
@@ -4209,17 +4209,21 @@ if __name__ == "__main__":
         score_percentile=50.0 # score-based 모드일 시 주석해제
         # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
     )
-    evaluator.run()
+    # evaluator.run()
     
     # 5-fold 교차 검증을 통한 통계적 유의성 검정
     logger.info("=" * 80)
     logger.info("5-fold 교차 검증 통계적 유의성 검정 시작")
     logger.info("=" * 80)
     
-    # 원본 데이터 로드
+    # 전처리된 데이터 로드 (전체 파이프라인 기준)
     data_dir = Path("data")
-    events_path = data_dir / "events.csv"
-    events_df = pd.read_csv(events_path)
+    processed_dir = evaluator.processed_dir
+    
+    # 전처리된 train + test 데이터 결합
+    events_train_clean = pd.read_csv(processed_dir / "events_train_clean.csv")
+    events_test = pd.read_csv(processed_dir / "events_test.csv")
+    events_df = pd.concat([events_train_clean, events_test], ignore_index=True)
     events_df = events_df.dropna(subset=["visitorid", "itemid"])
     events_df["visitorid"] = events_df["visitorid"].astype(int)
     events_df["itemid"] = events_df["itemid"].astype(int)
@@ -4238,7 +4242,7 @@ if __name__ == "__main__":
         train_users = unique_users[train_user_indices]
         test_users = unique_users[test_user_indices]
         
-        # Train/Test 분할
+        # Train/Test 분할 (전처리된 데이터 기준)
         events_train_fold = events_df[events_df["visitorid"].isin(train_users)].copy()
         events_test_fold = events_df[events_df["visitorid"].isin(test_users)].copy()
         
@@ -4249,8 +4253,24 @@ if __name__ == "__main__":
         events_train_fold.to_csv(fold_dir / "events_train_clean.csv", index=False)
         events_test_fold.to_csv(fold_dir / "events_test.csv", index=False)
         
+        # GNN과 ReRanker에 필요한 파일들을 전체 전처리 결과에서 복사
+        import shutil
+        required_files = [
+            "item_properties_train_clean.csv",
+            "item_properties_test.csv",
+            "item_properties_train_outliers.csv"
+        ]
+        for file_name in required_files:
+            src_file = evaluator.processed_dir / file_name
+            if src_file.exists():
+                shutil.copy2(src_file, fold_dir / file_name)
+        
+        # category_tree.csv는 data_dir에서 복사
+        category_tree_src = data_dir / "category_tree.csv"
+        if category_tree_src.exists():
+            shutil.copy2(category_tree_src, fold_dir / "category_tree.csv")
+        
         # 각 fold마다 파이프라인 실행
-        # 각 fold마다 전처리 수행 (이상치 탐지 제외, 단순히 train/test 분할만 사용)
         # 1. ALS
         als_fold = ALSRecommender(processed_dir=fold_dir)
         als_fold.run()
