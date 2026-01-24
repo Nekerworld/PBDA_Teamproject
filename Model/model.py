@@ -17,6 +17,7 @@ import logging
 import math
 import random
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -73,6 +74,164 @@ NUMERIC_PATTERN = re.compile(r"(?P<sign>n|-)?(?P<number>\d+(?:\.\d+)?)")
 
 # 이벤트 타입별 가중치 (transaction > addtocart > view)
 EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
+
+
+def normalize_recommendation_format(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    다양한 형식의 추천 결과를 통일된 형식으로 변환합니다.
+    
+    통일된 형식: visitorid, itemid, score, rank
+    
+    Args:
+        df: 추천 결과 DataFrame (다양한 컬럼 포함 가능)
+        
+    Returns:
+        통일된 형식의 DataFrame (visitorid, itemid, score, rank)
+    """
+    result = df.copy()
+    
+    # visitorid와 itemid는 그대로 사용
+    if "visitorid" not in result.columns:
+        raise ValueError("visitorid 컬럼이 없습니다.")
+    if "itemid" not in result.columns:
+        raise ValueError("itemid 컬럼이 없습니다.")
+    
+    # score 컬럼 처리
+    if "final_score" in result.columns:
+        result["score"] = result["final_score"]
+    elif "score" not in result.columns:
+        raise ValueError("score 또는 final_score 컬럼이 없습니다.")
+    
+    # rank 컬럼 처리
+    if "rank" not in result.columns:
+        # score 기반으로 rank 생성
+        result = result.sort_values(["visitorid", "score"], ascending=[True, False])
+        result["rank"] = result.groupby("visitorid").cumcount() + 1
+    
+    # 필요한 컬럼만 선택
+    result = result[["visitorid", "itemid", "score", "rank"]].copy()
+    
+    # 타입 변환
+    result["visitorid"] = result["visitorid"].astype(int)
+    result["itemid"] = result["itemid"].astype(int)
+    result["score"] = result["score"].astype(float)
+    result["rank"] = result["rank"].astype(int)
+    
+    return result
+
+
+def calculate_ndcg(recommendations: pd.DataFrame, positives: Dict[int, set[int]], top_k: int = 50) -> float:
+    """
+    NDCG@K를 계산합니다.
+    
+    Args:
+        recommendations: 추천 결과 DataFrame (visitorid, itemid, score, rank)
+        positives: 사용자별 positive 아이템 딕셔너리
+        top_k: 평가할 상위 K개 (기본값: 50)
+        
+    Returns:
+        평균 NDCG@K 값
+    """
+    ndcgs = []
+    
+    for visitor_id, recs in recommendations.groupby("visitorid"):
+        relevant_items = positives.get(visitor_id, set())
+        if len(relevant_items) == 0:
+            continue
+        
+        # 상위 K개만 사용
+        recs = recs.head(top_k)
+        
+        # DCG 계산
+        dcg = 0.0
+        for idx, (_, row) in enumerate(recs.iterrows()):
+            if row["itemid"] in relevant_items:
+                dcg += 1.0 / np.log2(idx + 2)  # idx는 0부터 시작하므로 +2
+        
+        # Ideal DCG 계산 (모든 relevant items가 상위에 있다고 가정)
+        ideal_dcg = 0.0
+        num_relevant = min(len(relevant_items), top_k)
+        for i in range(num_relevant):
+            ideal_dcg += 1.0 / np.log2(i + 2)
+        
+        if ideal_dcg == 0:
+            continue
+        
+        ndcg = dcg / ideal_dcg
+        ndcgs.append(ndcg)
+    
+    return np.mean(ndcgs) if ndcgs else 0.0
+
+
+def calculate_recall(recommendations: pd.DataFrame, positives: Dict[int, set[int]], top_k: int = 50) -> float:
+    """
+    Recall@K를 계산합니다.
+    
+    Args:
+        recommendations: 추천 결과 DataFrame (visitorid, itemid, score, rank)
+        positives: 사용자별 positive 아이템 딕셔너리
+        top_k: 평가할 상위 K개 (기본값: 50)
+        
+    Returns:
+        평균 Recall@K 값
+    """
+    recalls = []
+    
+    for visitor_id, recs in recommendations.groupby("visitorid"):
+        relevant_items = positives.get(visitor_id, set())
+        if len(relevant_items) == 0:
+            continue
+        
+        # 상위 K개만 사용
+        predicted_items = set(recs.head(top_k)["itemid"].astype(int).tolist())
+        
+        # Recall 계산
+        hits = len(predicted_items & relevant_items)
+        recall = hits / len(relevant_items) if relevant_items else 0.0
+        recalls.append(recall)
+    
+    return np.mean(recalls) if recalls else 0.0
+
+
+def calculate_map(recommendations: pd.DataFrame, positives: Dict[int, set[int]], top_k: int = 50) -> float:
+    """
+    MAP@K (Mean Average Precision)를 계산합니다.
+    
+    Args:
+        recommendations: 추천 결과 DataFrame (visitorid, itemid, score, rank)
+        positives: 사용자별 positive 아이템 딕셔너리
+        top_k: 평가할 상위 K개 (기본값: 50)
+        
+    Returns:
+        평균 MAP@K 값
+    """
+    aps = []
+    
+    for visitor_id, recs in recommendations.groupby("visitorid"):
+        relevant_items = positives.get(visitor_id, set())
+        if len(relevant_items) == 0:
+            continue
+        
+        # 상위 K개만 사용
+        recs = recs.head(top_k)
+        
+        # Average Precision 계산
+        hits = 0
+        precision_sum = 0.0
+        
+        for idx, (_, row) in enumerate(recs.iterrows(), start=1):
+            if row["itemid"] in relevant_items:
+                hits += 1
+                precision = hits / idx
+                precision_sum += precision
+        
+        if hits == 0:
+            continue
+        
+        ap = precision_sum / min(len(relevant_items), top_k)
+        aps.append(ap)
+    
+    return np.mean(aps) if aps else 0.0
 
 
 def _extract_numeric(value: Optional[str]) -> Optional[float]:
@@ -1968,6 +2127,68 @@ class GNNEmbeddingGenerator:
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         user_df.to_csv(self.processed_dir / "gnn_user_embeddings.csv", index=False)
         item_df.to_csv(self.processed_dir / "gnn_item_embeddings.csv", index=False)
+
+    def generate_and_save_recommendations(self, top_k: int = 50) -> None:
+        """
+        GNN 임베딩을 사용하여 모든 사용자에 대한 추천을 생성하고 저장합니다.
+        
+        Args:
+            top_k: 사용자당 추천할 아이템 수 (기본값: 50)
+        """
+        logger.info("GNN 임베딩을 사용하여 추천 결과 생성 중...")
+        
+        # GNN 임베딩 로드
+        gnn_user_embeddings_df = pd.read_csv(self.processed_dir / "gnn_user_embeddings.csv")
+        gnn_item_embeddings_df = pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv")
+        
+        # 임베딩 배열로 변환
+        gnn_user_ids = gnn_user_embeddings_df["visitorid"].values.astype(int)
+        gnn_item_ids = gnn_item_embeddings_df["itemid"].values.astype(int)
+        
+        user_embedding_cols = [col for col in gnn_user_embeddings_df.columns if col.startswith("embedding_")]
+        item_embedding_cols = [col for col in gnn_item_embeddings_df.columns if col.startswith("embedding_")]
+        
+        gnn_user_embeddings = gnn_user_embeddings_df[user_embedding_cols].values.astype(np.float32)
+        gnn_item_embeddings = gnn_item_embeddings_df[item_embedding_cols].values.astype(np.float32)
+        
+        # 매핑 생성
+        gnn_user_map = {user_id: idx for idx, user_id in enumerate(gnn_user_ids)}
+        gnn_item_map = {item_id: idx for idx, item_id in enumerate(gnn_item_ids)}
+        
+        results: List[Dict[str, Any]] = []
+        total_users = len(gnn_user_ids)
+        
+        for idx, visitor_id in enumerate(gnn_user_ids):
+            user_idx = gnn_user_map[visitor_id]
+            user_vector = gnn_user_embeddings[user_idx]
+            
+            # 모든 아이템에 대한 점수 계산
+            gnn_scores = gnn_item_embeddings @ user_vector
+            
+            # 상위 K개 선택
+            top_indices = np.argsort(gnn_scores)[::-1][:top_k]
+            
+            for rank, item_idx in enumerate(top_indices, start=1):
+                item_id = gnn_item_ids[item_idx]
+                score = float(gnn_scores[item_idx])
+                results.append({
+                    "visitorid": int(visitor_id),
+                    "itemid": int(item_id),
+                    "score": score,
+                    "rank": rank
+                })
+            
+            if (idx + 1) % 1000 == 0 or (idx + 1) == total_users:
+                logger.info("GNN 추천 생성 진행: %d/%d 사용자 (%.1f%%)", 
+                           idx + 1, total_users, (idx + 1) / total_users * 100)
+        
+        # DataFrame 생성 및 저장
+        recommendations_df = pd.DataFrame(results)
+        recommendations_df = recommendations_df.sort_values(["visitorid", "rank"])
+        
+        output_path = self.processed_dir / "gnn_recommendations.csv"
+        recommendations_df.to_csv(output_path, index=False)
+        logger.info("GNN 추천 결과 저장 완료: %s", output_path.resolve())
 
     def _create_graph_visualizations(self, graph_data: Dict[str, Any]) -> None:
         """
@@ -4175,6 +4396,266 @@ class TestSetEvaluator:
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
+
+@dataclass
+class BaselineComparator:
+    """
+    베이스라인 비교 클래스
+    
+    3가지 시나리오를 실행하고 비교합니다:
+    1. 전처리 -> ALS -> 평가
+    2. 전처리 -> GNN -> 평가
+    3. 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가
+    
+    각 시나리오별로 NDCG, Recall, MAP, 실행 시간을 측정합니다.
+    """
+    processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
+    data_dir: Path = field(default_factory=lambda: Path("data"))
+    top_k: int = 50
+    evaluation_mode: str = "score_based"
+    score_percentile: float = 50.0
+    
+    def run(self) -> None:
+        """베이스라인 비교를 실행합니다."""
+        logger.info("=" * 80)
+        logger.info("베이스라인 비교 시작")
+        logger.info("=" * 80)
+        
+        results = {}
+        
+        # 시나리오 1: 전처리 -> ALS -> 평가
+        logger.info("\n" + "=" * 80)
+        logger.info("시나리오 1: 전처리 -> ALS -> 평가")
+        logger.info("=" * 80)
+        results["ALS"] = self._run_als_scenario()
+        
+        # 시나리오 2: 전처리 -> GNN -> 평가
+        logger.info("\n" + "=" * 80)
+        logger.info("시나리오 2: 전처리 -> GNN -> 평가")
+        logger.info("=" * 80)
+        results["GNN"] = self._run_gnn_scenario()
+        
+        # 시나리오 3: 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가
+        logger.info("\n" + "=" * 80)
+        logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가")
+        logger.info("=" * 80)
+        results["ALS+GNN"] = self._run_combined_scenario()
+        
+        # 결과 표 출력
+        self._print_comparison_table(results)
+    
+    def _run_als_scenario(self) -> Dict[str, Any]:
+        """시나리오 1: 전처리 -> ALS -> 평가"""
+        times = {}
+        
+        # 전처리
+        start_time = time.perf_counter()
+        preprocessor = IsolationForestPreprocessor(
+            data_dir=self.data_dir,
+            processed_dir=self.processed_dir
+        )
+        preprocessor.run()
+        times["전처리"] = time.perf_counter() - start_time
+        
+        # ALS
+        start_time = time.perf_counter()
+        als_recommender = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+        als_recommender.run()
+        times["ALS"] = time.perf_counter() - start_time
+        
+        # 평가
+        start_time = time.perf_counter()
+        metrics = self._evaluate_recommendations("als_recommendations.csv", "score")
+        times["평가"] = time.perf_counter() - start_time
+        
+        times["총합"] = sum(times.values())
+        
+        return {
+            "metrics": metrics,
+            "times": times
+        }
+    
+    def _run_gnn_scenario(self) -> Dict[str, Any]:
+        """시나리오 2: 전처리 -> GNN -> 평가"""
+        times = {}
+        
+        # 전처리 (이미 실행되었을 수 있으므로 확인)
+        if not (self.processed_dir / "events_train_clean.csv").exists():
+            start_time = time.perf_counter()
+            preprocessor = IsolationForestPreprocessor(
+                data_dir=self.data_dir,
+                processed_dir=self.processed_dir
+            )
+            preprocessor.run()
+            times["전처리"] = time.perf_counter() - start_time
+        else:
+            times["전처리"] = 0.0  # 이미 실행됨
+        
+        # GNN
+        start_time = time.perf_counter()
+        gnn_generator = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
+        gnn_generator.run()
+        # GNN 추천 생성 및 저장
+        gnn_generator.generate_and_save_recommendations(top_k=self.top_k)
+        times["GNN"] = time.perf_counter() - start_time
+        
+        # 평가
+        start_time = time.perf_counter()
+        metrics = self._evaluate_recommendations("gnn_recommendations.csv", "score")
+        times["평가"] = time.perf_counter() - start_time
+        
+        times["총합"] = sum(times.values())
+        
+        return {
+            "metrics": metrics,
+            "times": times
+        }
+    
+    def _run_combined_scenario(self) -> Dict[str, Any]:
+        """시나리오 3: 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가"""
+        times = {}
+        
+        # 전처리 (이미 실행되었을 수 있으므로 확인)
+        if not (self.processed_dir / "events_train_clean.csv").exists():
+            start_time = time.perf_counter()
+            preprocessor = IsolationForestPreprocessor(
+                data_dir=self.data_dir,
+                processed_dir=self.processed_dir
+            )
+            preprocessor.run()
+            times["전처리"] = time.perf_counter() - start_time
+        else:
+            times["전처리"] = 0.0  # 이미 실행됨
+        
+        # ALS (이미 실행되었을 수 있으므로 확인)
+        if not (self.processed_dir / "als_recommendations.csv").exists():
+            start_time = time.perf_counter()
+            als_recommender = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+            als_recommender.run()
+            times["ALS"] = time.perf_counter() - start_time
+        else:
+            times["ALS"] = 0.0  # 이미 실행됨
+        
+        # GNN (이미 실행되었을 수 있으므로 확인)
+        if not (self.processed_dir / "gnn_recommendations.csv").exists():
+            start_time = time.perf_counter()
+            gnn_generator = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
+            gnn_generator.run()
+            gnn_generator.generate_and_save_recommendations(top_k=self.top_k)
+            times["GNN"] = time.perf_counter() - start_time
+        else:
+            times["GNN"] = 0.0  # 이미 실행됨
+        
+        # ReRanker
+        start_time = time.perf_counter()
+        reranker = ReRanker(processed_dir=self.processed_dir)
+        reranker.run()
+        times["ReRanker"] = time.perf_counter() - start_time
+        
+        # 평가
+        start_time = time.perf_counter()
+        metrics = self._evaluate_recommendations("final_recommendations.csv", "final_score")
+        times["평가"] = time.perf_counter() - start_time
+        
+        times["총합"] = sum(times.values())
+        
+        return {
+            "metrics": metrics,
+            "times": times
+        }
+    
+    def _evaluate_recommendations(self, filename: str, score_col: str) -> Dict[str, float]:
+        """추천 결과를 평가하고 메트릭을 반환합니다."""
+        # 테스트 세트 로드
+        events_test = pd.read_csv(self.processed_dir / "events_test.csv")
+        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+        
+        positives: Dict[int, set[int]] = (
+            positive_events.dropna(subset=["visitorid", "itemid"])
+            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            .groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+        
+        # 추천 결과 로드 및 형식 통일
+        recommendations = pd.read_csv(self.processed_dir / filename)
+        recommendations = normalize_recommendation_format(recommendations)
+        
+        # 테스트 사용자만 필터링
+        test_users = set(events_test["visitorid"].astype(int).unique())
+        recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+        
+        # 상위 K개만 사용
+        recommendations = (
+            recommendations.sort_values(["visitorid", "score"], ascending=[True, False])
+            .groupby("visitorid")
+            .head(self.top_k)
+        )
+        
+        # 메트릭 계산
+        ndcg = calculate_ndcg(recommendations, positives, self.top_k)
+        recall = calculate_recall(recommendations, positives, self.top_k)
+        map_score = calculate_map(recommendations, positives, self.top_k)
+        
+        return {
+            "ndcg": ndcg,
+            "recall": recall,
+            "map": map_score
+        }
+    
+    def _print_comparison_table(self, results: Dict[str, Dict[str, Any]]) -> None:
+        """비교 결과를 표 형식으로 출력합니다 (옵션 2 형식)."""
+        logger.info("\n" + "=" * 100)
+        logger.info("베이스라인 비교 결과")
+        logger.info("=" * 100)
+        
+        # 표 헤더
+        header = f"{'':12} | {'NDCG':>10} | {'Recall':>10} | {'MAP':>10} | {'실행시간(초)':>20}"
+        print("\n" + header)
+        print("-" * 100)
+        
+        # 각 시나리오별 결과 출력
+        scenario_names = ["ALS", "GNN", "ALS+GNN"]
+        for scenario_name in scenario_names:
+            if scenario_name not in results:
+                continue
+            
+            result = results[scenario_name]
+            metrics = result["metrics"]
+            times = result["times"]
+            
+            # 메트릭 값
+            ndcg_str = f"{metrics['ndcg']:.2f}"
+            recall_str = f"{metrics['recall']:.2f}"
+            map_str = f"{metrics['map']:.2f}"
+            
+            # 시나리오 이름 출력 (메트릭 포함)
+            print(f"{scenario_name:12} | {ndcg_str:>10} | {recall_str:>10} | {map_str:>10} |")
+            
+            # 시간 세부사항 출력
+            if scenario_name == "ALS":
+                print(f"{'  - 전처리':12} | {'':10} | {'':10} | {'':10} | {times.get('전처리', 0.0):>20.2f}")
+                print(f"{'  - ALS':12} | {'':10} | {'':10} | {'':10} | {times.get('ALS', 0.0):>20.2f}")
+                print(f"{'  - 평가':12} | {'':10} | {'':10} | {'':10} | {times.get('평가', 0.0):>20.2f}")
+            elif scenario_name == "GNN":
+                print(f"{'  - 전처리':12} | {'':10} | {'':10} | {'':10} | {times.get('전처리', 0.0):>20.2f}")
+                print(f"{'  - GNN':12} | {'':10} | {'':10} | {'':10} | {times.get('GNN', 0.0):>20.2f}")
+                print(f"{'  - 평가':12} | {'':10} | {'':10} | {'':10} | {times.get('평가', 0.0):>20.2f}")
+            elif scenario_name == "ALS+GNN":
+                print(f"{'  - 전처리':12} | {'':10} | {'':10} | {'':10} | {times.get('전처리', 0.0):>20.2f}")
+                print(f"{'  - ALS':12} | {'':10} | {'':10} | {'':10} | {times.get('ALS', 0.0):>20.2f}")
+                print(f"{'  - GNN':12} | {'':10} | {'':10} | {'':10} | {times.get('GNN', 0.0):>20.2f}")
+                print(f"{'  - ReRanker':12} | {'':10} | {'':10} | {'':10} | {times.get('ReRanker', 0.0):>20.2f}")
+                print(f"{'  - 평가':12} | {'':10} | {'':10} | {'':10} | {times.get('평가', 0.0):>20.2f}")
+            
+            # 총합 출력
+            total_time = times.get('총합', 0.0)
+            print(f"{'  - 총합':12} | {'':10} | {'':10} | {'':10} | {total_time:>20.2f}")
+            print("-" * 100)
+        
+        print()
+
 if __name__ == "__main__":
     """
     전체 추천 시스템 파이프라인을 실행합니다.
@@ -4188,28 +4669,39 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
 
-    als_recommender = ALSRecommender()
-    als_recommender.run()
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
 
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
 
-    reranker = ReRanker()
-    reranker.run()
+    # reranker = ReRanker()
+    # reranker.run()
     
-    # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    evaluator = TestSetEvaluator(
-        evaluation_mode="score_based",
+    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
+    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
+    # evaluator = TestSetEvaluator(
+    #     evaluation_mode="score_based",
+    #     top_k=50,
+    #     score_percentile=50.0 # score-based 모드일 시 주석해제
+    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    # )
+    # evaluator.run()
+    
+    # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
+    # comparator = RecommendationComparator(top_k=200)
+    # comparator.run()
+    
+    # 베이스라인 비교 (3가지 시나리오 비교)
+    # 주석을 해제하여 베이스라인 비교를 실행할 수 있습니다
+    baseline_comparator = BaselineComparator(
+        processed_dir=Path("data/processed"),
+        data_dir=Path("data"),
         top_k=50,
-        score_percentile=50.0 # score-based 모드일 시 주석해제
-        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+        evaluation_mode="score_based",
+        score_percentile=50.0
     )
-    evaluator.run()
-    
-    # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
-    comparator = RecommendationComparator(top_k=200)
-    comparator.run()
+    baseline_comparator.run()
