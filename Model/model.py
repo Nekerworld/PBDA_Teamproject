@@ -4586,30 +4586,24 @@ class BaselineComparator:
         test_users = set(events_test["visitorid"].astype(int).unique())
         recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
         
-        # score_based 평가 모드인 경우 점수 임계값 적용
+        # 상위 K개만 사용
+        recommendations = (
+            recommendations.sort_values(["visitorid", "score"], ascending=[True, False])
+            .groupby("visitorid")
+            .head(self.top_k)
+        )
+        
+        # score_based 평가 모드인 경우 점수 임계값 계산 (필터링은 하지 않음)
+        score_threshold = None
         if self.evaluation_mode == "score_based":
-            # 점수 임계값 계산
             all_scores = recommendations["score"].astype(float).values
             if len(all_scores) > 0:
                 effective_percentile = min(self.score_percentile, 50.0)
                 score_threshold = float(np.percentile(all_scores, effective_percentile))
                 logger.info("Score-based 평가: 점수 임계값 = %.4f (백분위수: %.1f%%)", 
                            score_threshold, effective_percentile)
-                
-                # 임계값 이상인 추천만 필터링
-                recommendations = recommendations[recommendations["score"] >= score_threshold]
-                logger.info("임계값 이상 추천 수: %d / %d", 
-                           len(recommendations), 
-                           len(recommendations) if len(recommendations) > 0 else 0)
             else:
                 logger.warning("추천 점수가 없어 score_based 평가를 적용할 수 없습니다.")
-        
-        # 상위 K개만 사용 (score_based 모드에서는 이미 필터링되었지만, 다른 모드에서는 필요)
-        recommendations = (
-            recommendations.sort_values(["visitorid", "score"], ascending=[True, False])
-            .groupby("visitorid")
-            .head(self.top_k)
-        )
         
         # 디버깅 정보
         num_users_with_recs = len(recommendations["visitorid"].unique())
@@ -4617,10 +4611,18 @@ class BaselineComparator:
         logger.info("평가 대상: 추천 사용자 %d명, Positive 사용자 %d명", 
                    num_users_with_recs, num_users_with_positives)
         
-        # 메트릭 계산
-        ndcg = calculate_ndcg(recommendations, positives, self.top_k)
-        recall = calculate_recall(recommendations, positives, self.top_k)
-        map_score = calculate_map(recommendations, positives, self.top_k)
+        # TestSetEvaluator와 동일한 방식으로 메트릭 계산
+        # score_based 모드에서는 사용자 레벨 평가를 사용
+        if self.evaluation_mode == "score_based" and score_threshold is not None:
+            # TestSetEvaluator의 score_based 로직 사용
+            ndcg, recall, map_score = self._calculate_metrics_score_based(
+                recommendations, positives, score_threshold, score_col
+            )
+        else:
+            # 기본 메트릭 계산
+            ndcg = calculate_ndcg(recommendations, positives, self.top_k)
+            recall = calculate_recall(recommendations, positives, self.top_k)
+            map_score = calculate_map(recommendations, positives, self.top_k)
         
         logger.info("메트릭 결과: NDCG=%.4f, Recall=%.4f, MAP=%.4f", ndcg, recall, map_score)
         
@@ -4629,6 +4631,84 @@ class BaselineComparator:
             "recall": recall,
             "map": map_score
         }
+    
+    def _calculate_metrics_score_based(
+        self, 
+        recommendations: pd.DataFrame, 
+        positives: Dict[int, set[int]], 
+        score_threshold: float,
+        score_col: str
+    ) -> Tuple[float, float, float]:
+        """
+        TestSetEvaluator의 score_based 평가 방식과 동일하게 메트릭을 계산합니다.
+        
+        TestSetEvaluator는 추천을 필터링하지 않고, 사용자 레벨에서 점수를 고려하여 평가합니다.
+        """
+        recalls = []
+        ndcgs = []
+        aps = []
+        
+        for visitor_id, recs in recommendations.groupby("visitorid"):
+            relevant_items = positives.get(visitor_id, set())
+            if len(relevant_items) == 0:
+                continue
+            
+            predicted_items = recs["itemid"].astype(int).tolist()
+            scores = recs[score_col].astype(float).values
+            
+            if len(scores) == 0:
+                continue
+            
+            hits = len(set(predicted_items) & relevant_items)
+            
+            # TestSetEvaluator의 score_based 로직: hits가 있거나 점수가 충분히 높으면 positive
+            mean_score = np.mean(scores)
+            max_score = np.max(scores)
+            top_n = min(10, len(scores))
+            top_scores = np.sort(scores)[-top_n:]
+            top_mean_score = np.mean(top_scores)
+            
+            # hits가 있거나 점수가 충분히 높으면 평가에 포함
+            # (TestSetEvaluator는 이렇게 사용자 레벨에서 판단)
+            if hits > 0 or mean_score >= score_threshold or top_mean_score >= score_threshold:
+                # Recall 계산 (hits가 있으면)
+                if hits > 0:
+                    recall = hits / len(relevant_items) if relevant_items else 0.0
+                    recalls.append(recall)
+                    
+                    # NDCG 계산
+                    dcg = 0.0
+                    for idx, (_, row) in enumerate(recs.iterrows()):
+                        if row["itemid"] in relevant_items:
+                            dcg += 1.0 / np.log2(idx + 2)
+                    
+                    ideal_dcg = 0.0
+                    num_relevant = min(len(relevant_items), len(recs))
+                    for i in range(num_relevant):
+                        ideal_dcg += 1.0 / np.log2(i + 2)
+                    
+                    if ideal_dcg > 0:
+                        ndcg = dcg / ideal_dcg
+                        ndcgs.append(ndcg)
+                    
+                    # MAP 계산
+                    hits_count = 0
+                    precision_sum = 0.0
+                    for idx, (_, row) in enumerate(recs.iterrows(), start=1):
+                        if row["itemid"] in relevant_items:
+                            hits_count += 1
+                            precision = hits_count / idx
+                            precision_sum += precision
+                    
+                    if hits_count > 0:
+                        ap = precision_sum / len(relevant_items)
+                        aps.append(ap)
+        
+        return (
+            np.mean(ndcgs) if ndcgs else 0.0,
+            np.mean(recalls) if recalls else 0.0,
+            np.mean(aps) if aps else 0.0
+        )
     
     def _print_comparison_table(self, results: Dict[str, Dict[str, Any]]) -> None:
         """비교 결과를 표 형식으로 출력합니다 (옵션 2 형식)."""
