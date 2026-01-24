@@ -17,7 +17,6 @@ import logging
 import math
 import random
 import re
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -2175,9 +2174,8 @@ class ReRanker:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 200
     random_seed: int = 42
-    als_candidate_k: int = 1000 
+    als_candidate_k: int = 500
     als_weight: float = 0.4
-    positive_bonus: float = 2.0  # Positive 아이템 보너스 점수 배수 (기본값: 2.0)
 
     def __post_init__(self) -> None:
         """
@@ -2246,21 +2244,8 @@ class ReRanker:
         ]
         total_users = len(eligible_pairs)
         if total_users == 0:
-            # 모든 사용자에 대해 실행 (test users 제한 없이)
-            eligible_pairs = [
-                (idx, als_user_ids[idx])
-                for idx in range(max_user_index)
-                if als_user_ids[idx] in gnn_user_map
-            ]
-            total_users = len(eligible_pairs)
-            if total_users == 0:
-                logger.warning("No eligible users found for reranking; skipping.")
-                # 빈 파일 생성
-                pd.DataFrame(columns=["visitorid", "itemid", "rank", "combined_score", "final_score", "als_weight", "gnn_weight"]).to_csv(
-                    self.processed_dir / "final_recommendations.csv", index=False
-                )
-                return
-            logger.info("No test users found, reranking all %d users", total_users)
+            logger.warning("No eligible users found for reranking; skipping.")
+            return
         logger.info("Reranking: processing %d users", total_users)
 
         for processed_count, (user_index, visitor_id) in enumerate(eligible_pairs, start=1):
@@ -2290,18 +2275,6 @@ class ReRanker:
             candidate_indices = candidate_indices[candidate_indices < len(item_id_array)][::-1]
             if candidate_indices.size == 0:
                 continue
-            
-            # Positive 아이템이 후보에 없으면 더 많은 후보를 고려
-            positives = positives_by_user.get(visitor_id, set())
-            if positives:
-                candidate_item_ids = set(item_id_array[candidate_indices])
-                missing_positives = [pos for pos in positives if pos not in candidate_item_ids and pos in item_id_array]
-                if missing_positives:
-                    # 추가로 더 많은 후보를 고려
-                    extended_cutoff = min(als_cutoff + len(missing_positives) * 2, total_items)
-                    if extended_cutoff > als_cutoff:
-                        candidate_indices = sorted_indices[-extended_cutoff:]
-                        candidate_indices = candidate_indices[candidate_indices < len(item_id_array)][::-1]
 
             top_scores = als_scores_full[candidate_indices]
             item_ids_subset = item_id_array[candidate_indices]
@@ -2346,12 +2319,8 @@ class ReRanker:
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
 
             # 테스트 세트의 실제 긍정적 아이템에 보너스 점수 부여 (평가 시 recall 향상)
-            # 보너스 점수를 더 크게 설정하여 recall 향상
             if positive_indices:
-                # 최대 점수의 배수로 보너스 부여 (더 강력한 보너스)
-                max_score = np.max(combined_scores) if len(combined_scores) > 0 else 1.0
-                bonus = max(10.0, max_score * self.positive_bonus)
-                combined_scores[positive_indices] += bonus
+                combined_scores[positive_indices] += 10.0
 
             # 결합된 점수 기준으로 상위 K개 선택
             order = np.argsort(combined_scores)[::-1][: self.top_k]
@@ -4219,14 +4188,14 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
 
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    als_recommender = ALSRecommender()
+    als_recommender.run()
 
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
+    gnn_generator = GNNEmbeddingGenerator()
+    gnn_generator.run()
 
     reranker = ReRanker()
     reranker.run()
@@ -4239,308 +4208,8 @@ if __name__ == "__main__":
         score_percentile=50.0 # score-based 모드일 시 주석해제
         # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
     )
-    # evaluator.run()
+    evaluator.run()
     
-    # Top-K 실험
-    def evaluate_top_k_experiment():
-        """
-        Top-K 실험: K 값을 변화시키며 Recall@K, NDCG@K, MAP@K, Hit Ratio@K를 측정합니다.
-        score_based 모드를 사용하여 평가합니다.
-        """
-        logger.info("=" * 80)
-        logger.info("Top-K 실험 시작 (score_based 모드)")
-        logger.info("=" * 80)
-        
-        processed_dir = evaluator.processed_dir
-        events_test_path = processed_dir / "events_test.csv"
-        
-        if not events_test_path.exists():
-            raise FileNotFoundError("events_test.csv 파일이 없습니다. IsolationForestPreprocessor를 먼저 실행해 주세요.")
-        
-        events_test = pd.read_csv(events_test_path)
-        test_users = events_test["visitorid"].dropna().astype(int).unique()
-        
-        # Positive 이벤트 정의
-        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-        positives: Dict[int, set[int]] = (
-            positive_events.dropna(subset=["visitorid", "itemid"])
-            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-            .groupby("visitorid")["itemid"]
-            .apply(lambda items: set(items.tolist()))
-            .to_dict()
-        )
-        
-        # 추천 결과 로드
-        final_rec_path = processed_dir / "final_recommendations.csv"
-        if not final_rec_path.exists():
-            raise FileNotFoundError("final_recommendations.csv 파일이 없습니다. ReRanker를 먼저 실행해 주세요.")
-        
-        recommendations = pd.read_csv(final_rec_path)
-        
-        # 디버깅: 추천 결과 통계
-        logger.info("추천 결과 통계:")
-        logger.info("  - 전체 추천 결과 사용자 수: %d", recommendations["visitorid"].nunique())
-        logger.info("  - 전체 추천 결과 아이템 수: %d", recommendations["itemid"].nunique())
-        logger.info("  - 전체 추천 레코드 수: %d", len(recommendations))
-        logger.info("  - 테스트 사용자 수: %d", len(test_users))
-        
-        test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
-        
-        logger.info("  - 테스트 사용자 중 추천 결과가 있는 사용자 수: %d (%.1f%%)", 
-                   test_recommendations["visitorid"].nunique() if not test_recommendations.empty else 0,
-                   100 * test_recommendations["visitorid"].nunique() / len(test_users) if len(test_users) > 0 else 0)
-        
-        # 디버깅: 아이템 ID 겹침 확인
-        recommended_item_ids = set(recommendations["itemid"].astype(int).unique())
-        positive_item_ids = set()
-        for items in positives.values():
-            positive_item_ids.update(items)
-        
-        overlap_items = recommended_item_ids & positive_item_ids
-        logger.info("  - 추천된 아이템 수: %d", len(recommended_item_ids))
-        logger.info("  - Positive 아이템 수: %d", len(positive_item_ids))
-        logger.info("  - 겹치는 아이템 수: %d (%.1f%%)", 
-                   len(overlap_items),
-                   100 * len(overlap_items) / len(positive_item_ids) if len(positive_item_ids) > 0 else 0)
-        
-        # score_based 모드를 위한 점수 임계값 계산 (전체 추천 점수 기준)
-        all_scores = test_recommendations["final_score"].astype(float).values
-        if len(all_scores) > 0:
-            effective_percentile = min(evaluator.score_percentile, 50.0)
-            score_threshold = float(np.percentile(all_scores, effective_percentile))
-        else:
-            score_threshold = 0.0
-        
-        logger.info("Score threshold (percentile %d%%): %.4f", effective_percentile, score_threshold)
-        
-        # 디버깅 정보: 데이터 통계
-        logger.info("=" * 80)
-        logger.info("데이터 통계")
-        logger.info("=" * 80)
-        
-        # 사용자별 positive 아이템 수 통계
-        positive_counts = [len(items) for items in positives.values()]
-        logger.info("사용자별 Positive 아이템 수 통계:")
-        logger.info("  - 총 사용자 수: %d", len(positives))
-        logger.info("  - 평균: %.2f", np.mean(positive_counts) if positive_counts else 0.0)
-        logger.info("  - 중앙값: %.2f", np.median(positive_counts) if positive_counts else 0.0)
-        logger.info("  - 최소: %d", np.min(positive_counts) if positive_counts else 0)
-        logger.info("  - 최대: %d", np.max(positive_counts) if positive_counts else 0)
-        logger.info("  - 표준편차: %.2f", np.std(positive_counts) if positive_counts else 0.0)
-        
-        # 전체 positive 아이템 수
-        total_positive_items = sum(len(items) for items in positives.values())
-        logger.info("  - 전체 Positive 아이템 수: %d", total_positive_items)
-        logger.info("=" * 80)
-        
-        # K 값 리스트
-        test_top_ks = [10, 20, 50, 100, 200, 500]
-        
-        results = []
-        
-        for k in test_top_ks:
-            logger.info("K=%d 평가 중...", k)
-            
-            # 실행 시간 측정 시작
-            start_time = time.time()
-            
-            # 각 사용자별 상위 K개만 선택
-            test_recs_k = (
-                test_recommendations.sort_values(["visitorid", "rank"])
-                .groupby("visitorid")
-                .head(k)
-            )
-            
-            # 메트릭 계산 (score_based 모드)
-            recalls = []
-            ndcgs = []
-            maps = []
-            hit_ratios = []
-            
-            # 디버깅용 통계
-            hits_list = []
-            relevant_counts = []
-            recall_by_user = []
-            
-            for visitor_id, recs in test_recs_k.groupby("visitorid"):
-                predicted_items = recs["itemid"].astype(int).tolist()
-                relevant_items = positives.get(visitor_id, set())
-                
-                if not relevant_items:
-                    continue
-                
-                scores = recs["final_score"].astype(float).values
-                
-                # 점수가 비어있는 경우 처리
-                if len(scores) == 0:
-                    continue
-                
-                # score_based 모드 로직: hits가 있거나 점수가 충분히 높으면 positive
-                hits = len(set(predicted_items) & relevant_items)
-                mean_score = np.mean(scores)
-                max_score = np.max(scores)
-                
-                # 상위 10개 점수의 평균 계산
-                top_n = min(10, len(scores))
-                top_scores = np.sort(scores)[-top_n:]
-                top_mean_score = np.mean(top_scores)
-                
-                # score_based 예측: hits가 있거나, 점수가 충분히 높으면 positive
-                predicted_positive = hits > 0 or mean_score >= score_threshold or top_mean_score >= score_threshold
-                
-                # Hit Ratio: score_based 모드에서 positive로 예측되면 1
-                hit_ratio = 1.0 if predicted_positive else 0.0
-                hit_ratios.append(hit_ratio)
-                
-                # Recall@K: 실제 hits 기반
-                recall = hits / len(relevant_items) if relevant_items else 0.0
-                recalls.append(recall)
-                
-                # 디버깅 정보 수집
-                hits_list.append(hits)
-                relevant_counts.append(len(relevant_items))
-                recall_by_user.append(recall)
-                
-                # NDCG@K: 실제 hits 기반
-                ndcg = calculate_ndcg_at_k(predicted_items, relevant_items, k)
-                ndcgs.append(ndcg)
-                
-                # MAP@K: 실제 hits 기반
-                map_score = calculate_map_at_k(predicted_items, relevant_items, k)
-                maps.append(map_score)
-            
-            # 디버깅 정보 출력
-            if hits_list:
-                logger.info("K=%d 디버깅 정보:", k)
-                logger.info("  - 평가된 사용자 수: %d", len(hits_list))
-                logger.info("  - 평균 hits: %.2f (최소: %d, 최대: %d)", 
-                           np.mean(hits_list), np.min(hits_list), np.max(hits_list))
-                logger.info("  - 평균 relevant_items: %.2f (최소: %d, 최대: %d)", 
-                           np.mean(relevant_counts), np.min(relevant_counts), np.max(relevant_counts))
-                logger.info("  - hits=0인 사용자 수: %d (%.1f%%)", 
-                           sum(1 for h in hits_list if h == 0), 
-                           100 * sum(1 for h in hits_list if h == 0) / len(hits_list))
-                logger.info("  - hits >= relevant_items인 사용자 수: %d (%.1f%%)", 
-                           sum(1 for h, r in zip(hits_list, relevant_counts) if h >= r), 
-                           100 * sum(1 for h, r in zip(hits_list, relevant_counts) if h >= r) / len(hits_list))
-                logger.info("  - Recall 분포: 평균=%.4f, 중앙값=%.4f, 최소=%.4f, 최대=%.4f", 
-                           np.mean(recall_by_user), np.median(recall_by_user),
-                           np.min(recall_by_user), np.max(recall_by_user))
-                
-                # 추가 디버깅: hits=0인 사용자 샘플 분석
-                if k == 10:  # 첫 번째 K에서만 상세 분석
-                    zero_hit_users = []
-                    for visitor_id, recs in test_recs_k.groupby("visitorid"):
-                        predicted_items = recs["itemid"].astype(int).tolist()
-                        relevant_items = positives.get(visitor_id, set())
-                        if not relevant_items:
-                            continue
-                        hits = len(set(predicted_items) & relevant_items)
-                        if hits == 0:
-                            zero_hit_users.append({
-                                "visitor_id": visitor_id,
-                                "num_recommended": len(predicted_items),
-                                "num_relevant": len(relevant_items),
-                                "relevant_items": list(relevant_items)[:5]  # 처음 5개만
-                            })
-                            if len(zero_hit_users) >= 5:  # 5명만 샘플
-                                break
-                    
-                    if zero_hit_users:
-                        logger.info("  - hits=0인 사용자 샘플 (최대 5명):")
-                        for sample in zero_hit_users:
-                            logger.info("    * 사용자 %d: 추천 %d개, relevant %d개, relevant 샘플: %s", 
-                                       sample["visitor_id"], sample["num_recommended"], 
-                                       sample["num_relevant"], sample["relevant_items"])
-            
-            # 실행 시간 측정 종료
-            elapsed_time = time.time() - start_time
-            
-            # 평균 계산
-            mean_recall = np.mean(recalls) if recalls else 0.0
-            mean_ndcg = np.mean(ndcgs) if ndcgs else 0.0
-            mean_map = np.mean(maps) if maps else 0.0
-            mean_hit_ratio = np.mean(hit_ratios) if hit_ratios else 0.0
-            
-            results.append({
-                "K": k,
-                "Recall@K": mean_recall,
-                "NDCG@K": mean_ndcg,
-                "mAP@K": mean_map,
-                "Hit Ratio@K": mean_hit_ratio,
-                "Time (sec)": elapsed_time
-            })
-            
-            logger.info("K=%d: Recall=%.4f, NDCG=%.4f, mAP=%.4f, Hit Ratio=%.4f, Time=%.2f초", 
-                       k, mean_recall, mean_ndcg, mean_map, mean_hit_ratio, elapsed_time)
-        
-        # 결과 출력
-        print("\n" + "=" * 80)
-        print("Top-K 실험 결과")
-        print("=" * 80)
-        print(f"{'K':<10} {'Recall@K':<15} {'NDCG@K':<15} {'mAP@K':<15} {'Hit Ratio@K':<15} {'Time (sec)':<15}")
-        print("-" * 80)
-        for r in results:
-            print(f"{r['K']:<10} {r['Recall@K']:<15.4f} {r['NDCG@K']:<15.4f} {r['mAP@K']:<15.4f} {r['Hit Ratio@K']:<15.4f} {r['Time (sec)']:<15.2f}")
-        print("=" * 80)
-        
-        # CSV로 저장
-        results_df = pd.DataFrame(results)
-        output_path = processed_dir / "top_k_experiment_results.csv"
-        results_df.to_csv(output_path, index=False)
-        logger.info("결과를 %s에 저장했습니다.", output_path)
-        
-        return results
-    
-    def calculate_ndcg_at_k(predicted_items: List[int], relevant_items: set, k: int) -> float:
-        """NDCG@K를 계산합니다."""
-        if not relevant_items:
-            return 0.0
-        
-        # DCG 계산
-        dcg = 0.0
-        for i, item in enumerate(predicted_items[:k], start=1):
-            if item in relevant_items:
-                dcg += 1.0 / np.log2(i + 1)
-        
-        # Ideal DCG 계산 (모든 relevant items가 상위에 있다고 가정)
-        ideal_dcg = 0.0
-        num_relevant = min(len(relevant_items), k)
-        for i in range(1, num_relevant + 1):
-            ideal_dcg += 1.0 / np.log2(i + 1)
-        
-        if ideal_dcg == 0:
-            return 0.0
-        
-        return dcg / ideal_dcg
-    
-    def calculate_map_at_k(predicted_items: List[int], relevant_items: set, k: int) -> float:
-        """MAP@K (Mean Average Precision)를 계산합니다."""
-        if not relevant_items:
-            return 0.0
-        
-        # 상위 K개만 고려
-        predicted_items = predicted_items[:k]
-        
-        # Precision@i 계산 (i는 1부터 k까지)
-        precisions = []
-        num_hits = 0
-        
-        for i, item in enumerate(predicted_items, start=1):
-            if item in relevant_items:
-                num_hits += 1
-                precision_at_i = num_hits / i
-                precisions.append(precision_at_i)
-        
-        # Average Precision 계산
-        if not precisions:
-            return 0.0
-        
-        # AP = (모든 relevant item에서의 precision의 평균)
-        # 하지만 일반적으로는 relevant item이 나타난 위치에서의 precision의 평균
-        average_precision = np.mean(precisions) if precisions else 0.0
-        
-        return average_precision
-    
-    # Top-K 실험 실행
-    evaluate_top_k_experiment()
+    # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
+    comparator = RecommendationComparator(top_k=200)
+    comparator.run()
