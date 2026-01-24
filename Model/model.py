@@ -228,7 +228,7 @@ def calculate_map(recommendations: pd.DataFrame, positives: Dict[int, set[int]],
         if hits == 0:
             continue
         
-        ap = precision_sum / min(len(relevant_items), top_k)
+        ap = precision_sum / len(relevant_items)  # MAP는 relevant items의 개수로 나눔
         aps.append(ap)
     
     return np.mean(aps) if aps else 0.0
@@ -4586,17 +4586,43 @@ class BaselineComparator:
         test_users = set(events_test["visitorid"].astype(int).unique())
         recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
         
-        # 상위 K개만 사용
+        # score_based 평가 모드인 경우 점수 임계값 적용
+        if self.evaluation_mode == "score_based":
+            # 점수 임계값 계산
+            all_scores = recommendations["score"].astype(float).values
+            if len(all_scores) > 0:
+                effective_percentile = min(self.score_percentile, 50.0)
+                score_threshold = float(np.percentile(all_scores, effective_percentile))
+                logger.info("Score-based 평가: 점수 임계값 = %.4f (백분위수: %.1f%%)", 
+                           score_threshold, effective_percentile)
+                
+                # 임계값 이상인 추천만 필터링
+                recommendations = recommendations[recommendations["score"] >= score_threshold]
+                logger.info("임계값 이상 추천 수: %d / %d", 
+                           len(recommendations), 
+                           len(recommendations) if len(recommendations) > 0 else 0)
+            else:
+                logger.warning("추천 점수가 없어 score_based 평가를 적용할 수 없습니다.")
+        
+        # 상위 K개만 사용 (score_based 모드에서는 이미 필터링되었지만, 다른 모드에서는 필요)
         recommendations = (
             recommendations.sort_values(["visitorid", "score"], ascending=[True, False])
             .groupby("visitorid")
             .head(self.top_k)
         )
         
+        # 디버깅 정보
+        num_users_with_recs = len(recommendations["visitorid"].unique())
+        num_users_with_positives = len(positives)
+        logger.info("평가 대상: 추천 사용자 %d명, Positive 사용자 %d명", 
+                   num_users_with_recs, num_users_with_positives)
+        
         # 메트릭 계산
         ndcg = calculate_ndcg(recommendations, positives, self.top_k)
         recall = calculate_recall(recommendations, positives, self.top_k)
         map_score = calculate_map(recommendations, positives, self.top_k)
+        
+        logger.info("메트릭 결과: NDCG=%.4f, Recall=%.4f, MAP=%.4f", ndcg, recall, map_score)
         
         return {
             "ndcg": ndcg,
