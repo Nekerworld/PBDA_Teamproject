@@ -4613,10 +4613,11 @@ class BaselineComparator:
         
         # TestSetEvaluator와 동일한 방식으로 메트릭 계산
         # score_based 모드에서는 사용자 레벨 평가를 사용
+        # normalize_recommendation_format 호출 후에는 항상 "score" 컬럼 사용
         if self.evaluation_mode == "score_based" and score_threshold is not None:
             # TestSetEvaluator의 score_based 로직 사용
             ndcg, recall, map_score = self._calculate_metrics_score_based(
-                recommendations, positives, score_threshold, score_col
+                recommendations, positives, score_threshold, "score"
             )
         else:
             # 기본 메트릭 계산
