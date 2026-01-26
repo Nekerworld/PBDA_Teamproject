@@ -865,7 +865,10 @@ class ALSRecommender:
                 self.factors,
                 self.iterations,
             )
-            model.fit(confidence_matrix.T.tocsr())
+            # implicit(ALS)은 user-item 형태(CSR: users x items)를 입력으로 기대합니다.
+            # 기존 코드처럼 transpose(items x users)로 fit하면 user/item 역할이 뒤바뀌어
+            # 추천 결과가 극단적으로 왜곡(추천 아이템 다양성 급감, hit=0 등)될 수 있습니다.
+            model.fit(confidence_matrix.tocsr())
 
             logger.info("Generating top-%d recommendations per user…", self.top_k)
             recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
@@ -958,12 +961,12 @@ class ALSRecommender:
         for iteration in range(1, self.iterations + 1):
             # 학습 (이전 iteration의 factors를 초기값으로 사용)
             if iteration == 1:
-                temp_model.fit(train_matrix.T.tocsr())
+                temp_model.fit(train_matrix.tocsr())
             else:
                 # 이전 factors를 초기값으로 사용하여 학습
                 # implicit 라이브러리는 fit() 호출 시 초기화되므로, 
                 # 대신 전체 데이터로 학습하되 iteration=1로 설정하여 점진적으로 학습
-                temp_model.fit(train_matrix.T.tocsr())
+                temp_model.fit(train_matrix.tocsr())
             
             # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
             # temp_model은 train_matrix.T로 학습했으므로:
@@ -984,7 +987,7 @@ class ALSRecommender:
                 iterations=1,
                 random_state=self.random_state,
             )
-            val_temp_model.fit(val_matrix.T.tocsr())
+            val_temp_model.fit(val_matrix.tocsr())
             # val_temp_model도 val_matrix.T로 학습했으므로:
             # - user_factors는 아이템 factors (행: 아이템)
             # - item_factors는 사용자 factors (열: 사용자)
@@ -1027,7 +1030,7 @@ class ALSRecommender:
             model.item_factors = best_item_factors
         else:
             # 최종 모델 학습 (전체 데이터)
-            model.fit(confidence_matrix.T.tocsr())
+            model.fit(confidence_matrix.tocsr())
         
         # Loss 그래프 출력
         self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
@@ -1209,11 +1212,9 @@ class ALSRecommender:
             (visitorid, itemid, score, rank) 컬럼을 가진 추천 결과 데이터프레임
         """
         records: List[Dict[str, float]] = []
-        max_users = min(
-            model.user_factors.shape[0] if hasattr(model, "user_factors") else len(users),
-            user_item_matrix.shape[0],
-            len(users),
-        )
+        # 모델 factor shape은 구현/입력 행렬 형태에 따라 혼동되기 쉬우므로,
+        # 실제 추천 가능한 사용자 수는 user_item_matrix의 행 수를 기준으로 한다.
+        max_users = min(user_item_matrix.shape[0], len(users))
 
         user_ids_array = np.array(users[:max_users], dtype=int)
 
@@ -2476,6 +2477,10 @@ class ReRanker:
     random_seed: int = 42
     als_candidate_k: int = 500
     als_weight: float = 0.4
+    # 누수(leakage) 방지:
+    # 테스트 세트(events_test)의 positive 아이템을 후보에 강제 포함하거나 보너스를 주면
+    # 베이스라인/논문 평가가 부정확해집니다. 기본은 False.
+    use_test_positive_boost: bool = False
 
     def __post_init__(self) -> None:
         """
@@ -2518,22 +2523,29 @@ class ReRanker:
             events_test_df["visitorid"] = events_test_df["visitorid"].astype(int)
             events_test_df["itemid"] = events_test_df["itemid"].astype(int)
             target_user_set = set(events_test_df["visitorid"].unique())
-            positive_events = events_test_df[events_test_df["event"].isin(["addtocart", "transaction"])]
-            positives_by_user = (
-                positive_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
-            )
-            als_item_set = set(item_id_array.tolist())
-            filtered_positives: Dict[int, set[int]] = {}
-            for user_id, items in positives_by_user.items():
-                intersected = {int(item) for item in items if int(item) in als_item_set}
-                if intersected:
-                    filtered_positives[int(user_id)] = intersected
-            positives_by_user = filtered_positives
-            logger.info(
-                "Restricting reranking to %d users present in test events (positive users with overlap: %d)",
-                len(target_user_set),
-                len(positives_by_user),
-            )
+            if self.use_test_positive_boost:
+                positive_events = events_test_df[events_test_df["event"].isin(["addtocart", "transaction"])]
+                positives_by_user = (
+                    positive_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
+                )
+                als_item_set = set(item_id_array.tolist())
+                filtered_positives: Dict[int, set[int]] = {}
+                for user_id, items in positives_by_user.items():
+                    intersected = {int(item) for item in items if int(item) in als_item_set}
+                    if intersected:
+                        filtered_positives[int(user_id)] = intersected
+                positives_by_user = filtered_positives
+                logger.info(
+                    "Restricting reranking to %d users present in test events (positive users with overlap: %d, boost enabled)",
+                    len(target_user_set),
+                    len(positives_by_user),
+                )
+            else:
+                positives_by_user = {}
+                logger.info(
+                    "Restricting reranking to %d users present in test events (no test-positive boost)",
+                    len(target_user_set),
+                )
 
         max_user_index = min(len(als_user_ids), als_user_factors.shape[0])
         eligible_pairs = [
@@ -2589,7 +2601,7 @@ class ReRanker:
             else:
                 gnn_scores = np.zeros_like(top_scores)
 
-            positives = positives_by_user.get(visitor_id, set())
+            positives = positives_by_user.get(visitor_id, set()) if self.use_test_positive_boost else set()
             if positives:
                 candidate_map = {item_id: idx for idx, item_id in enumerate(item_ids_subset)}
                 for pos_item in positives:
@@ -2618,8 +2630,8 @@ class ReRanker:
             # ALS와 GNN 점수를 가중 결합
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
 
-            # 테스트 세트의 실제 긍정적 아이템에 보너스 점수 부여 (평가 시 recall 향상)
-            if positive_indices:
+            # (선택) 테스트 positive 보너스는 누수이므로 기본 비활성화
+            if self.use_test_positive_boost and positive_indices:
                 combined_scores[positive_indices] += 10.0
 
             # 결합된 점수 기준으로 상위 K개 선택
@@ -4679,38 +4691,73 @@ class BaselineComparator:
             .groupby("visitorid")
             .head(self.top_k)
         )
-        
-        # score_based 평가 모드인 경우 점수 임계값 계산 (필터링은 하지 않음)
-        score_threshold = None
-        if self.evaluation_mode == "score_based":
-            all_scores = recommendations["score"].astype(float).values
-            if len(all_scores) > 0:
-                effective_percentile = min(self.score_percentile, 50.0)
-                score_threshold = float(np.percentile(all_scores, effective_percentile))
-                logger.info("Score-based 평가: 점수 임계값 = %.4f (백분위수: %.1f%%)", 
-                           score_threshold, effective_percentile)
-            else:
-                logger.warning("추천 점수가 없어 score_based 평가를 적용할 수 없습니다.")
-        
-        # 디버깅 정보
-        num_users_with_recs = len(recommendations["visitorid"].unique())
+
+        # 디버깅/진단: 교집합이 0이면 NDCG/MAP는 구조적으로 0에 수렴
+        num_users_with_recs = int(recommendations["visitorid"].nunique()) if not recommendations.empty else 0
         num_users_with_positives = len(positives)
-        logger.info("평가 대상: 추천 사용자 %d명, Positive 사용자 %d명", 
-                   num_users_with_recs, num_users_with_positives)
-        
-        # TestSetEvaluator와 동일한 방식으로 메트릭 계산
-        # score_based 모드에서는 사용자 레벨 평가를 사용
-        # normalize_recommendation_format 호출 후에는 항상 "score" 컬럼 사용
-        if self.evaluation_mode == "score_based" and score_threshold is not None:
-            # TestSetEvaluator의 score_based 로직 사용
-            ndcg, recall, map_score = self._calculate_metrics_score_based(
-                recommendations, positives, score_threshold, "score"
-            )
-        else:
-            # 기본 메트릭 계산
-            ndcg = calculate_ndcg(recommendations, positives, self.top_k)
-            recall = calculate_recall(recommendations, positives, self.top_k)
-            map_score = calculate_map(recommendations, positives, self.top_k)
+        pos_items = set()
+        for items in positives.values():
+            pos_items.update(items)
+        rec_items = set(recommendations["itemid"].astype(int).unique()) if not recommendations.empty else set()
+        logger.info(
+            "평가 대상: 추천 사용자 %d명, Positive 사용자 %d명, Positive 아이템 %d개, 추천 아이템 %d개, 아이템 교집합 %d개",
+            num_users_with_recs,
+            num_users_with_positives,
+            len(pos_items),
+            len(rec_items),
+            len(pos_items & rec_items),
+        )
+
+        # 베이스라인 비교에서의 NDCG/MAP/Recall은 랭킹 메트릭이므로
+        # score_based(임계값) 방식은 사용하지 않고 표준 Top-K 메트릭으로 일관되게 계산합니다.
+        # (추천이 없는 positive 유저는 0점으로 포함)
+        rec_by_user = {
+            int(u): g.head(self.top_k)["itemid"].astype(int).tolist()
+            for u, g in recommendations.groupby("visitorid")
+        }
+
+        ndcgs: List[float] = []
+        recalls: List[float] = []
+        maps: List[float] = []
+
+        for u, rel in positives.items():
+            rel_set = rel
+            if not rel_set:
+                continue
+
+            ranked = rec_by_user.get(int(u), [])
+            if not ranked:
+                ndcgs.append(0.0)
+                recalls.append(0.0)
+                maps.append(0.0)
+                continue
+
+            # Recall@K
+            hits = len(set(ranked) & rel_set)
+            recalls.append(hits / len(rel_set) if rel_set else 0.0)
+
+            # NDCG@K (binary relevance)
+            dcg = 0.0
+            for idx, item_id in enumerate(ranked):
+                if item_id in rel_set:
+                    dcg += 1.0 / np.log2(idx + 2)
+            ideal_dcg = 0.0
+            for i in range(min(len(rel_set), self.top_k)):
+                ideal_dcg += 1.0 / np.log2(i + 2)
+            ndcgs.append(dcg / ideal_dcg if ideal_dcg > 0 else 0.0)
+
+            # MAP@K
+            hit_count = 0
+            precision_sum = 0.0
+            for idx, item_id in enumerate(ranked, start=1):
+                if item_id in rel_set:
+                    hit_count += 1
+                    precision_sum += hit_count / idx
+            maps.append(precision_sum / len(rel_set) if hit_count > 0 else 0.0)
+
+        ndcg = float(np.mean(ndcgs)) if ndcgs else 0.0
+        recall = float(np.mean(recalls)) if recalls else 0.0
+        map_score = float(np.mean(maps)) if maps else 0.0
         
         logger.info("메트릭 결과: NDCG=%.4f, Recall=%.4f, MAP=%.4f", ndcg, recall, map_score)
         
