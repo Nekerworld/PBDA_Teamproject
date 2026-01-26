@@ -950,16 +950,18 @@ class ALSRecommender:
         )
         
         # 초기 loss 계산 (학습 전) - 샘플링 및 배치 처리로 메모리 효율성 향상
-        initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
-        initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
+        n_items = train_matrix.shape[1]
+        initial_item_factors = np.random.randn(n_items, self.factors).astype(np.float32) * 0.01
+        initial_user_factors_train = np.random.randn(n_train_users, self.factors).astype(np.float32) * 0.01
+        initial_user_factors_val = np.random.randn(n_val_users, self.factors).astype(np.float32) * 0.01
         
-        # _compute_als_loss_batch의 파라미터: user_factors는 아이템 factors, item_factors는 사용자 factors
+        # _compute_als_loss_batch: user_factors(사용자) @ item_factors(아이템)^T 로 예측 행렬을 구성
         train_loss_init = self._compute_als_loss_batch(
-            initial_item_factors, initial_user_factors[train_user_indices],
+            initial_user_factors_train, initial_item_factors,
             train_matrix, train_sample_indices, self.loss_batch_size
         )
         val_loss_init = self._compute_als_loss_batch(
-            initial_item_factors, initial_user_factors[val_user_indices],
+            initial_user_factors_val, initial_item_factors,
             val_matrix, val_sample_indices, self.loss_batch_size
         )
         
@@ -980,9 +982,9 @@ class ALSRecommender:
                 temp_model.fit(train_matrix.tocsr())
             
             # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
-            # temp_model은 train_matrix.T로 학습했으므로:
-            # - user_factors는 아이템 factors (행: 아이템)
-            # - item_factors는 사용자 factors (열: 사용자)
+            # temp_model은 train_matrix(user x item)로 학습:
+            # - user_factors: 사용자 임베딩 (행: 사용자)
+            # - item_factors: 아이템 임베딩 (행: 아이템)
             train_loss = self._compute_als_loss_batch(
                 temp_model.user_factors, temp_model.item_factors,
                 train_matrix, train_sample_indices, self.loss_batch_size
@@ -999,9 +1001,9 @@ class ALSRecommender:
                 random_state=self.random_state,
             )
             val_temp_model.fit(val_matrix.tocsr())
-            # val_temp_model도 val_matrix.T로 학습했으므로:
-            # - user_factors는 아이템 factors (행: 아이템)
-            # - item_factors는 사용자 factors (열: 사용자)
+            # val_temp_model도 val_matrix(user x item)로 학습:
+            # - user_factors: 사용자 임베딩
+            # - item_factors: 아이템 임베딩
             val_loss = self._compute_als_loss_batch(
                 val_temp_model.user_factors, val_temp_model.item_factors,
                 val_matrix, val_sample_indices, self.loss_batch_size
@@ -1170,12 +1172,13 @@ class ALSRecommender:
         """
         배치 처리로 ALS loss를 계산합니다 (메모리 효율성).
         
-        주의: implicit 라이브러리에서 fit(matrix.T)로 학습하므로,
-        user_factors는 실제로 아이템 factors이고, item_factors는 실제로 사용자 factors입니다.
+        이 구현은 implicit ALS를 user-item 행렬(사용자 x 아이템)로 학습한 경우를 기준으로 합니다.
+        - user_factors: (num_users, factors)
+        - item_factors: (num_items, factors)
         
         Args:
-            user_factors: 아이템 임베딩 행렬 (implicit 라이브러리에서 model.user_factors)
-            item_factors: 사용자 임베딩 행렬 (implicit 라이브러리에서 model.item_factors)
+            user_factors: 사용자 임베딩 행렬 (implicit 라이브러리에서 model.user_factors)
+            item_factors: 아이템 임베딩 행렬 (implicit 라이브러리에서 model.item_factors)
             matrix: 실제 상호작용 행렬 (희소 행렬)
             user_indices: 계산할 사용자 인덱스 배열
             batch_size: 배치 크기
@@ -1192,8 +1195,7 @@ class ALSRecommender:
             batch_user_indices_batch = user_indices[start_idx:end_idx]
             
             # 예측 행렬 계산 (배치)
-            # implicit 라이브러리: item_factors는 사용자 factors, user_factors는 아이템 factors
-            pred_batch = item_factors[batch_user_indices_batch] @ user_factors.T
+            pred_batch = user_factors[batch_user_indices_batch] @ item_factors.T
             # 실제 행렬 (희소 행렬에서 배치만 추출)
             actual_batch = matrix[batch_user_indices_batch].toarray()
             total_loss += np.mean((pred_batch - actual_batch) ** 2) * (end_idx - start_idx)
