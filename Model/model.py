@@ -546,9 +546,18 @@ class IsolationForestPreprocessor:
 
         events_train_clean = events[events["itemid"].isin(train_inlier_ids)].copy()
         events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
-        events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
 
-        # Holdout 세트 생성: 각 사용자의 마지막 긍정적 이벤트(addtocart 또는 transaction)를 테스트 세트로 분리
+        # NOTE:
+        # 기존 구현은 feature_table(아이템) 단위 train/test split 결과(test_inlier_ids)를 그대로
+        # events_test에 포함(events_test_base)했습니다. 이 경우 학습에 등장하지 않은 아이템이
+        # 테스트 positive의 대부분을 차지할 수 있고, 순수 CF(ALS)는 구조적으로 그 아이템을
+        # 추천할 수 없어 NDCG/MAP/Recall이 0으로 수렴할 수 있습니다.
+        #
+        # 베이스라인(ALS)도 평가 가능한 형태가 되도록, 여기서는 interaction holdout 기반의
+        # 테스트 세트를 구성합니다. (유저별 마지막 positive 아이템을 holdout)
+        events_test_base = events.iloc[0:0].copy()
+
+        # Holdout 세트 생성: 각 사용자의 마지막 긍정적 아이템(addtocart 또는 transaction)을 테스트로 분리
         positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
         if positive_mask.any():
             positive_events = events_train_clean.loc[positive_mask].copy()
@@ -558,9 +567,49 @@ class IsolationForestPreprocessor:
             holdout_indices = (
                 positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
             )
-            events_test_holdout = events_train_clean.loc[holdout_indices].copy()
-            # Holdout 이벤트를 학습 세트에서 제거
-            events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
+            holdout_events = events_train_clean.loc[holdout_indices].copy()
+
+            # 중요: ALS 추천 생성 시 filter_already_liked_items=True라서
+            # 학습에 존재하는 (user,item) 쌍은 추천에서 제외됩니다.
+            # 따라서 holdout으로 뽑힌 아이템이 학습에 다른 이벤트(view 등)로 남아 있으면
+            # 정답 아이템을 절대 맞출 수 있습니다. -> (user,item) 쌍 전체를 학습에서 제거.
+            holdout_pairs = (
+                holdout_events.dropna(subset=["visitorid", "itemid"])[["visitorid", "itemid"]]
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .drop_duplicates()
+            )
+
+            # holdout 후에도 학습에 상호작용이 남는 사용자만 평가 대상으로 유지 (최소 2개 아이템 상호작용 필요)
+            nunique_items_by_user = (
+                events_train_clean.dropna(subset=["visitorid", "itemid"])
+                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+                .groupby("visitorid")["itemid"]
+                .nunique()
+            )
+            eligible_users = set(nunique_items_by_user[nunique_items_by_user >= 2].index.astype(int).tolist())
+            holdout_pairs = holdout_pairs[holdout_pairs["visitorid"].isin(eligible_users)]
+
+            if holdout_pairs.empty:
+                events_test_holdout = events_train_clean.iloc[0:0].copy()
+            else:
+                # 테스트 holdout 이벤트는 선정된 (user,item)만 남김
+                events_test_holdout = holdout_events.merge(
+                    holdout_pairs,
+                    on=["visitorid", "itemid"],
+                    how="inner",
+                )
+
+                # 학습에서 holdout (user,item) 쌍 전체 제거
+                train_with_ids = events_train_clean.dropna(subset=["visitorid", "itemid"]).copy()
+                train_with_ids["visitorid"] = train_with_ids["visitorid"].astype(int)
+                train_with_ids["itemid"] = train_with_ids["itemid"].astype(int)
+                train_filtered = train_with_ids.merge(
+                    holdout_pairs,
+                    on=["visitorid", "itemid"],
+                    how="left",
+                    indicator=True,
+                )
+                events_train_clean = train_filtered.loc[train_filtered["_merge"] == "left_only"].drop(columns=["_merge"])
         else:
             events_test_holdout = events_train_clean.iloc[0:0].copy()
 
@@ -807,6 +856,36 @@ class ALSRecommender:
         )
 
         confidence_matrix = user_item_matrix * self.alpha
+
+        # 빠른 학습 모드: early stopping(검증) 비활성화 시 전체 데이터로 한 번에 학습
+        # - 기존 구현은 iteration마다 train/val 모델을 반복 학습해 매우 느릴 수 있음
+        if self.early_stopping_patience is None:
+            logger.info(
+                "Training ALS model without early stopping (single fit): factors=%d, iterations=%d",
+                self.factors,
+                self.iterations,
+            )
+            model.fit(confidence_matrix.T.tocsr())
+
+            logger.info("Generating top-%d recommendations per user…", self.top_k)
+            recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
+            logger.info(
+                "ALS recommendation generation completed for %d users",
+                recommendations["visitorid"].nunique() if not recommendations.empty else 0,
+            )
+
+            self._save_outputs(recommendations, users, items, model)
+            logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
+
+            # 시각화 생성
+            self._create_visualizations(
+                interactions=interactions,
+                recommendations=recommendations,
+                user_item_matrix=user_item_matrix,
+                users=users,
+                items=items,
+            )
+            return
         
         # Train/Validation 분할 (80/20) - 사용자 레벨로 분할
         np.random.seed(self.random_state)
@@ -4459,7 +4538,11 @@ class BaselineComparator:
         
         # ALS
         start_time = time.perf_counter()
-        als_recommender = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+        als_recommender = ALSRecommender(
+            processed_dir=self.processed_dir,
+            top_k=self.top_k,
+            early_stopping_patience=None,  # 베이스라인 비교에서는 빠른 학습 모드 사용
+        )
         als_recommender.run()
         times["ALS"] = time.perf_counter() - start_time
         
@@ -4530,7 +4613,11 @@ class BaselineComparator:
         # ALS (이미 실행되었을 수 있으므로 확인)
         if not (self.processed_dir / "als_recommendations.csv").exists():
             start_time = time.perf_counter()
-            als_recommender = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+            als_recommender = ALSRecommender(
+                processed_dir=self.processed_dir,
+                top_k=self.top_k,
+                early_stopping_patience=None,  # 베이스라인 비교에서는 빠른 학습 모드 사용
+            )
             als_recommender.run()
             times["ALS"] = time.perf_counter() - start_time
         else:
