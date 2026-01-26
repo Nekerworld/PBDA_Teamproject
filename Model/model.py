@@ -341,32 +341,43 @@ class IsolationForestPreprocessor:
         )
         isolation_forest.fit(train_features_for_detection)
 
-        logger.info("Scoring train items for anomaly detection…")
-        train_predictions = isolation_forest.predict(train_features_for_detection)
+        logger.info("Scoring ALL items for anomaly detection…")
+        # 학습(train_features)로 IF를 fit한 뒤, 동일한 feature 공간에서 전체 item(feature_table)을 score/predict합니다.
+        # 이렇게 하면 'test split에 들어간 아이템'이 자동으로 inlier 취급되어 평가 세트가
+        # cold-start(학습에 없는 아이템)로 왜곡되는 문제를 줄일 수 있습니다.
+        if available_exclude:
+            full_features_for_detection = feature_table.drop(columns=available_exclude)
+        else:
+            full_features_for_detection = feature_table
 
-        train_inliers = train_features[train_predictions == 1]
-        train_outliers = train_features[train_predictions == -1]
+        all_predictions = isolation_forest.predict(full_features_for_detection)
+        all_inliers = feature_table[all_predictions == 1]
+        all_outliers = feature_table[all_predictions == -1]
 
         logger.info(
-            "Detected %d anomalies in train set (%.2f%%).",
-            len(train_outliers),
-            (len(train_outliers) / max(len(train_features), 1)) * 100,
+            "Detected %d anomalies in ALL items (%.2f%%).",
+            len(all_outliers),
+            (len(all_outliers) / max(len(feature_table), 1)) * 100,
         )
 
-        # Test set은 이상치 제거하지 않음 (평가를 위해 원본 유지)
+        # 추천 평가용 이벤트 split은 _save_results 내부에서 interaction-holdout으로 구성합니다.
         self._save_results(
             datasets,
-            train_inliers=train_inliers,
-            test_inliers=test_features,
-            train_outliers=train_outliers,
+            train_inliers=all_inliers,
+            test_inliers=test_features,  # 파일 기록용(참고)으로만 유지
+            train_outliers=all_outliers,
         )
-        logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_features))
+        logger.info(
+            "Isolation Forest preprocessing completed: %d inlier items (all), %d test-feature items (for reference)",
+            len(all_inliers),
+            len(test_features),
+        )
 
         # 시각화 생성
         self._create_visualizations(
             train_features=train_features,
-            train_inliers=train_inliers,
-            train_outliers=train_outliers,
+            train_inliers=all_inliers,
+            train_outliers=all_outliers,
             test_features=test_features,
         )
 
@@ -4910,17 +4921,17 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
 
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    als_recommender = ALSRecommender()
+    als_recommender.run()
 
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
+    gnn_generator = GNNEmbeddingGenerator()
+    gnn_generator.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    reranker = ReRanker()
+    reranker.run()
     
     # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
