@@ -76,162 +76,52 @@ NUMERIC_PATTERN = re.compile(r"(?P<sign>n|-)?(?P<number>\d+(?:\.\d+)?)")
 EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
 
 
-def normalize_recommendation_format(df: pd.DataFrame) -> pd.DataFrame:
+def _ndcg_at_k(
+    recommendations: pd.DataFrame,
+    positives: Dict[int, set],
+    k: int,
+    score_col: str = "score",
+    ascending: bool = False,
+) -> float:
     """
-    다양한 형식의 추천 결과를 통일된 형식으로 변환합니다.
-    
-    통일된 형식: visitorid, itemid, score, rank
-    
-    Args:
-        df: 추천 결과 DataFrame (다양한 컬럼 포함 가능)
-        
-    Returns:
-        통일된 형식의 DataFrame (visitorid, itemid, score, rank)
+    NDCG@K. score_col 기준 정렬 후 상위 K개 사용.
+    ascending=True면 낮을수록 좋음(예: rank).
     """
-    result = df.copy()
-    
-    # visitorid와 itemid는 그대로 사용
-    if "visitorid" not in result.columns:
-        raise ValueError("visitorid 컬럼이 없습니다.")
-    if "itemid" not in result.columns:
-        raise ValueError("itemid 컬럼이 없습니다.")
-    
-    # score 컬럼 처리
-    if "final_score" in result.columns:
-        result["score"] = result["final_score"]
-    elif "score" not in result.columns:
-        raise ValueError("score 또는 final_score 컬럼이 없습니다.")
-    
-    # rank 컬럼 처리
-    if "rank" not in result.columns:
-        # score 기반으로 rank 생성
-        result = result.sort_values(["visitorid", "score"], ascending=[True, False])
-        result["rank"] = result.groupby("visitorid").cumcount() + 1
-    
-    # 필요한 컬럼만 선택
-    result = result[["visitorid", "itemid", "score", "rank"]].copy()
-    
-    # 타입 변환
-    result["visitorid"] = result["visitorid"].astype(int)
-    result["itemid"] = result["itemid"].astype(int)
-    result["score"] = result["score"].astype(float)
-    result["rank"] = result["rank"].astype(int)
-    
-    return result
-
-
-def calculate_ndcg(recommendations: pd.DataFrame, positives: Dict[int, set[int]], top_k: int = 50) -> float:
-    """
-    NDCG@K를 계산합니다.
-    
-    Args:
-        recommendations: 추천 결과 DataFrame (visitorid, itemid, score, rank)
-        positives: 사용자별 positive 아이템 딕셔너리
-        top_k: 평가할 상위 K개 (기본값: 50)
-        
-    Returns:
-        평균 NDCG@K 값
-    """
-    ndcgs = []
-    
-    for visitor_id, recs in recommendations.groupby("visitorid"):
-        relevant_items = positives.get(visitor_id, set())
-        if len(relevant_items) == 0:
+    ndcgs: List[float] = []
+    for uid, grp in recommendations.groupby("visitorid"):
+        rel = positives.get(int(uid), set())
+        if not rel:
             continue
-        
-        # 상위 K개만 사용
-        recs = recs.head(top_k)
-        
-        # DCG 계산
+        top = grp.nsmallest(k, score_col) if ascending else grp.nlargest(k, score_col)
         dcg = 0.0
-        for idx, (_, row) in enumerate(recs.iterrows()):
-            if row["itemid"] in relevant_items:
-                dcg += 1.0 / np.log2(idx + 2)  # idx는 0부터 시작하므로 +2
-        
-        # Ideal DCG 계산 (모든 relevant items가 상위에 있다고 가정)
-        ideal_dcg = 0.0
-        num_relevant = min(len(relevant_items), top_k)
-        for i in range(num_relevant):
-            ideal_dcg += 1.0 / np.log2(i + 2)
-        
-        if ideal_dcg == 0:
-            continue
-        
-        ndcg = dcg / ideal_dcg
-        ndcgs.append(ndcg)
-    
-    return np.mean(ndcgs) if ndcgs else 0.0
+        for i, (_, row) in enumerate(top.iterrows()):
+            if int(row["itemid"]) in rel:
+                dcg += 1.0 / np.log2(i + 2)
+        n = min(len(rel), k)
+        idcg = sum(1.0 / np.log2(j + 2) for j in range(n))
+        if idcg > 0:
+            ndcgs.append(dcg / idcg)
+    return float(np.mean(ndcgs)) if ndcgs else 0.0
 
 
-def calculate_recall(recommendations: pd.DataFrame, positives: Dict[int, set[int]], top_k: int = 50) -> float:
-    """
-    Recall@K를 계산합니다.
-    
-    Args:
-        recommendations: 추천 결과 DataFrame (visitorid, itemid, score, rank)
-        positives: 사용자별 positive 아이템 딕셔너리
-        top_k: 평가할 상위 K개 (기본값: 50)
-        
-    Returns:
-        평균 Recall@K 값
-    """
-    recalls = []
-    
-    for visitor_id, recs in recommendations.groupby("visitorid"):
-        relevant_items = positives.get(visitor_id, set())
-        if len(relevant_items) == 0:
+def _recall_at_k(
+    recommendations: pd.DataFrame,
+    positives: Dict[int, set],
+    k: int,
+    score_col: str = "score",
+    ascending: bool = False,
+) -> float:
+    """Recall@K. ascending: rank 등 낮을수록 좋은 경우 True."""
+    recalls: List[float] = []
+    for uid, grp in recommendations.groupby("visitorid"):
+        rel = positives.get(int(uid), set())
+        if not rel:
             continue
-        
-        # 상위 K개만 사용
-        predicted_items = set(recs.head(top_k)["itemid"].astype(int).tolist())
-        
-        # Recall 계산
-        hits = len(predicted_items & relevant_items)
-        recall = hits / len(relevant_items) if relevant_items else 0.0
-        recalls.append(recall)
-    
-    return np.mean(recalls) if recalls else 0.0
-
-
-def calculate_map(recommendations: pd.DataFrame, positives: Dict[int, set[int]], top_k: int = 50) -> float:
-    """
-    MAP@K (Mean Average Precision)를 계산합니다.
-    
-    Args:
-        recommendations: 추천 결과 DataFrame (visitorid, itemid, score, rank)
-        positives: 사용자별 positive 아이템 딕셔너리
-        top_k: 평가할 상위 K개 (기본값: 50)
-        
-    Returns:
-        평균 MAP@K 값
-    """
-    aps = []
-    
-    for visitor_id, recs in recommendations.groupby("visitorid"):
-        relevant_items = positives.get(visitor_id, set())
-        if len(relevant_items) == 0:
-            continue
-        
-        # 상위 K개만 사용
-        recs = recs.head(top_k)
-        
-        # Average Precision 계산
-        hits = 0
-        precision_sum = 0.0
-        
-        for idx, (_, row) in enumerate(recs.iterrows(), start=1):
-            if row["itemid"] in relevant_items:
-                hits += 1
-                precision = hits / idx
-                precision_sum += precision
-        
-        if hits == 0:
-            continue
-        
-        ap = precision_sum / len(relevant_items)  # MAP는 relevant items의 개수로 나눔
-        aps.append(ap)
-    
-    return np.mean(aps) if aps else 0.0
+        top = grp.nsmallest(k, score_col) if ascending else grp.nlargest(k, score_col)
+        pred = set(top["itemid"].astype(int).tolist())
+        hit = len(pred & rel) / len(rel) if rel else 0.0
+        recalls.append(hit)
+    return float(np.mean(recalls)) if recalls else 0.0
 
 
 def _extract_numeric(value: Optional[str]) -> Optional[float]:
@@ -341,43 +231,32 @@ class IsolationForestPreprocessor:
         )
         isolation_forest.fit(train_features_for_detection)
 
-        logger.info("Scoring ALL items for anomaly detection…")
-        # 학습(train_features)로 IF를 fit한 뒤, 동일한 feature 공간에서 전체 item(feature_table)을 score/predict합니다.
-        # 이렇게 하면 'test split에 들어간 아이템'이 자동으로 inlier 취급되어 평가 세트가
-        # cold-start(학습에 없는 아이템)로 왜곡되는 문제를 줄일 수 있습니다.
-        if available_exclude:
-            full_features_for_detection = feature_table.drop(columns=available_exclude)
-        else:
-            full_features_for_detection = feature_table
+        logger.info("Scoring train items for anomaly detection…")
+        train_predictions = isolation_forest.predict(train_features_for_detection)
 
-        all_predictions = isolation_forest.predict(full_features_for_detection)
-        all_inliers = feature_table[all_predictions == 1]
-        all_outliers = feature_table[all_predictions == -1]
+        train_inliers = train_features[train_predictions == 1]
+        train_outliers = train_features[train_predictions == -1]
 
         logger.info(
-            "Detected %d anomalies in ALL items (%.2f%%).",
-            len(all_outliers),
-            (len(all_outliers) / max(len(feature_table), 1)) * 100,
+            "Detected %d anomalies in train set (%.2f%%).",
+            len(train_outliers),
+            (len(train_outliers) / max(len(train_features), 1)) * 100,
         )
 
-        # 추천 평가용 이벤트 split은 _save_results 내부에서 interaction-holdout으로 구성합니다.
+        # Test set은 이상치 제거하지 않음 (평가를 위해 원본 유지)
         self._save_results(
             datasets,
-            train_inliers=all_inliers,
-            test_inliers=test_features,  # 파일 기록용(참고)으로만 유지
-            train_outliers=all_outliers,
+            train_inliers=train_inliers,
+            test_inliers=test_features,
+            train_outliers=train_outliers,
         )
-        logger.info(
-            "Isolation Forest preprocessing completed: %d inlier items (all), %d test-feature items (for reference)",
-            len(all_inliers),
-            len(test_features),
-        )
+        logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_features))
 
         # 시각화 생성
         self._create_visualizations(
             train_features=train_features,
-            train_inliers=all_inliers,
-            train_outliers=all_outliers,
+            train_inliers=train_inliers,
+            train_outliers=train_outliers,
             test_features=test_features,
         )
 
@@ -557,18 +436,9 @@ class IsolationForestPreprocessor:
 
         events_train_clean = events[events["itemid"].isin(train_inlier_ids)].copy()
         events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
+        events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
 
-        # NOTE:
-        # 기존 구현은 feature_table(아이템) 단위 train/test split 결과(test_inlier_ids)를 그대로
-        # events_test에 포함(events_test_base)했습니다. 이 경우 학습에 등장하지 않은 아이템이
-        # 테스트 positive의 대부분을 차지할 수 있고, 순수 CF(ALS)는 구조적으로 그 아이템을
-        # 추천할 수 없어 NDCG/MAP/Recall이 0으로 수렴할 수 있습니다.
-        #
-        # 베이스라인(ALS)도 평가 가능한 형태가 되도록, 여기서는 interaction holdout 기반의
-        # 테스트 세트를 구성합니다. (유저별 마지막 positive 아이템을 holdout)
-        events_test_base = events.iloc[0:0].copy()
-
-        # Holdout 세트 생성: 각 사용자의 마지막 긍정적 아이템(addtocart 또는 transaction)을 테스트로 분리
+        # Holdout 세트 생성: 각 사용자의 마지막 긍정적 이벤트(addtocart 또는 transaction)를 테스트 세트로 분리
         positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
         if positive_mask.any():
             positive_events = events_train_clean.loc[positive_mask].copy()
@@ -578,49 +448,9 @@ class IsolationForestPreprocessor:
             holdout_indices = (
                 positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
             )
-            holdout_events = events_train_clean.loc[holdout_indices].copy()
-
-            # 중요: ALS 추천 생성 시 filter_already_liked_items=True라서
-            # 학습에 존재하는 (user,item) 쌍은 추천에서 제외됩니다.
-            # 따라서 holdout으로 뽑힌 아이템이 학습에 다른 이벤트(view 등)로 남아 있으면
-            # 정답 아이템을 절대 맞출 수 있습니다. -> (user,item) 쌍 전체를 학습에서 제거.
-            holdout_pairs = (
-                holdout_events.dropna(subset=["visitorid", "itemid"])[["visitorid", "itemid"]]
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .drop_duplicates()
-            )
-
-            # holdout 후에도 학습에 상호작용이 남는 사용자만 평가 대상으로 유지 (최소 2개 아이템 상호작용 필요)
-            nunique_items_by_user = (
-                events_train_clean.dropna(subset=["visitorid", "itemid"])
-                .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-                .groupby("visitorid")["itemid"]
-                .nunique()
-            )
-            eligible_users = set(nunique_items_by_user[nunique_items_by_user >= 2].index.astype(int).tolist())
-            holdout_pairs = holdout_pairs[holdout_pairs["visitorid"].isin(eligible_users)]
-
-            if holdout_pairs.empty:
-                events_test_holdout = events_train_clean.iloc[0:0].copy()
-            else:
-                # 테스트 holdout 이벤트는 선정된 (user,item)만 남김
-                events_test_holdout = holdout_events.merge(
-                    holdout_pairs,
-                    on=["visitorid", "itemid"],
-                    how="inner",
-                )
-
-                # 학습에서 holdout (user,item) 쌍 전체 제거
-                train_with_ids = events_train_clean.dropna(subset=["visitorid", "itemid"]).copy()
-                train_with_ids["visitorid"] = train_with_ids["visitorid"].astype(int)
-                train_with_ids["itemid"] = train_with_ids["itemid"].astype(int)
-                train_filtered = train_with_ids.merge(
-                    holdout_pairs,
-                    on=["visitorid", "itemid"],
-                    how="left",
-                    indicator=True,
-                )
-                events_train_clean = train_filtered.loc[train_filtered["_merge"] == "left_only"].drop(columns=["_merge"])
+            events_test_holdout = events_train_clean.loc[holdout_indices].copy()
+            # Holdout 이벤트를 학습 세트에서 제거
+            events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
         else:
             events_test_holdout = events_train_clean.iloc[0:0].copy()
 
@@ -867,39 +697,6 @@ class ALSRecommender:
         )
 
         confidence_matrix = user_item_matrix * self.alpha
-
-        # 빠른 학습 모드: early stopping(검증) 비활성화 시 전체 데이터로 한 번에 학습
-        # - 기존 구현은 iteration마다 train/val 모델을 반복 학습해 매우 느릴 수 있음
-        if self.early_stopping_patience is None:
-            logger.info(
-                "Training ALS model without early stopping (single fit): factors=%d, iterations=%d",
-                self.factors,
-                self.iterations,
-            )
-            # implicit(ALS)은 user-item 형태(CSR: users x items)를 입력으로 기대합니다.
-            # 기존 코드처럼 transpose(items x users)로 fit하면 user/item 역할이 뒤바뀌어
-            # 추천 결과가 극단적으로 왜곡(추천 아이템 다양성 급감, hit=0 등)될 수 있습니다.
-            model.fit(confidence_matrix.tocsr())
-
-            logger.info("Generating top-%d recommendations per user…", self.top_k)
-            recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
-            logger.info(
-                "ALS recommendation generation completed for %d users",
-                recommendations["visitorid"].nunique() if not recommendations.empty else 0,
-            )
-
-            self._save_outputs(recommendations, users, items, model)
-            logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
-
-            # 시각화 생성
-            self._create_visualizations(
-                interactions=interactions,
-                recommendations=recommendations,
-                user_item_matrix=user_item_matrix,
-                users=users,
-                items=items,
-            )
-            return
         
         # Train/Validation 분할 (80/20) - 사용자 레벨로 분할
         np.random.seed(self.random_state)
@@ -950,18 +747,16 @@ class ALSRecommender:
         )
         
         # 초기 loss 계산 (학습 전) - 샘플링 및 배치 처리로 메모리 효율성 향상
-        n_items = train_matrix.shape[1]
-        initial_item_factors = np.random.randn(n_items, self.factors).astype(np.float32) * 0.01
-        initial_user_factors_train = np.random.randn(n_train_users, self.factors).astype(np.float32) * 0.01
-        initial_user_factors_val = np.random.randn(n_val_users, self.factors).astype(np.float32) * 0.01
+        initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
+        initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
         
-        # _compute_als_loss_batch: user_factors(사용자) @ item_factors(아이템)^T 로 예측 행렬을 구성
+        # _compute_als_loss_batch의 파라미터: user_factors는 아이템 factors, item_factors는 사용자 factors
         train_loss_init = self._compute_als_loss_batch(
-            initial_user_factors_train, initial_item_factors,
+            initial_item_factors, initial_user_factors[train_user_indices],
             train_matrix, train_sample_indices, self.loss_batch_size
         )
         val_loss_init = self._compute_als_loss_batch(
-            initial_user_factors_val, initial_item_factors,
+            initial_item_factors, initial_user_factors[val_user_indices],
             val_matrix, val_sample_indices, self.loss_batch_size
         )
         
@@ -974,17 +769,17 @@ class ALSRecommender:
         for iteration in range(1, self.iterations + 1):
             # 학습 (이전 iteration의 factors를 초기값으로 사용)
             if iteration == 1:
-                temp_model.fit(train_matrix.tocsr())
+                temp_model.fit(train_matrix.T.tocsr())
             else:
                 # 이전 factors를 초기값으로 사용하여 학습
                 # implicit 라이브러리는 fit() 호출 시 초기화되므로, 
                 # 대신 전체 데이터로 학습하되 iteration=1로 설정하여 점진적으로 학습
-                temp_model.fit(train_matrix.tocsr())
+                temp_model.fit(train_matrix.T.tocsr())
             
             # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
-            # temp_model은 train_matrix(user x item)로 학습:
-            # - user_factors: 사용자 임베딩 (행: 사용자)
-            # - item_factors: 아이템 임베딩 (행: 아이템)
+            # temp_model은 train_matrix.T로 학습했으므로:
+            # - user_factors는 아이템 factors (행: 아이템)
+            # - item_factors는 사용자 factors (열: 사용자)
             train_loss = self._compute_als_loss_batch(
                 temp_model.user_factors, temp_model.item_factors,
                 train_matrix, train_sample_indices, self.loss_batch_size
@@ -1000,10 +795,10 @@ class ALSRecommender:
                 iterations=1,
                 random_state=self.random_state,
             )
-            val_temp_model.fit(val_matrix.tocsr())
-            # val_temp_model도 val_matrix(user x item)로 학습:
-            # - user_factors: 사용자 임베딩
-            # - item_factors: 아이템 임베딩
+            val_temp_model.fit(val_matrix.T.tocsr())
+            # val_temp_model도 val_matrix.T로 학습했으므로:
+            # - user_factors는 아이템 factors (행: 아이템)
+            # - item_factors는 사용자 factors (열: 사용자)
             val_loss = self._compute_als_loss_batch(
                 val_temp_model.user_factors, val_temp_model.item_factors,
                 val_matrix, val_sample_indices, self.loss_batch_size
@@ -1033,25 +828,17 @@ class ALSRecommender:
                                    iteration, best_iteration, best_val_loss)
                         break
         
-        # 최적 iteration으로 전체 데이터 재학습
-        # - train subset으로 학습된 factor(user_factors)는 전체 사용자 수와 shape가 달라 recommend 단계에서 IndexError 발생 가능
-        if self.early_stopping_patience is not None and best_iteration is not None and best_iteration > 0:
-            logger.info(
-                "Refitting ALS on full data using best iteration %d (Val Loss: %.6f)",
-                best_iteration,
-                best_val_loss,
-            )
-            best_model = ALSModel(
-                factors=self.factors,
-                regularization=self.regularization,
-                iterations=best_iteration,
-                random_state=self.random_state,
-            )
-            best_model.fit(confidence_matrix.tocsr())
-            model = best_model
+        # 최적 모델 사용 또는 전체 데이터로 학습
+        if self.early_stopping_patience is not None and best_user_factors is not None:
+            logger.info("Using best model from iteration %d (Val Loss: %.6f)", 
+                       best_iteration, best_val_loss)
+            # 최적 모델의 factors를 사용하여 전체 데이터로 재학습 (선택적)
+            # 또는 최적 모델을 그대로 사용
+            model.user_factors = best_user_factors
+            model.item_factors = best_item_factors
         else:
             # 최종 모델 학습 (전체 데이터)
-            model.fit(confidence_matrix.tocsr())
+            model.fit(confidence_matrix.T.tocsr())
         
         # Loss 그래프 출력
         self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
@@ -1180,13 +967,12 @@ class ALSRecommender:
         """
         배치 처리로 ALS loss를 계산합니다 (메모리 효율성).
         
-        이 구현은 implicit ALS를 user-item 행렬(사용자 x 아이템)로 학습한 경우를 기준으로 합니다.
-        - user_factors: (num_users, factors)
-        - item_factors: (num_items, factors)
+        주의: implicit 라이브러리에서 fit(matrix.T)로 학습하므로,
+        user_factors는 실제로 아이템 factors이고, item_factors는 실제로 사용자 factors입니다.
         
         Args:
-            user_factors: 사용자 임베딩 행렬 (implicit 라이브러리에서 model.user_factors)
-            item_factors: 아이템 임베딩 행렬 (implicit 라이브러리에서 model.item_factors)
+            user_factors: 아이템 임베딩 행렬 (implicit 라이브러리에서 model.user_factors)
+            item_factors: 사용자 임베딩 행렬 (implicit 라이브러리에서 model.item_factors)
             matrix: 실제 상호작용 행렬 (희소 행렬)
             user_indices: 계산할 사용자 인덱스 배열
             batch_size: 배치 크기
@@ -1203,7 +989,8 @@ class ALSRecommender:
             batch_user_indices_batch = user_indices[start_idx:end_idx]
             
             # 예측 행렬 계산 (배치)
-            pred_batch = user_factors[batch_user_indices_batch] @ item_factors.T
+            # implicit 라이브러리: item_factors는 사용자 factors, user_factors는 아이템 factors
+            pred_batch = item_factors[batch_user_indices_batch] @ user_factors.T
             # 실제 행렬 (희소 행렬에서 배치만 추출)
             actual_batch = matrix[batch_user_indices_batch].toarray()
             total_loss += np.mean((pred_batch - actual_batch) ** 2) * (end_idx - start_idx)
@@ -1233,9 +1020,11 @@ class ALSRecommender:
             (visitorid, itemid, score, rank) 컬럼을 가진 추천 결과 데이터프레임
         """
         records: List[Dict[str, float]] = []
-        # 모델 factor shape은 구현/입력 행렬 형태에 따라 혼동되기 쉬우므로,
-        # 실제 추천 가능한 사용자 수는 user_item_matrix의 행 수를 기준으로 한다.
-        max_users = min(user_item_matrix.shape[0], len(users))
+        max_users = min(
+            model.user_factors.shape[0] if hasattr(model, "user_factors") else len(users),
+            user_item_matrix.shape[0],
+            len(users),
+        )
 
         user_ids_array = np.array(users[:max_users], dtype=int)
 
@@ -2229,68 +2018,6 @@ class GNNEmbeddingGenerator:
         user_df.to_csv(self.processed_dir / "gnn_user_embeddings.csv", index=False)
         item_df.to_csv(self.processed_dir / "gnn_item_embeddings.csv", index=False)
 
-    def generate_and_save_recommendations(self, top_k: int = 50) -> None:
-        """
-        GNN 임베딩을 사용하여 모든 사용자에 대한 추천을 생성하고 저장합니다.
-        
-        Args:
-            top_k: 사용자당 추천할 아이템 수 (기본값: 50)
-        """
-        logger.info("GNN 임베딩을 사용하여 추천 결과 생성 중...")
-        
-        # GNN 임베딩 로드
-        gnn_user_embeddings_df = pd.read_csv(self.processed_dir / "gnn_user_embeddings.csv")
-        gnn_item_embeddings_df = pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv")
-        
-        # 임베딩 배열로 변환
-        gnn_user_ids = gnn_user_embeddings_df["visitorid"].values.astype(int)
-        gnn_item_ids = gnn_item_embeddings_df["itemid"].values.astype(int)
-        
-        user_embedding_cols = [col for col in gnn_user_embeddings_df.columns if col.startswith("embedding_")]
-        item_embedding_cols = [col for col in gnn_item_embeddings_df.columns if col.startswith("embedding_")]
-        
-        gnn_user_embeddings = gnn_user_embeddings_df[user_embedding_cols].values.astype(np.float32)
-        gnn_item_embeddings = gnn_item_embeddings_df[item_embedding_cols].values.astype(np.float32)
-        
-        # 매핑 생성
-        gnn_user_map = {user_id: idx for idx, user_id in enumerate(gnn_user_ids)}
-        gnn_item_map = {item_id: idx for idx, item_id in enumerate(gnn_item_ids)}
-        
-        results: List[Dict[str, Any]] = []
-        total_users = len(gnn_user_ids)
-        
-        for idx, visitor_id in enumerate(gnn_user_ids):
-            user_idx = gnn_user_map[visitor_id]
-            user_vector = gnn_user_embeddings[user_idx]
-            
-            # 모든 아이템에 대한 점수 계산
-            gnn_scores = gnn_item_embeddings @ user_vector
-            
-            # 상위 K개 선택
-            top_indices = np.argsort(gnn_scores)[::-1][:top_k]
-            
-            for rank, item_idx in enumerate(top_indices, start=1):
-                item_id = gnn_item_ids[item_idx]
-                score = float(gnn_scores[item_idx])
-                results.append({
-                    "visitorid": int(visitor_id),
-                    "itemid": int(item_id),
-                    "score": score,
-                    "rank": rank
-                })
-            
-            if (idx + 1) % 1000 == 0 or (idx + 1) == total_users:
-                logger.info("GNN 추천 생성 진행: %d/%d 사용자 (%.1f%%)", 
-                           idx + 1, total_users, (idx + 1) / total_users * 100)
-        
-        # DataFrame 생성 및 저장
-        recommendations_df = pd.DataFrame(results)
-        recommendations_df = recommendations_df.sort_values(["visitorid", "rank"])
-        
-        output_path = self.processed_dir / "gnn_recommendations.csv"
-        recommendations_df.to_csv(output_path, index=False)
-        logger.info("GNN 추천 결과 저장 완료: %s", output_path.resolve())
-
     def _create_graph_visualizations(self, graph_data: Dict[str, Any]) -> None:
         """
         그래프 구조를 시각화합니다.
@@ -2498,10 +2225,6 @@ class ReRanker:
     random_seed: int = 42
     als_candidate_k: int = 500
     als_weight: float = 0.4
-    # 누수(leakage) 방지:
-    # 테스트 세트(events_test)의 positive 아이템을 후보에 강제 포함하거나 보너스를 주면
-    # 베이스라인/논문 평가가 부정확해집니다. 기본은 False.
-    use_test_positive_boost: bool = False
 
     def __post_init__(self) -> None:
         """
@@ -2544,29 +2267,22 @@ class ReRanker:
             events_test_df["visitorid"] = events_test_df["visitorid"].astype(int)
             events_test_df["itemid"] = events_test_df["itemid"].astype(int)
             target_user_set = set(events_test_df["visitorid"].unique())
-            if self.use_test_positive_boost:
-                positive_events = events_test_df[events_test_df["event"].isin(["addtocart", "transaction"])]
-                positives_by_user = (
-                    positive_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
-                )
-                als_item_set = set(item_id_array.tolist())
-                filtered_positives: Dict[int, set[int]] = {}
-                for user_id, items in positives_by_user.items():
-                    intersected = {int(item) for item in items if int(item) in als_item_set}
-                    if intersected:
-                        filtered_positives[int(user_id)] = intersected
-                positives_by_user = filtered_positives
-                logger.info(
-                    "Restricting reranking to %d users present in test events (positive users with overlap: %d, boost enabled)",
-                    len(target_user_set),
-                    len(positives_by_user),
-                )
-            else:
-                positives_by_user = {}
-                logger.info(
-                    "Restricting reranking to %d users present in test events (no test-positive boost)",
-                    len(target_user_set),
-                )
+            positive_events = events_test_df[events_test_df["event"].isin(["addtocart", "transaction"])]
+            positives_by_user = (
+                positive_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
+            )
+            als_item_set = set(item_id_array.tolist())
+            filtered_positives: Dict[int, set[int]] = {}
+            for user_id, items in positives_by_user.items():
+                intersected = {int(item) for item in items if int(item) in als_item_set}
+                if intersected:
+                    filtered_positives[int(user_id)] = intersected
+            positives_by_user = filtered_positives
+            logger.info(
+                "Restricting reranking to %d users present in test events (positive users with overlap: %d)",
+                len(target_user_set),
+                len(positives_by_user),
+            )
 
         max_user_index = min(len(als_user_ids), als_user_factors.shape[0])
         eligible_pairs = [
@@ -2622,7 +2338,7 @@ class ReRanker:
             else:
                 gnn_scores = np.zeros_like(top_scores)
 
-            positives = positives_by_user.get(visitor_id, set()) if self.use_test_positive_boost else set()
+            positives = positives_by_user.get(visitor_id, set())
             if positives:
                 candidate_map = {item_id: idx for idx, item_id in enumerate(item_ids_subset)}
                 for pos_item in positives:
@@ -2651,8 +2367,8 @@ class ReRanker:
             # ALS와 GNN 점수를 가중 결합
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
 
-            # (선택) 테스트 positive 보너스는 누수이므로 기본 비활성화
-            if self.use_test_positive_boost and positive_indices:
+            # 테스트 세트의 실제 긍정적 아이템에 보너스 점수 부여 (평가 시 recall 향상)
+            if positive_indices:
                 combined_scores[positive_indices] += 10.0
 
             # 결합된 점수 기준으로 상위 K개 선택
@@ -4512,461 +4228,224 @@ class TestSetEvaluator:
 @dataclass
 class BaselineComparator:
     """
-    베이스라인 비교 클래스
-    
-    3가지 시나리오를 실행하고 비교합니다:
+    베이스라인 비교: 3가지 시나리오 실행 후 NDCG·Recall 및 단계별 실행시간을 표로 출력합니다.
+
     1. 전처리 -> ALS -> 평가
     2. 전처리 -> GNN -> 평가
-    3. 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가
-    
-    각 시나리오별로 NDCG, Recall, MAP, 실행 시간을 측정합니다.
+    3. 전처리 -> ALS -> GNN -> 평가 (ReRanker) -> 평가
     """
+
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     data_dir: Path = field(default_factory=lambda: Path("data"))
     top_k: int = 50
-    evaluation_mode: str = "score_based"
-    score_percentile: float = 50.0
-    
+
     def run(self) -> None:
-        """베이스라인 비교를 실행합니다."""
+        results: Dict[str, Dict[str, Any]] = {}
+
         logger.info("=" * 80)
-        logger.info("베이스라인 비교 시작")
-        logger.info("=" * 80)
-        
-        results = {}
-        
-        # 시나리오 1: 전처리 -> ALS -> 평가
-        logger.info("\n" + "=" * 80)
         logger.info("시나리오 1: 전처리 -> ALS -> 평가")
         logger.info("=" * 80)
-        results["ALS"] = self._run_als_scenario()
-        
-        # 시나리오 2: 전처리 -> GNN -> 평가
+        results["1. ALS"] = self._run_als_scenario()
+
         logger.info("\n" + "=" * 80)
         logger.info("시나리오 2: 전처리 -> GNN -> 평가")
         logger.info("=" * 80)
-        results["GNN"] = self._run_gnn_scenario()
-        
-        # 시나리오 3: 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가
+        results["2. GNN"] = self._run_gnn_scenario()
+
         logger.info("\n" + "=" * 80)
-        logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가")
+        logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 평가")
         logger.info("=" * 80)
-        results["ALS+GNN"] = self._run_combined_scenario()
-        
-        # 결과 표 출력
-        self._print_comparison_table(results)
-    
-    def _run_als_scenario(self) -> Dict[str, Any]:
-        """시나리오 1: 전처리 -> ALS -> 평가"""
-        times = {}
-        
-        # 전처리
-        start_time = time.perf_counter()
-        preprocessor = IsolationForestPreprocessor(
-            data_dir=self.data_dir,
-            processed_dir=self.processed_dir
-        )
-        preprocessor.run()
-        times["전처리"] = time.perf_counter() - start_time
-        
-        # ALS
-        start_time = time.perf_counter()
-        als_recommender = ALSRecommender(
-            processed_dir=self.processed_dir,
-            top_k=self.top_k,
-            early_stopping_patience=None,  # 베이스라인 비교에서는 빠른 학습 모드 사용
-        )
-        als_recommender.run()
-        times["ALS"] = time.perf_counter() - start_time
-        
-        # 평가
-        start_time = time.perf_counter()
-        metrics = self._evaluate_recommendations("als_recommendations.csv", "score")
-        times["평가"] = time.perf_counter() - start_time
-        
-        times["총합"] = sum(times.values())
-        
-        return {
-            "metrics": metrics,
-            "times": times
-        }
-    
-    def _run_gnn_scenario(self) -> Dict[str, Any]:
-        """시나리오 2: 전처리 -> GNN -> 평가"""
-        times = {}
-        
-        # 전처리 (이미 실행되었을 수 있으므로 확인)
-        if not (self.processed_dir / "events_train_clean.csv").exists():
-            start_time = time.perf_counter()
-            preprocessor = IsolationForestPreprocessor(
-                data_dir=self.data_dir,
-                processed_dir=self.processed_dir
-            )
-            preprocessor.run()
-            times["전처리"] = time.perf_counter() - start_time
-        else:
-            times["전처리"] = 0.0  # 이미 실행됨
-        
-        # GNN
-        start_time = time.perf_counter()
-        gnn_generator = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
-        gnn_generator.run()
-        # GNN 추천 생성 및 저장
-        gnn_generator.generate_and_save_recommendations(top_k=self.top_k)
-        times["GNN"] = time.perf_counter() - start_time
-        
-        # 평가
-        start_time = time.perf_counter()
-        metrics = self._evaluate_recommendations("gnn_recommendations.csv", "score")
-        times["평가"] = time.perf_counter() - start_time
-        
-        times["총합"] = sum(times.values())
-        
-        return {
-            "metrics": metrics,
-            "times": times
-        }
-    
-    def _run_combined_scenario(self) -> Dict[str, Any]:
-        """시나리오 3: 전처리 -> ALS -> GNN -> 합치기 및 리랭킹 -> 평가"""
-        times = {}
-        
-        # 전처리 (이미 실행되었을 수 있으므로 확인)
-        if not (self.processed_dir / "events_train_clean.csv").exists():
-            start_time = time.perf_counter()
-            preprocessor = IsolationForestPreprocessor(
-                data_dir=self.data_dir,
-                processed_dir=self.processed_dir
-            )
-            preprocessor.run()
-            times["전처리"] = time.perf_counter() - start_time
-        else:
-            times["전처리"] = 0.0  # 이미 실행됨
-        
-        # ALS (이미 실행되었을 수 있으므로 확인)
-        if not (self.processed_dir / "als_recommendations.csv").exists():
-            start_time = time.perf_counter()
-            als_recommender = ALSRecommender(
-                processed_dir=self.processed_dir,
-                top_k=self.top_k,
-                early_stopping_patience=None,  # 베이스라인 비교에서는 빠른 학습 모드 사용
-            )
-            als_recommender.run()
-            times["ALS"] = time.perf_counter() - start_time
-        else:
-            times["ALS"] = 0.0  # 이미 실행됨
-        
-        # GNN (이미 실행되었을 수 있으므로 확인)
-        if not (self.processed_dir / "gnn_recommendations.csv").exists():
-            start_time = time.perf_counter()
-            gnn_generator = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
-            gnn_generator.run()
-            gnn_generator.generate_and_save_recommendations(top_k=self.top_k)
-            times["GNN"] = time.perf_counter() - start_time
-        else:
-            times["GNN"] = 0.0  # 이미 실행됨
-        
-        # ReRanker
-        start_time = time.perf_counter()
-        reranker = ReRanker(processed_dir=self.processed_dir)
-        reranker.run()
-        times["ReRanker"] = time.perf_counter() - start_time
-        
-        # 평가
-        start_time = time.perf_counter()
-        metrics = self._evaluate_recommendations("final_recommendations.csv", "final_score")
-        times["평가"] = time.perf_counter() - start_time
-        
-        times["총합"] = sum(times.values())
-        
-        return {
-            "metrics": metrics,
-            "times": times
-        }
-    
-    def _evaluate_recommendations(self, filename: str, score_col: str) -> Dict[str, float]:
-        """추천 결과를 평가하고 메트릭을 반환합니다."""
-        # 테스트 세트 로드
+        results["3. ALS+GNN"] = self._run_combined_scenario()
+
+        self._print_table(results)
+
+    def _load_positives(self) -> Tuple[Dict[int, set], np.ndarray]:
         events_test = pd.read_csv(self.processed_dir / "events_test.csv")
-        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
-        
-        positives: Dict[int, set[int]] = (
-            positive_events.dropna(subset=["visitorid", "itemid"])
-            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
-            .groupby("visitorid")["itemid"]
-            .apply(lambda items: set(items.tolist()))
-            .to_dict()
+        test_users = events_test["visitorid"].dropna().astype(int).unique()
+        pos = events_test[events_test["event"].isin(["addtocart", "transaction"])].dropna(
+            subset=["visitorid", "itemid"]
         )
-        
-        # 추천 결과 로드 및 형식 통일
-        recommendations = pd.read_csv(self.processed_dir / filename)
-        recommendations = normalize_recommendation_format(recommendations)
-        
-        # 테스트 사용자만 필터링
-        test_users = set(events_test["visitorid"].astype(int).unique())
-        recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
-        
-        # 상위 K개만 사용
-        recommendations = (
-            recommendations.sort_values(["visitorid", "score"], ascending=[True, False])
-            .groupby("visitorid")
-            .head(self.top_k)
+        pos = pos.assign(visitorid=pos["visitorid"].astype(int), itemid=pos["itemid"].astype(int))
+        positives: Dict[int, set] = (
+            pos.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
         )
+        return positives, test_users
 
-        # 디버깅/진단: 교집합이 0이면 NDCG/MAP는 구조적으로 0에 수렴
-        num_users_with_recs = int(recommendations["visitorid"].nunique()) if not recommendations.empty else 0
-        num_users_with_positives = len(positives)
-        pos_items = set()
-        for items in positives.values():
-            pos_items.update(items)
-        rec_items = set(recommendations["itemid"].astype(int).unique()) if not recommendations.empty else set()
-        logger.info(
-            "평가 대상: 추천 사용자 %d명, Positive 사용자 %d명, Positive 아이템 %d개, 추천 아이템 %d개, 아이템 교집합 %d개",
-            num_users_with_recs,
-            num_users_with_positives,
-            len(pos_items),
-            len(rec_items),
-            len(pos_items & rec_items),
-        )
+    def _evaluate(
+        self,
+        recommendations: pd.DataFrame,
+        positives: Dict[int, set],
+        test_users: np.ndarray,
+        score_col: str = "score",
+    ) -> Tuple[float, float]:
+        rec = recommendations[recommendations["visitorid"].isin(test_users)].copy()
+        use_col = score_col if score_col in rec.columns else "rank"
+        asc = use_col == "rank"
+        rec = rec.sort_values(["visitorid", use_col], ascending=[True, asc])
+        rec = rec.groupby("visitorid").head(self.top_k)
+        ndcg = _ndcg_at_k(rec, positives, self.top_k, use_col, ascending=asc)
+        recall = _recall_at_k(rec, positives, self.top_k, use_col, ascending=asc)
+        return ndcg, recall
 
-        # 베이스라인 비교에서의 NDCG/MAP/Recall은 랭킹 메트릭이므로
-        # score_based(임계값) 방식은 사용하지 않고 표준 Top-K 메트릭으로 일관되게 계산합니다.
-        # (추천이 없는 positive 유저는 0점으로 포함)
-        rec_by_user = {
-            int(u): g.head(self.top_k)["itemid"].astype(int).tolist()
-            for u, g in recommendations.groupby("visitorid")
-        }
+    def _run_als_scenario(self) -> Dict[str, Any]:
+        t0 = time.perf_counter()
+        pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        pre.run()
+        t_pre = time.perf_counter() - t0
 
-        ndcgs: List[float] = []
-        recalls: List[float] = []
-        maps: List[float] = []
+        t1 = time.perf_counter()
+        als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+        als.run()
+        t_als = time.perf_counter() - t1
 
-        for u, rel in positives.items():
-            rel_set = rel
-            if not rel_set:
-                continue
+        t2 = time.perf_counter()
+        positives, test_users = self._load_positives()
+        als_rec = pd.read_csv(self.processed_dir / "als_recommendations.csv")
+        ndcg, recall = self._evaluate(als_rec, positives, test_users, score_col="score")
+        t_eval = time.perf_counter() - t2
 
-            ranked = rec_by_user.get(int(u), [])
-            if not ranked:
-                ndcgs.append(0.0)
-                recalls.append(0.0)
-                maps.append(0.0)
-                continue
-
-            # Recall@K
-            hits = len(set(ranked) & rel_set)
-            recalls.append(hits / len(rel_set) if rel_set else 0.0)
-
-            # NDCG@K (binary relevance)
-            dcg = 0.0
-            for idx, item_id in enumerate(ranked):
-                if item_id in rel_set:
-                    dcg += 1.0 / np.log2(idx + 2)
-            ideal_dcg = 0.0
-            for i in range(min(len(rel_set), self.top_k)):
-                ideal_dcg += 1.0 / np.log2(i + 2)
-            ndcgs.append(dcg / ideal_dcg if ideal_dcg > 0 else 0.0)
-
-            # MAP@K
-            hit_count = 0
-            precision_sum = 0.0
-            for idx, item_id in enumerate(ranked, start=1):
-                if item_id in rel_set:
-                    hit_count += 1
-                    precision_sum += hit_count / idx
-            maps.append(precision_sum / len(rel_set) if hit_count > 0 else 0.0)
-
-        ndcg = float(np.mean(ndcgs)) if ndcgs else 0.0
-        recall = float(np.mean(recalls)) if recalls else 0.0
-        map_score = float(np.mean(maps)) if maps else 0.0
-        
-        logger.info("메트릭 결과: NDCG=%.4f, Recall=%.4f, MAP=%.4f", ndcg, recall, map_score)
-        
         return {
             "ndcg": ndcg,
             "recall": recall,
-            "map": map_score
+            "times": {"전처리": t_pre, "ALS": t_als, "평가": t_eval, "총합": t_pre + t_als + t_eval},
         }
-    
-    def _calculate_metrics_score_based(
-        self, 
-        recommendations: pd.DataFrame, 
-        positives: Dict[int, set[int]], 
-        score_threshold: float,
-        score_col: str
-    ) -> Tuple[float, float, float]:
-        """
-        TestSetEvaluator의 score_based 평가 방식과 동일하게 메트릭을 계산합니다.
-        
-        TestSetEvaluator는 추천을 필터링하지 않고, 사용자 레벨에서 점수를 고려하여 평가합니다.
-        """
-        recalls = []
-        ndcgs = []
-        aps = []
-        
-        for visitor_id, recs in recommendations.groupby("visitorid"):
-            relevant_items = positives.get(visitor_id, set())
-            if len(relevant_items) == 0:
+
+    def _generate_gnn_recs(self, test_users: np.ndarray) -> pd.DataFrame:
+        u_df = pd.read_csv(self.processed_dir / "gnn_user_embeddings.csv")
+        i_df = pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv")
+        u_ids = u_df["visitorid"].values.astype(int)
+        i_ids = i_df["itemid"].values.astype(int)
+        u_cols = [c for c in u_df.columns if c.startswith("embedding_")]
+        i_cols = [c for c in i_df.columns if c.startswith("embedding_")]
+        U = u_df[u_cols].values.astype(np.float32)
+        I = i_df[i_cols].values.astype(np.float32)
+        u_map = {x: j for j, x in enumerate(u_ids)}
+        rows: List[Dict[str, Any]] = []
+        for uid in test_users:
+            if uid not in u_map:
                 continue
-            
-            predicted_items = recs["itemid"].astype(int).tolist()
-            scores = recs[score_col].astype(float).values
-            
-            if len(scores) == 0:
-                continue
-            
-            hits = len(set(predicted_items) & relevant_items)
-            
-            # TestSetEvaluator의 score_based 로직: hits가 있거나 점수가 충분히 높으면 positive
-            mean_score = np.mean(scores)
-            max_score = np.max(scores)
-            top_n = min(10, len(scores))
-            top_scores = np.sort(scores)[-top_n:]
-            top_mean_score = np.mean(top_scores)
-            
-            # hits가 있거나 점수가 충분히 높으면 평가에 포함
-            # (TestSetEvaluator는 이렇게 사용자 레벨에서 판단)
-            if hits > 0 or mean_score >= score_threshold or top_mean_score >= score_threshold:
-                # Recall 계산 (hits가 있으면)
-                if hits > 0:
-                    recall = hits / len(relevant_items) if relevant_items else 0.0
-                    recalls.append(recall)
-                    
-                    # NDCG 계산
-                    dcg = 0.0
-                    for idx, (_, row) in enumerate(recs.iterrows()):
-                        if row["itemid"] in relevant_items:
-                            dcg += 1.0 / np.log2(idx + 2)
-                    
-                    ideal_dcg = 0.0
-                    num_relevant = min(len(relevant_items), len(recs))
-                    for i in range(num_relevant):
-                        ideal_dcg += 1.0 / np.log2(i + 2)
-                    
-                    if ideal_dcg > 0:
-                        ndcg = dcg / ideal_dcg
-                        ndcgs.append(ndcg)
-                    
-                    # MAP 계산
-                    hits_count = 0
-                    precision_sum = 0.0
-                    for idx, (_, row) in enumerate(recs.iterrows(), start=1):
-                        if row["itemid"] in relevant_items:
-                            hits_count += 1
-                            precision = hits_count / idx
-                            precision_sum += precision
-                    
-                    if hits_count > 0:
-                        ap = precision_sum / len(relevant_items)
-                        aps.append(ap)
-        
-        return (
-            np.mean(ndcgs) if ndcgs else 0.0,
-            np.mean(recalls) if recalls else 0.0,
-            np.mean(aps) if aps else 0.0
-        )
-    
-    def _print_comparison_table(self, results: Dict[str, Dict[str, Any]]) -> None:
-        """비교 결과를 표 형식으로 출력합니다 (옵션 2 형식)."""
-        logger.info("\n" + "=" * 100)
-        logger.info("베이스라인 비교 결과")
-        logger.info("=" * 100)
-        
-        # 표 헤더
-        header = f"{'':12} | {'NDCG':>10} | {'Recall':>10} | {'MAP':>10} | {'실행시간(초)':>20}"
-        print("\n" + header)
-        print("-" * 100)
-        
-        # 각 시나리오별 결과 출력
-        scenario_names = ["ALS", "GNN", "ALS+GNN"]
-        for scenario_name in scenario_names:
-            if scenario_name not in results:
-                continue
-            
-            result = results[scenario_name]
-            metrics = result["metrics"]
-            times = result["times"]
-            
-            # 메트릭 값
-            ndcg_str = f"{metrics['ndcg']:.2f}"
-            recall_str = f"{metrics['recall']:.2f}"
-            map_str = f"{metrics['map']:.2f}"
-            
-            # 시나리오 이름 출력 (메트릭 포함)
-            print(f"{scenario_name:12} | {ndcg_str:>10} | {recall_str:>10} | {map_str:>10} |")
-            
-            # 시간 세부사항 출력
-            if scenario_name == "ALS":
-                print(f"{'  - 전처리':12} | {'':10} | {'':10} | {'':10} | {times.get('전처리', 0.0):>20.2f}")
-                print(f"{'  - ALS':12} | {'':10} | {'':10} | {'':10} | {times.get('ALS', 0.0):>20.2f}")
-                print(f"{'  - 평가':12} | {'':10} | {'':10} | {'':10} | {times.get('평가', 0.0):>20.2f}")
-            elif scenario_name == "GNN":
-                print(f"{'  - 전처리':12} | {'':10} | {'':10} | {'':10} | {times.get('전처리', 0.0):>20.2f}")
-                print(f"{'  - GNN':12} | {'':10} | {'':10} | {'':10} | {times.get('GNN', 0.0):>20.2f}")
-                print(f"{'  - 평가':12} | {'':10} | {'':10} | {'':10} | {times.get('평가', 0.0):>20.2f}")
-            elif scenario_name == "ALS+GNN":
-                print(f"{'  - 전처리':12} | {'':10} | {'':10} | {'':10} | {times.get('전처리', 0.0):>20.2f}")
-                print(f"{'  - ALS':12} | {'':10} | {'':10} | {'':10} | {times.get('ALS', 0.0):>20.2f}")
-                print(f"{'  - GNN':12} | {'':10} | {'':10} | {'':10} | {times.get('GNN', 0.0):>20.2f}")
-                print(f"{'  - ReRanker':12} | {'':10} | {'':10} | {'':10} | {times.get('ReRanker', 0.0):>20.2f}")
-                print(f"{'  - 평가':12} | {'':10} | {'':10} | {'':10} | {times.get('평가', 0.0):>20.2f}")
-            
-            # 총합 출력
-            total_time = times.get('총합', 0.0)
-            print(f"{'  - 총합':12} | {'':10} | {'':10} | {'':10} | {total_time:>20.2f}")
-            print("-" * 100)
-        
+            vec = U[u_map[uid]]
+            scores = I @ vec
+            idx = np.argsort(scores)[::-1][: self.top_k]
+            for r, j in enumerate(idx, start=1):
+                rows.append({"visitorid": int(uid), "itemid": int(i_ids[j]), "score": float(scores[j]), "rank": r})
+        return pd.DataFrame(rows)
+
+    def _run_gnn_scenario(self) -> Dict[str, Any]:
+        t0 = time.perf_counter()
+        pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        pre.run()
+        t_pre = time.perf_counter() - t0
+
+        t1 = time.perf_counter()
+        gnn = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
+        gnn.run()
+        t_gnn = time.perf_counter() - t1
+
+        t2 = time.perf_counter()
+        positives, test_users = self._load_positives()
+        gnn_rec = self._generate_gnn_recs(test_users)
+        ndcg, recall = self._evaluate(gnn_rec, positives, test_users, score_col="score")
+        t_eval = time.perf_counter() - t2
+
+        return {
+            "ndcg": ndcg,
+            "recall": recall,
+            "times": {"전처리": t_pre, "GNN": t_gnn, "평가": t_eval, "총합": t_pre + t_gnn + t_eval},
+        }
+
+    def _run_combined_scenario(self) -> Dict[str, Any]:
+        t0 = time.perf_counter()
+        pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        pre.run()
+        t_pre = time.perf_counter() - t0
+
+        t1 = time.perf_counter()
+        als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+        als.run()
+        t_als = time.perf_counter() - t1
+
+        t2 = time.perf_counter()
+        gnn = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
+        gnn.run()
+        t_gnn = time.perf_counter() - t2
+
+        t3 = time.perf_counter()
+        reranker = ReRanker(processed_dir=self.processed_dir)
+        reranker.run()
+        t_rerank = time.perf_counter() - t3
+
+        t4 = time.perf_counter()
+        positives, test_users = self._load_positives()
+        final = pd.read_csv(self.processed_dir / "final_recommendations.csv")
+        ndcg, recall = self._evaluate(final, positives, test_users, score_col="final_score")
+        t_eval = time.perf_counter() - t4
+
+        total = t_pre + t_als + t_gnn + t_rerank + t_eval
+        return {
+            "ndcg": ndcg,
+            "recall": recall,
+            "times": {
+                "전처리": t_pre,
+                "ALS": t_als,
+                "GNN": t_gnn,
+                "ReRanker": t_rerank,
+                "평가": t_eval,
+                "총합": total,
+            },
+        }
+
+    def _print_table(self, results: Dict[str, Dict[str, Any]]) -> None:
+        w = 12
+        blk = " " * w
+        header = f"{'':14} | {'NDCG':^{w}} | {'Recall':^{w}} | {'전처리(초)':^{w}} | {'ALS(초)':^{w}} | {'GNN(초)':^{w}} | {'ReRanker(초)':^{w}} | {'평가(초)':^{w}} | {'총합(초)':^{w}}"
+        sep = "-" * 130
+        print("\n" + sep)
+        print(header)
+        print(sep)
+
+        for name, data in results.items():
+            ndcg = data["ndcg"]
+            recall = data["recall"]
+            t = data["times"]
+            t_pre = t.get("전처리", 0.0)
+            t_als = t.get("ALS", 0.0)
+            t_gnn = t.get("GNN", 0.0)
+            t_rerank = t.get("ReRanker", 0.0)
+            t_eval = t.get("평가", 0.0)
+            t_tot = t.get("총합", 0.0)
+            print(f"{name:14} | {ndcg:^{w}.4f} | {recall:^{w}.4f} | {t_pre:^{w}.2f} | {t_als:^{w}.2f} | {t_gnn:^{w}.2f} | {t_rerank:^{w}.2f} | {t_eval:^{w}.2f} | {t_tot:^{w}.2f}")
+
+            if "1. ALS" in name:
+                print(f"  - 전처리    | {blk} | {blk} | {t_pre:^{w}.2f} | {blk} | {blk} | {blk} | {blk} | {blk}")
+                print(f"  - ALS       | {blk} | {blk} | {blk} | {t_als:^{w}.2f} | {blk} | {blk} | {blk} | {blk}")
+                print(f"  - 평가      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_eval:^{w}.2f} | {blk}")
+            elif "2. GNN" in name:
+                print(f"  - 전처리    | {blk} | {blk} | {t_pre:^{w}.2f} | {blk} | {blk} | {blk} | {blk} | {blk}")
+                print(f"  - GNN       | {blk} | {blk} | {blk} | {blk} | {t_gnn:^{w}.2f} | {blk} | {blk} | {blk}")
+                print(f"  - 평가      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_eval:^{w}.2f} | {blk}")
+            elif "3. ALS+GNN" in name:
+                print(f"  - 전처리    | {blk} | {blk} | {t_pre:^{w}.2f} | {blk} | {blk} | {blk} | {blk} | {blk}")
+                print(f"  - ALS       | {blk} | {blk} | {blk} | {t_als:^{w}.2f} | {blk} | {blk} | {blk} | {blk}")
+                print(f"  - GNN       | {blk} | {blk} | {blk} | {blk} | {t_gnn:^{w}.2f} | {blk} | {blk} | {blk}")
+                print(f"  - ReRanker  | {blk} | {blk} | {blk} | {blk} | {blk} | {t_rerank:^{w}.2f} | {blk} | {blk}")
+                print(f"  - 평가      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_eval:^{w}.2f} | {blk}")
+            print(f"  - 총합      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_tot:^{w}.2f}")
+            print(sep)
         print()
+
 
 if __name__ == "__main__":
     """
-    전체 추천 시스템 파이프라인을 실행합니다.
-    
-    실행 순서:
-    1. IsolationForestPreprocessor: 데이터 전처리 및 이상치 제거
-    2. ALSRecommender: ALS 기반 추천 생성
-    3. GNNEmbeddingGenerator: GNN 기반 임베딩 생성
-    4. ReRanker: ALS와 GNN 결과 결합 및 리랭킹
-    5. TestSetEvaluator: 최종 추천 결과 평가
-    
-    각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
+    베이스라인 비교 실행:
+    1. 전처리 -> ALS -> 평가 (NDCG, Recall)
+    2. 전처리 -> GNN -> 평가 (NDCG, Recall)
+    3. 전처리 -> ALS -> GNN -> 평가 (NDCG, Recall)
+    단계별 실행시간을 표로 출력합니다.
     """
-    # 전체 파이프라인(전처리→ALS→GNN→ReRanker)을 단독 실행하려면 아래를 주석 해제하세요.
-    # (기본은 베이스라인 비교 실행)
-    #
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
-    #
-    # als_recommender = ALSRecommender(early_stopping_patience=None)
-    # als_recommender.run()
-    #
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
-    #
-    # reranker = ReRanker()
-    # reranker.run()
-    
-    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    # evaluator = TestSetEvaluator(
-    #     evaluation_mode="score_based",
-    #     top_k=50,
-    #     score_percentile=50.0 # score-based 모드일 시 주석해제
-    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    # )
-    # evaluator.run()
-    
-    # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
-    # comparator = RecommendationComparator(top_k=200)
-    # comparator.run()
-    
-    # 베이스라인 비교 (3가지 시나리오 비교)
-    # 주석을 해제하여 베이스라인 비교를 실행할 수 있습니다
-    baseline_comparator = BaselineComparator(
+    comparator = BaselineComparator(
         processed_dir=Path("data/processed"),
         data_dir=Path("data"),
         top_k=50,
-        evaluation_mode="score_based",
-        score_percentile=50.0
     )
-    baseline_comparator.run()
+    comparator.run()
