@@ -1033,14 +1033,22 @@ class ALSRecommender:
                                    iteration, best_iteration, best_val_loss)
                         break
         
-        # 최적 모델 사용 또는 전체 데이터로 학습
-        if self.early_stopping_patience is not None and best_user_factors is not None:
-            logger.info("Using best model from iteration %d (Val Loss: %.6f)", 
-                       best_iteration, best_val_loss)
-            # 최적 모델의 factors를 사용하여 전체 데이터로 재학습 (선택적)
-            # 또는 최적 모델을 그대로 사용
-            model.user_factors = best_user_factors
-            model.item_factors = best_item_factors
+        # 최적 iteration으로 전체 데이터 재학습
+        # - train subset으로 학습된 factor(user_factors)는 전체 사용자 수와 shape가 달라 recommend 단계에서 IndexError 발생 가능
+        if self.early_stopping_patience is not None and best_iteration is not None and best_iteration > 0:
+            logger.info(
+                "Refitting ALS on full data using best iteration %d (Val Loss: %.6f)",
+                best_iteration,
+                best_val_loss,
+            )
+            best_model = ALSModel(
+                factors=self.factors,
+                regularization=self.regularization,
+                iterations=best_iteration,
+                random_state=self.random_state,
+            )
+            best_model.fit(confidence_matrix.tocsr())
+            model = best_model
         else:
             # 최종 모델 학습 (전체 데이터)
             model.fit(confidence_matrix.tocsr())
@@ -4923,17 +4931,20 @@ if __name__ == "__main__":
     
     각각의 모듈들을 주석처리해서 특정 모듈만 실행할수도 있습니다
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
-
-    als_recommender = ALSRecommender()
-    als_recommender.run()
-
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
-
-    reranker = ReRanker()
-    reranker.run()
+    # 전체 파이프라인(전처리→ALS→GNN→ReRanker)을 단독 실행하려면 아래를 주석 해제하세요.
+    # (기본은 베이스라인 비교 실행)
+    #
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
+    #
+    # als_recommender = ALSRecommender(early_stopping_patience=None)
+    # als_recommender.run()
+    #
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
+    #
+    # reranker = ReRanker()
+    # reranker.run()
     
     # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
