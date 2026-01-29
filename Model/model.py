@@ -750,13 +750,13 @@ class ALSRecommender:
         initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
         initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
         
-        # _compute_als_loss_batch의 파라미터: user_factors는 아이템 factors, item_factors는 사용자 factors
+        # matrix (users x items) 기준: user_factors(유저 임베딩), item_factors(아이템 임베딩)
         train_loss_init = self._compute_als_loss_batch(
-            initial_item_factors, initial_user_factors[train_user_indices],
+            initial_user_factors[train_user_indices], initial_item_factors,
             train_matrix, train_sample_indices, self.loss_batch_size
         )
         val_loss_init = self._compute_als_loss_batch(
-            initial_item_factors, initial_user_factors[val_user_indices],
+            initial_user_factors[val_user_indices], initial_item_factors,
             val_matrix, val_sample_indices, self.loss_batch_size
         )
         
@@ -765,40 +765,27 @@ class ALSRecommender:
         
         logger.info("Initial - Train Loss: %.6f, Val Loss: %.6f", train_loss_init, val_loss_init)
         
-        # 각 iteration마다 학습
+        # 각 iteration마다 학습. implicit은 (users x items) 행렬 기대: 행=유저, 열=아이템.
         for iteration in range(1, self.iterations + 1):
-            # 학습 (이전 iteration의 factors를 초기값으로 사용)
             if iteration == 1:
-                temp_model.fit(train_matrix.T.tocsr())
+                temp_model.fit(train_matrix.tocsr())
             else:
-                # 이전 factors를 초기값으로 사용하여 학습
-                # implicit 라이브러리는 fit() 호출 시 초기화되므로, 
-                # 대신 전체 데이터로 학습하되 iteration=1로 설정하여 점진적으로 학습
-                temp_model.fit(train_matrix.T.tocsr())
+                temp_model.fit(train_matrix.tocsr())
             
-            # Train loss 계산 (reconstruction error) - 샘플링 및 배치 처리로 메모리 효율성 향상
-            # temp_model은 train_matrix.T로 학습했으므로:
-            # - user_factors는 아이템 factors (행: 아이템)
-            # - item_factors는 사용자 factors (열: 사용자)
+            # train_matrix (users x items) → user_factors(유저), item_factors(아이템)
             train_loss = self._compute_als_loss_batch(
                 temp_model.user_factors, temp_model.item_factors,
                 train_matrix, train_sample_indices, self.loss_batch_size
             )
             train_losses.append(train_loss)
             
-            # Validation loss 계산 - 샘플링 및 배치 처리로 메모리 효율성 향상
-            # Validation loss를 계산하기 위해 validation 데이터로 별도 모델 학습
-            # (시간이 걸리지만 정확한 validation loss를 얻기 위해 필요)
             val_temp_model = ALSModel(
                 factors=self.factors,
                 regularization=self.regularization,
                 iterations=1,
                 random_state=self.random_state,
             )
-            val_temp_model.fit(val_matrix.T.tocsr())
-            # val_temp_model도 val_matrix.T로 학습했으므로:
-            # - user_factors는 아이템 factors (행: 아이템)
-            # - item_factors는 사용자 factors (열: 사용자)
+            val_temp_model.fit(val_matrix.tocsr())
             val_loss = self._compute_als_loss_batch(
                 val_temp_model.user_factors, val_temp_model.item_factors,
                 val_matrix, val_sample_indices, self.loss_batch_size
@@ -828,17 +815,14 @@ class ALSRecommender:
                                    iteration, best_iteration, best_val_loss)
                         break
         
-        # 최적 모델 사용 또는 전체 데이터로 학습
-        if self.early_stopping_patience is not None and best_user_factors is not None:
-            logger.info("Using best model from iteration %d (Val Loss: %.6f)", 
-                       best_iteration, best_val_loss)
-            # 최적 모델의 factors를 사용하여 전체 데이터로 재학습 (선택적)
-            # 또는 최적 모델을 그대로 사용
-            model.user_factors = best_user_factors
-            model.item_factors = best_item_factors
-        else:
-            # 최종 모델 학습 (전체 데이터)
-            model.fit(confidence_matrix.T.tocsr())
+        # recommend는 전체 유저 대상이므로 항상 (users x items) 전체 데이터로 학습.
+        # early-stop 시 best iteration은 로깅용; 최종 모델은 전체 fit.
+        if self.early_stopping_patience is not None and best_iteration > 0:
+            logger.info(
+                "Early stop best iteration: %d (Val Loss: %.6f); fitting final model on full data.",
+                best_iteration, best_val_loss,
+            )
+        model.fit(confidence_matrix.tocsr())
         
         # Loss 그래프 출력
         self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
@@ -967,14 +951,14 @@ class ALSRecommender:
         """
         배치 처리로 ALS loss를 계산합니다 (메모리 효율성).
         
-        주의: implicit 라이브러리에서 fit(matrix.T)로 학습하므로,
-        user_factors는 실제로 아이템 factors이고, item_factors는 실제로 사용자 factors입니다.
+        matrix (users x items) 기준: user_factors(유저 임베딩), item_factors(아이템 임베딩).
+        pred = user_factors @ item_factors.T.
         
         Args:
-            user_factors: 아이템 임베딩 행렬 (implicit 라이브러리에서 model.user_factors)
-            item_factors: 사용자 임베딩 행렬 (implicit 라이브러리에서 model.item_factors)
-            matrix: 실제 상호작용 행렬 (희소 행렬)
-            user_indices: 계산할 사용자 인덱스 배열
+            user_factors: 유저 임베딩 (model.user_factors)
+            item_factors: 아이템 임베딩 (model.item_factors)
+            matrix: 상호작용 행렬 (users x items)
+            user_indices: 계산할 사용자 인덱스 배열 (matrix 행 기준)
             batch_size: 배치 크기
             
         Returns:
@@ -988,10 +972,7 @@ class ALSRecommender:
             end_idx = min((i + 1) * batch_size, len(user_indices))
             batch_user_indices_batch = user_indices[start_idx:end_idx]
             
-            # 예측 행렬 계산 (배치)
-            # implicit 라이브러리: item_factors는 사용자 factors, user_factors는 아이템 factors
-            pred_batch = item_factors[batch_user_indices_batch] @ user_factors.T
-            # 실제 행렬 (희소 행렬에서 배치만 추출)
+            pred_batch = user_factors[batch_user_indices_batch] @ item_factors.T
             actual_batch = matrix[batch_user_indices_batch].toarray()
             total_loss += np.mean((pred_batch - actual_batch) ** 2) * (end_idx - start_idx)
         
@@ -1007,13 +988,8 @@ class ALSRecommender:
         """
         모든 사용자에 대해 상위 K개 추천을 생성합니다.
         
-        배치 단위로 처리하여 메모리 효율성을 높입니다. 이미 상호작용한 아이템은
-        추천에서 제외됩니다(filter_already_liked_items=True).
-        
-        implicit은 fit(matrix)에 (items x users) 행렬을 받으므로,
-        model.user_factors.shape[0]은 아이템 수입니다. 추천은 사용자(열) 기준으로
-        생성하므로 max_users = 사용자 수(행 수)를 사용하고, recommend에는
-        (items x users) 행렬 전체를 넘깁니다.
+        배치 단위로 처리합니다. implicit fit(users x items) 기준으로
+        recommend(userid, user_items)에 user_items = (len(userids), n_items) 전달.
         
         Args:
             model: 학습된 ALS 모델
@@ -1025,13 +1001,8 @@ class ALSRecommender:
             (visitorid, itemid, score, rank) 컬럼을 가진 추천 결과 데이터프레임
         """
         records: List[Dict[str, float]] = []
-        # user_item_matrix: (users x items). fit에는 .T로 (items x users) 전달했음.
-        # 따라서 추천 대상은 사용자 = user_item_matrix.shape[0]
         max_users = min(user_item_matrix.shape[0], len(users))
-
         user_ids_array = np.array(users[:max_users], dtype=int)
-        # implicit recommend(userid, user_item_matrix): user_item_matrix는 (items x users)
-        item_user_csr = user_item_matrix.T.tocsr()
 
         batch_size = max(self.recommend_batch_size, 1)
         total_batches = int(np.ceil(max_users / batch_size)) if batch_size else 0
@@ -1046,10 +1017,11 @@ class ALSRecommender:
             end = min(start + batch_size, max_users)
             batch_user_indices = np.arange(start, end, dtype=int)
             batch_user_ids = user_ids_array[start:end]
-            # recommend에는 (items x users) 행렬 전체 전달; userid가 열 인덱스
+            # user_items: (len(userids), n_items) — 유저당 1행
+            batch_user_items = user_item_matrix[start:end].tocsr()
             item_idx_batch, score_batch = model.recommend(
                 batch_user_indices,
-                item_user_csr,
+                batch_user_items,
                 N=self.top_k,
                 filter_already_liked_items=True,
             )
