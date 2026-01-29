@@ -1010,9 +1010,14 @@ class ALSRecommender:
         배치 단위로 처리하여 메모리 효율성을 높입니다. 이미 상호작용한 아이템은
         추천에서 제외됩니다(filter_already_liked_items=True).
         
+        implicit은 fit(matrix)에 (items x users) 행렬을 받으므로,
+        model.user_factors.shape[0]은 아이템 수입니다. 추천은 사용자(열) 기준으로
+        생성하므로 max_users = 사용자 수(행 수)를 사용하고, recommend에는
+        (items x users) 행렬 전체를 넘깁니다.
+        
         Args:
             model: 학습된 ALS 모델
-            user_item_matrix: 사용자-아이템 상호작용 행렬
+            user_item_matrix: 사용자-아이템 상호작용 행렬 (users x items)
             users: 사용자 ID 리스트
             items: 아이템 ID 리스트
             
@@ -1020,13 +1025,13 @@ class ALSRecommender:
             (visitorid, itemid, score, rank) 컬럼을 가진 추천 결과 데이터프레임
         """
         records: List[Dict[str, float]] = []
-        max_users = min(
-            model.user_factors.shape[0] if hasattr(model, "user_factors") else len(users),
-            user_item_matrix.shape[0],
-            len(users),
-        )
+        # user_item_matrix: (users x items). fit에는 .T로 (items x users) 전달했음.
+        # 따라서 추천 대상은 사용자 = user_item_matrix.shape[0]
+        max_users = min(user_item_matrix.shape[0], len(users))
 
         user_ids_array = np.array(users[:max_users], dtype=int)
+        # implicit recommend(userid, user_item_matrix): user_item_matrix는 (items x users)
+        item_user_csr = user_item_matrix.T.tocsr()
 
         batch_size = max(self.recommend_batch_size, 1)
         total_batches = int(np.ceil(max_users / batch_size)) if batch_size else 0
@@ -1041,11 +1046,10 @@ class ALSRecommender:
             end = min(start + batch_size, max_users)
             batch_user_indices = np.arange(start, end, dtype=int)
             batch_user_ids = user_ids_array[start:end]
-            batch_interactions = user_item_matrix[start:end]
-
+            # recommend에는 (items x users) 행렬 전체 전달; userid가 열 인덱스
             item_idx_batch, score_batch = model.recommend(
                 batch_user_indices,
-                batch_interactions,
+                item_user_csr,
                 N=self.top_k,
                 filter_already_liked_items=True,
             )
@@ -4287,6 +4291,124 @@ class BaselineComparator:
         recall = _recall_at_k(rec, positives, self.top_k, use_col, ascending=asc)
         return ndcg, recall
 
+    def _diagnose_als(self) -> None:
+        """
+        ALS 추천 결과와 테스트 positive 아이템·학습 데이터 분포를 분석하여
+        NDCG/Recall이 0인 원인을 진단합니다.
+        - 테스트 유저 중 ALS 추천에 포함된 유저 수
+        - 테스트 positive 아이템 중 ALS 아이템 공간에 포함된 비율
+        - 테스트 유저별 학습 데이터(events_train_clean) 상호작용 수
+        - 유저별 ALS Top-K와 positive 아이템 교집합 수
+        """
+        events_test_path = self.processed_dir / "events_test.csv"
+        events_train_path = self.processed_dir / "events_train_clean.csv"
+        als_rec_path = self.processed_dir / "als_recommendations.csv"
+        if not events_test_path.exists() or not events_train_path.exists() or not als_rec_path.exists():
+            logger.warning("ALS 진단에 필요한 파일이 없어 진단을 건너뜁니다.")
+            return
+
+        events_test = pd.read_csv(events_test_path)
+        events_train_clean = pd.read_csv(events_train_path)
+        als_rec = pd.read_csv(als_rec_path)
+
+        test_users = events_test["visitorid"].dropna().astype(int).unique()
+        pos_events = events_test[
+            events_test["event"].isin(["addtocart", "transaction"])
+        ].dropna(subset=["visitorid", "itemid"])
+        pos_events = pos_events.assign(
+            visitorid=pos_events["visitorid"].astype(int),
+            itemid=pos_events["itemid"].astype(int),
+        )
+        positives: Dict[int, set] = (
+            pos_events.groupby("visitorid")["itemid"]
+            .apply(lambda s: set(s.tolist()))
+            .to_dict()
+        )
+        all_positive_item_ids = set()
+        for s in positives.values():
+            all_positive_item_ids |= s
+
+        als_user_set = set(als_rec["visitorid"].astype(int).unique())
+        als_item_set = set(als_rec["itemid"].astype(int).unique())
+
+        test_users_with_positives = np.array([u for u in test_users if u in positives and positives[u]])
+        n_test = len(test_users)
+        n_test_with_pos = len(test_users_with_positives)
+        n_in_als = sum(1 for u in test_users_with_positives if u in als_user_set)
+        n_missing_als = n_test_with_pos - n_in_als
+
+        positive_items_in_als = all_positive_item_ids & als_item_set
+        n_pos_items = len(all_positive_item_ids)
+        n_pos_in_als = len(positive_items_in_als)
+
+        logger.info("=" * 60)
+        logger.info("ALS 진단: 추천 vs 테스트·학습 데이터")
+        logger.info("=" * 60)
+        logger.info("테스트 유저 수 (events_test): %d", n_test)
+        logger.info("테스트 유저 중 positive 있는 유저 수: %d", n_test_with_pos)
+        logger.info(
+            "  → 이 중 ALS 추천에 포함된 유저 수: %d (없는 유저: %d)",
+            n_in_als,
+            n_missing_als,
+        )
+        logger.info(
+            "테스트 positive 아이템 수: %d → ALS 아이템 공간에 포함: %d (%.1f%%)",
+            n_pos_items,
+            n_pos_in_als,
+            100.0 * n_pos_in_als / n_pos_items if n_pos_items else 0,
+        )
+
+        if n_missing_als > 0:
+            logger.warning(
+                "테스트 유저 %d명이 ALS 추천에 없음 → 해당 유저는 NDCG/Recall 계산에서 제외됨.",
+                n_missing_als,
+            )
+        if n_pos_items > 0 and n_pos_in_als == 0:
+            logger.warning(
+                "테스트 positive 아이템이 ALS 아이템 공간에 전혀 없음 → Top-K에 positive가 올 수 없어 지표 0 가능."
+            )
+
+        _train_clean = events_train_clean.dropna(subset=["visitorid"]).copy()
+        _train_clean["visitorid"] = _train_clean["visitorid"].astype(int)
+        train_interactions_per_user = _train_clean.groupby("visitorid").size()
+        rec_top = (
+            als_rec.sort_values(["visitorid", "score"], ascending=[True, False])
+            .groupby("visitorid")
+            .head(self.top_k)
+        )
+        hit_counts: List[int] = []
+        train_counts_for_eval: List[int] = []
+
+        for uid in test_users_with_positives:
+            rel = positives.get(uid, set())
+            if not rel:
+                continue
+            train_cnt = int(train_interactions_per_user.get(uid, 0))
+            train_counts_for_eval.append(train_cnt)
+            user_rec = rec_top[rec_top["visitorid"] == uid]
+            pred = set(user_rec["itemid"].astype(int).tolist())
+            hit = len(pred & rel)
+            hit_counts.append(hit)
+
+        if hit_counts:
+            logger.info(
+                "평가 대상 유저(%d명) 기준: ALS Top-%d vs positive 교집합 — 평균 hit %.2f, 최대 %d, hit>=1인 유저 %d/%d",
+                len(hit_counts),
+                self.top_k,
+                float(np.mean(hit_counts)),
+                max(hit_counts),
+                sum(1 for h in hit_counts if h >= 1),
+                len(hit_counts),
+            )
+        if train_counts_for_eval:
+            logger.info(
+                "평가 대상 유저별 학습 데이터(events_train_clean) 상호작용 수 — 평균 %.1f, 중앙값 %.0f, 최소 %d",
+                float(np.mean(train_counts_for_eval)),
+                float(np.median(train_counts_for_eval)),
+                min(train_counts_for_eval),
+            )
+        logger.info("=" * 60)
+
     def _run_als_scenario(self) -> Dict[str, Any]:
         t0 = time.perf_counter()
         pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
@@ -4303,6 +4425,8 @@ class BaselineComparator:
         als_rec = pd.read_csv(self.processed_dir / "als_recommendations.csv")
         ndcg, recall = self._evaluate(als_rec, positives, test_users, score_col="score")
         t_eval = time.perf_counter() - t2
+
+        self._diagnose_als()
 
         return {
             "ndcg": ndcg,
