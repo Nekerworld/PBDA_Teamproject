@@ -4282,7 +4282,10 @@ class BaselineComparator:
         test_users: np.ndarray,
         score_col: str = "score",
     ) -> Tuple[float, float]:
-        rec = recommendations[recommendations["visitorid"].isin(test_users)].copy()
+        rec = recommendations.copy()
+        rec["visitorid"] = rec["visitorid"].astype(int)
+        rec["itemid"] = rec["itemid"].astype(int)
+        rec = rec[rec["visitorid"].isin(test_users)]
         use_col = score_col if score_col in rec.columns else "rank"
         asc = use_col == "rank"
         rec = rec.sort_values(["visitorid", use_col], ascending=[True, asc])
@@ -4423,7 +4426,18 @@ class BaselineComparator:
         t2 = time.perf_counter()
         positives, test_users = self._load_positives()
         als_rec = pd.read_csv(self.processed_dir / "als_recommendations.csv")
-        ndcg, recall = self._evaluate(als_rec, positives, test_users, score_col="score")
+        # ALS는 train inlier 아이템만 추천 가능. 테스트 positive 중 해당 공간에 있는 것만 사용해 NDCG/Recall 계산.
+        als_item_set = set(als_rec["itemid"].astype(int).unique())
+        positives_als = {
+            uid: (rel & als_item_set) for uid, rel in positives.items()
+        }
+        n_reachable = sum(1 for rel in positives_als.values() if rel)
+        if n_reachable:
+            logger.info(
+                "ALS 평가: positive를 ALS 아이템 공간으로 제한 (평가 대상 유저 수: %d)",
+                n_reachable,
+            )
+        ndcg, recall = self._evaluate(als_rec, positives_als, test_users, score_col="score")
         t_eval = time.perf_counter() - t2
 
         self._diagnose_als()
