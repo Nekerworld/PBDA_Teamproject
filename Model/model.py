@@ -750,256 +750,135 @@ class ALSRecommender:
 
     def run(self) -> None:
         """
-        ALS 추천 파이프라인을 실행합니다 (als_debug 로직 통합).
-        
-        실행 순서:
-        1. 전처리된 이벤트 데이터 로드 (선택적 Core 필터)
-        2. 사용자-아이템 상호작용 행렬 생성 (가중치·로그 스케일 적용)
-        3. ALS 모델 학습 (alpha=confidence)
-        4. (선택) BPR 앙상블 학습
-        5. 선호도 점수 기반 Top-K 추천 생성 (롱테일 보너스·앙상블)
-        6. 결과 저장 및 시각화
+        ALS 추천 파이프라인을 실행합니다. als_debug.py의 전처리·학습·추천 로직을 그대로 사용합니다.
+        (원본 events.csv → 90/10 분할, min 3/3, ALS+BPR 앙상블, hold-out, 롱테일 보너스)
         """
+        import sys
+        _model_dir = Path(__file__).resolve().parent
+        if str(_model_dir) not in sys.path:
+            sys.path.insert(0, str(_model_dir))
+        import als_debug
+
         np.random.seed(self.random_state)
         random.seed(self.random_state)
-        try:
-            from implicit.als import AlternatingLeastSquares as ALSModel
-        except ImportError as exc:
-            raise ImportError(
-                "implicit 패키지가 필요합니다. `pip install implicit` 명령으로 설치한 뒤 다시 실행해 주세요."
-            ) from exc
 
-        events_path = self.processed_dir / "events_train_clean.csv"
-        if not events_path.exists():
-            raise FileNotFoundError(
-                f"{events_path} 파일이 없습니다. 먼저 IsolationForestPreprocessor.run()을 실행해 주세요."
-            )
-        logger.info("Loading cleaned training events for ALS from %s", events_path)
-        events = pd.read_csv(events_path)
-        if "event" not in events.columns:
-            events["event"] = "view"
-
-        if self.min_user_events > 0 or self.min_item_events > 0:
-            user_counts = events.groupby("visitorid").size()
-            item_counts = events.groupby("itemid").size()
-            keep_users = set(user_counts[user_counts >= self.min_user_events].index.tolist())
-            keep_items = set(item_counts[item_counts >= self.min_item_events].index.tolist())
-            events = events[
-                events["visitorid"].isin(keep_users) & events["itemid"].isin(keep_items)
-            ].copy()
-        if events.empty:
-            raise ValueError("ALS 학습에 사용할 상호작용 데이터가 비어 있습니다.")
-
-        wmap = self.weight_map if self.weight_map is not None else ALS_WEIGHT_MAP
-        interactions = self._prepare_interactions(events, weight_map=wmap)
-        if interactions.empty:
-            raise ValueError("ALS 학습에 사용할 상호작용 데이터가 비어 있습니다.")
+        logger.info("ALS: als_debug 파이프라인 사용 (원본 events.csv, 90/10, min 3/3)")
+        events = als_debug.load_raw_events()
+        events_train, events_test, positives, train_item_set = als_debug.preprocess(
+            events,
+            test_size=als_debug.TEST_SIZE,
+            min_user_events=als_debug.MIN_USER_EVENTS,
+            min_item_events=als_debug.MIN_ITEM_EVENTS,
+            random_state=als_debug.RANDOM_STATE,
+        )
+        positives_filtered = {}
+        for uid, rel in positives.items():
+            filtered = rel & train_item_set
+            if filtered:
+                positives_filtered[uid] = filtered
 
         (
             user_item_matrix,
-            users,
-            items,
+            unique_users,
+            unique_items,
             user_id_to_idx,
             item_id_to_idx,
             idx_to_item_id,
             item_pop_by_id,
-        ) = self._build_matrix(interactions)
+        ) = als_debug.build_user_item_matrix(
+            events_train,
+            als_debug.WEIGHT_MAP,
+            use_log_scale=als_debug.USE_WEIGHT_LOG_SCALE,
+        )
         logger.info(
             "Constructed user-item matrix with %d users, %d items, %d interactions",
-            len(users),
-            len(items),
+            len(unique_users),
+            len(unique_items),
             user_item_matrix.nnz,
         )
 
-        model_als = ALSModel(
-            factors=self.factors,
-            regularization=self.regularization,
-            iterations=self.iterations,
-            random_state=self.random_state,
-            alpha=self.alpha,
+        model_als = als_debug.train_als(
+            user_item_matrix,
+            factors=als_debug.ALS_FACTORS,
+            regularization=als_debug.ALS_REGULARIZATION,
+            iterations=als_debug.ALS_ITERATIONS,
+            random_state=als_debug.RANDOM_STATE,
+            alpha=als_debug.ALS_ALPHA,
         )
-        model_als.fit(user_item_matrix.tocsr())
-        logger.info("ALS model trained (factors=%d, iterations=%d, alpha=%.2f)", self.factors, self.iterations, self.alpha)
+        logger.info("ALS model trained (factors=%d, iterations=%d, alpha=%.2f)",
+                    als_debug.ALS_FACTORS, als_debug.ALS_ITERATIONS, als_debug.ALS_ALPHA)
 
         model_bpr = None
-        if HAS_BPR and BayesianPersonalizedRanking is not None:
+        if als_debug.HAS_BPR:
             try:
-                model_bpr = BayesianPersonalizedRanking(
-                    factors=self.factors,
-                    regularization=BPR_REGULARIZATION,
-                    iterations=self.iterations,
-                    random_state=self.random_state,
+                model_bpr = als_debug.train_bpr(
+                    user_item_matrix,
+                    factors=als_debug.BPR_FACTORS,
+                    regularization=als_debug.BPR_REGULARIZATION,
+                    iterations=als_debug.BPR_ITERATIONS,
+                    random_state=als_debug.RANDOM_STATE,
                 )
-                model_bpr.fit(user_item_matrix.tocsr())
-                logger.info("BPR model trained for ensemble (alpha=%.2f)", self.ensemble_alpha)
+                logger.info("BPR model trained for ensemble (alpha=%.2f)", als_debug.ENSEMBLE_ALPHA)
             except Exception as e:
                 logger.warning("BPR 학습 건너뜀: %s", e)
 
-        item_pop_counts = interactions.groupby("itemid").size()
-        long_tail_threshold = float(np.percentile(item_pop_counts.values, self.long_tail_quantile * 100))
+        item_pop_counts = events_train.groupby("itemid").size()
+        long_tail_threshold = float(np.percentile(item_pop_counts.values, als_debug.LONG_TAIL_QUANTILE * 100))
         long_tail_item_ids = set(
             item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
         )
-        user_train_items: Dict[int, Set[int]] = (
-            events.groupby("visitorid")["itemid"]
-            .apply(lambda x: set(x.astype(int).tolist()))
-            .to_dict()
-        )
-        eval_users = [int(u) for u in users if u in user_id_to_idx]
+        eval_users = [int(u) for u in unique_users if u in user_id_to_idx]
 
         logger.info("Generating top-%d recommendations per user (ensemble=%s, long_tail=%.2f)…",
-                    self.top_k, model_bpr is not None, self.long_tail_bonus)
-        recommendations = self._generate_recommendations(
-            model_als,
-            model_bpr,
-            user_item_matrix,
-            users,
-            items,
+                    self.top_k, model_bpr is not None, als_debug.LONG_TAIL_BONUS)
+        recommendations_dict, _ = als_debug.scores_to_recommendations_ensemble(
+            eval_users,
             user_id_to_idx,
             item_id_to_idx,
             idx_to_item_id,
+            train_item_set,
+            positives_filtered,
+            events_train,
+            model_als,
+            model_bpr,
+            self.top_k,
+            als_debug.LONG_TAIL_BONUS,
             item_pop_by_id,
-            user_train_items,
-            eval_users,
-            long_tail_item_ids=long_tail_item_ids,
+            long_tail_item_ids,
+            als_debug.ENSEMBLE_ALPHA,
         )
-        logger.info("ALS recommendation generation completed for %d users", len(recommendations.groupby("visitorid")))
 
-        self._save_outputs(recommendations, users, items, model_als)
+        records = []
+        for uid, rec_list in recommendations_dict.items():
+            for rank, item_id in enumerate(rec_list, start=1):
+                records.append({
+                    "visitorid": int(uid),
+                    "itemid": int(item_id),
+                    "score": 1.0 / rank,
+                    "rank": rank,
+                })
+        recommendations = pd.DataFrame(records)
+        users_list = unique_users.tolist() if hasattr(unique_users, "tolist") else list(unique_users)
+        items_list = unique_items.tolist() if hasattr(unique_items, "tolist") else list(unique_items)
+        logger.info("ALS recommendation generation completed for %d users", recommendations["visitorid"].nunique())
+
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
+        events_train.to_csv(self.processed_dir / "als_events_train.csv", index=False)
+        events_test.to_csv(self.processed_dir / "als_events_test.csv", index=False)
+
+        self._save_outputs(recommendations, users_list, items_list, model_als, model_bpr=model_bpr)
         logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
 
+        interactions = events_train.copy()
+        interactions["weight"] = events_train["event"].map(als_debug.WEIGHT_MAP).fillna(1.0)
+        interactions = interactions.groupby(["visitorid", "itemid"], as_index=False)["weight"].sum()
         self._create_visualizations(
             interactions=interactions,
             recommendations=recommendations,
             user_item_matrix=user_item_matrix,
-            users=users,
-            items=items,
+            users=users_list,
+            items=items_list,
         )
-
-    def _prepare_interactions(
-        self, events: DataFrame, weight_map: Optional[Dict[str, float]] = None
-    ) -> DataFrame:
-        """
-        이벤트 데이터를 상호작용 가중치로 변환합니다 (ALS 전용: weight_map, 선택적 log 스케일).
-        """
-        events = events.copy()
-        wmap = weight_map or ALS_WEIGHT_MAP
-        events["weight"] = events["event"].map(wmap).fillna(1.0)
-        interactions = (
-            events.groupby(["visitorid", "itemid"], as_index=False)["weight"].sum()
-        )
-        interactions = interactions[interactions["weight"] > 0]
-        if self.use_weight_log_scale:
-            interactions["weight"] = 1.0 + np.log1p(interactions["weight"].values)
-        return interactions
-
-    def _build_matrix(
-        self, interactions: DataFrame
-    ) -> Tuple[
-        sp.csr_matrix,
-        List[int],
-        List[int],
-        Dict[int, int],
-        Dict[int, int],
-        Dict[int, int],
-        Dict[int, int],
-    ]:
-        """
-        사용자-아이템 상호작용 행렬 및 매핑·아이템 인기도를 생성합니다.
-        Returns:
-            (matrix, users, items, user_id_to_idx, item_id_to_idx, idx_to_item_id, item_pop_by_id)
-        """
-        users, unique_users = pd.factorize(interactions["visitorid"], sort=True)
-        items, unique_items = pd.factorize(interactions["itemid"], sort=True)
-        user_id_to_idx = {int(uid): idx for idx, uid in enumerate(unique_users)}
-        item_id_to_idx = {int(iid): idx for idx, iid in enumerate(unique_items)}
-        idx_to_item_id = {idx: int(iid) for idx, iid in enumerate(unique_items)}
-        item_pop_by_id = interactions.groupby("itemid").size().to_dict()
-        item_pop_by_id = {int(k): int(v) for k, v in item_pop_by_id.items()}
-        matrix = sp.coo_matrix(
-            (interactions["weight"].astype(float), (users, items)),
-            shape=(len(unique_users), len(unique_items)),
-        )
-        return (
-            matrix.tocsr(),
-            unique_users.tolist(),
-            unique_items.tolist(),
-            user_id_to_idx,
-            item_id_to_idx,
-            idx_to_item_id,
-            item_pop_by_id,
-        )
-
-    @staticmethod
-    def _get_per_user_scores(model: Any, user_idx: int, n_items: int) -> np.ndarray:
-        """한 유저에 대한 전체 아이템 선호도 점수 (user_factors[u] @ item_factors.T)."""
-        return model.user_factors[user_idx] @ model.item_factors.T
-
-    def _generate_recommendations(
-        self,
-        model_als: Any,
-        model_bpr: Any,
-        user_item_matrix: sp.csr_matrix,
-        users: List[int],
-        items: List[int],
-        user_id_to_idx: Dict[int, int],
-        item_id_to_idx: Dict[int, int],
-        idx_to_item_id: Dict[int, int],
-        item_pop_by_id: Dict[int, int],
-        user_train_items: Dict[int, Set[int]],
-        eval_users: List[int],
-        long_tail_item_ids: Set[int],
-    ) -> DataFrame:
-        """
-        선호도 점수 기반 Top-K 추천 생성 (ALS 또는 ALS+BPR 앙상블, 롱테일 보너스).
-        Train에서 본 아이템은 후보에서 제외하고, 상위 K개를 (visitorid, itemid, score, rank) DataFrame으로 반환.
-        """
-        n_items = len(items)
-        recommend_n = self.top_k * 4 if self.long_tail_bonus > 0 else self.top_k
-        records: List[Dict[str, Any]] = []
-
-        for user_id in eval_users:
-            if user_id not in user_id_to_idx:
-                continue
-            user_idx = user_id_to_idx[user_id]
-            als_scores = self._get_per_user_scores(model_als, user_idx, n_items).ravel().astype(np.float64)
-            if model_bpr is not None and HAS_BPR:
-                bpr_scores = self._get_per_user_scores(model_bpr, user_idx, n_items).ravel().astype(np.float64)
-                als_norm = (als_scores - als_scores.min()) / (als_scores.max() - als_scores.min() + 1e-9)
-                bpr_norm = (bpr_scores - bpr_scores.min()) / (bpr_scores.max() - bpr_scores.min() + 1e-9)
-                scores = self.ensemble_alpha * als_norm + (1.0 - self.ensemble_alpha) * bpr_norm
-            else:
-                scores = als_scores.copy()
-
-            train_items_u = user_train_items.get(user_id, set()) & set(item_id_to_idx.keys())
-            for item_id in train_items_u:
-                if item_id in item_id_to_idx:
-                    scores[item_id_to_idx[item_id]] = -np.inf
-
-            top_indices = np.argsort(-scores)[:recommend_n]
-            cand_ids = [idx_to_item_id[i] for i in top_indices if scores[i] > -np.inf]
-            cand_scores = scores[top_indices[: len(cand_ids)]].tolist()
-
-            if self.long_tail_bonus > 0 and cand_ids:
-                pop_list = [item_pop_by_id.get(iid, 0) for iid in cand_ids]
-                new_scores = [
-                    s + self.long_tail_bonus * (1.0 / (p + 1.0))
-                    for s, p in zip(cand_scores, pop_list)
-                ]
-                sorted_pairs = sorted(zip(cand_ids, new_scores), key=lambda x: -x[1])
-                rec_pairs = sorted_pairs[: self.top_k]
-            else:
-                rec_pairs = list(zip(cand_ids[: self.top_k], cand_scores[: self.top_k]))
-
-            for rank, (item_id, score_val) in enumerate(rec_pairs, start=1):
-                records.append({
-                    "visitorid": int(user_id),
-                    "itemid": int(item_id),
-                    "score": float(score_val),
-                    "rank": rank,
-                })
-
-        return pd.DataFrame(records)
 
     def _save_outputs(
         self,
@@ -1007,6 +886,7 @@ class ALSRecommender:
         users: List[int],
         items: List[int],
         model: Any,
+        model_bpr: Any = None,
     ) -> None:
         """
         ALS 모델의 출력 결과를 저장합니다.
@@ -1017,12 +897,14 @@ class ALSRecommender:
         - als_item_mapping.csv: 아이템 인덱스-ID 매핑
         - als_user_factors.npy: 사용자 임베딩 행렬
         - als_item_factors.npy: 아이템 임베딩 행렬
+        - (BPR 학습 시) bpr_user_factors.npy, bpr_item_factors.npy
         
         Args:
             recommendations: 추천 결과 데이터프레임
             users: 사용자 ID 리스트
             items: 아이템 ID 리스트
             model: 학습된 ALS 모델
+            model_bpr: 학습된 BPR 모델 (있으면 factors 저장, hold-out 평가용)
         """
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         recommendations.to_csv(self.processed_dir / "als_recommendations.csv", index=False)
@@ -1035,6 +917,9 @@ class ALSRecommender:
 
         np.save(self.processed_dir / "als_user_factors.npy", model.user_factors)
         np.save(self.processed_dir / "als_item_factors.npy", model.item_factors)
+        if model_bpr is not None and hasattr(model_bpr, "user_factors") and hasattr(model_bpr, "item_factors"):
+            np.save(self.processed_dir / "bpr_user_factors.npy", model_bpr.user_factors)
+            np.save(self.processed_dir / "bpr_item_factors.npy", model_bpr.item_factors)
 
     def _create_visualizations(
         self,
@@ -4157,6 +4042,8 @@ class BaselineComparator:
     1. 전처리 -> ALS -> 평가
     2. 전처리 -> GNN -> 평가
     3. 전처리 -> ALS -> GNN -> 평가 (ReRanker) -> 평가
+
+    (시나리오 1 ALS는 als_debug.py 파이프라인으로 실행되며, als_events_* 로 평가)
     """
 
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -4195,6 +4082,43 @@ class BaselineComparator:
         )
         return positives, test_users
 
+    MIN_TEST_POSITIVES_FOR_ALS = 2  # als_debug.MIN_TEST_POSITIVES와 동일
+
+    def _read_als_recommendations_for_users(
+        self, user_ids: np.ndarray, chunksize: int = 200_000
+    ) -> pd.DataFrame:
+        """als_recommendations.csv를 청크로 읽어 user_ids에 해당하는 행만 반환 (메모리 절약)."""
+        path = self.processed_dir / "als_recommendations.csv"
+        if not path.exists():
+            return pd.DataFrame()
+        user_set = set(np.asarray(user_ids).flat)
+        chunks = []
+        for chunk in pd.read_csv(path, chunksize=chunksize, dtype={"visitorid": np.int32, "itemid": np.int32}):
+            chunk = chunk[chunk["visitorid"].isin(user_set)]
+            if not chunk.empty:
+                chunks.append(chunk)
+        if not chunks:
+            return pd.DataFrame()
+        return pd.concat(chunks, ignore_index=True)
+
+    def _read_als_recommendations_and_item_set(
+        self, user_ids: np.ndarray, chunksize: int = 200_000
+    ) -> Tuple[pd.DataFrame, Set[int]]:
+        """als_recommendations.csv를 청크로 읽어 user_ids 행만 반환하고, 전체 unique itemid 집합도 반환."""
+        path = self.processed_dir / "als_recommendations.csv"
+        if not path.exists():
+            return pd.DataFrame(), set()
+        user_set = set(np.asarray(user_ids).flat)
+        chunks = []
+        all_item_ids: Set[int] = set()
+        for chunk in pd.read_csv(path, chunksize=chunksize, dtype={"visitorid": np.int32, "itemid": np.int32}):
+            all_item_ids.update(chunk["itemid"].dropna().astype(int).tolist())
+            part = chunk[chunk["visitorid"].isin(user_set)]
+            if not part.empty:
+                chunks.append(part)
+        rec = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
+        return rec, all_item_ids
+
     def _evaluate(
         self,
         recommendations: pd.DataFrame,
@@ -4220,11 +4144,14 @@ class BaselineComparator:
         NDCG/Recall이 0인 원인을 진단합니다.
         - 테스트 유저 중 ALS 추천에 포함된 유저 수
         - 테스트 positive 아이템 중 ALS 아이템 공간에 포함된 비율
-        - 테스트 유저별 학습 데이터(events_train_clean) 상호작용 수
+        - 테스트 유저별 학습 데이터 상호작용 수
         - 유저별 ALS Top-K와 positive 아이템 교집합 수
         """
-        events_test_path = self.processed_dir / "events_test.csv"
-        events_train_path = self.processed_dir / "events_train_clean.csv"
+        events_test_path = self.processed_dir / "als_events_test.csv"
+        events_train_path = self.processed_dir / "als_events_train.csv"
+        if not events_test_path.exists() or not events_train_path.exists():
+            events_test_path = self.processed_dir / "events_test.csv"
+            events_train_path = self.processed_dir / "events_train_clean.csv"
         als_rec_path = self.processed_dir / "als_recommendations.csv"
         if not events_test_path.exists() or not events_train_path.exists() or not als_rec_path.exists():
             logger.warning("ALS 진단에 필요한 파일이 없어 진단을 건너뜁니다.")
@@ -4232,7 +4159,6 @@ class BaselineComparator:
 
         events_test = pd.read_csv(events_test_path)
         events_train_clean = pd.read_csv(events_train_path)
-        als_rec = pd.read_csv(als_rec_path)
 
         test_users = events_test["visitorid"].dropna().astype(int).unique()
         pos_events = events_test[
@@ -4251,10 +4177,12 @@ class BaselineComparator:
         for s in positives.values():
             all_positive_item_ids |= s
 
-        als_user_set = set(als_rec["visitorid"].astype(int).unique())
-        als_item_set = set(als_rec["itemid"].astype(int).unique())
-
         test_users_with_positives = np.array([u for u in test_users if u in positives and positives[u]])
+        als_rec, als_item_set = self._read_als_recommendations_and_item_set(test_users_with_positives)
+        if als_rec.empty:
+            logger.warning("ALS 진단: als_recommendations에서 평가 유저 행이 없습니다.")
+            return
+        als_user_set = set(als_rec["visitorid"].astype(int).unique())
         n_test = len(test_users)
         n_test_with_pos = len(test_users_with_positives)
         n_in_als = sum(1 for u in test_users_with_positives if u in als_user_set)
@@ -4334,38 +4262,58 @@ class BaselineComparator:
 
     def _run_als_scenario(self) -> Dict[str, Any]:
         t0 = time.perf_counter()
-        pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
-        pre.run()
-        t_pre = time.perf_counter() - t0
-
-        t1 = time.perf_counter()
         als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
         als.run()
-        t_als = time.perf_counter() - t1
+        t_als = time.perf_counter() - t0
 
-        t2 = time.perf_counter()
-        positives, test_users = self._load_positives()
-        als_rec = pd.read_csv(self.processed_dir / "als_recommendations.csv")
-        # ALS는 train inlier 아이템만 추천 가능. 테스트 positive 중 해당 공간에 있는 것만 사용해 NDCG/Recall 계산.
-        als_item_set = set(als_rec["itemid"].astype(int).unique())
-        positives_als = {
-            uid: (rel & als_item_set) for uid, rel in positives.items()
-        }
-        n_reachable = sum(1 for rel in positives_als.values() if rel)
-        if n_reachable:
-            logger.info(
-                "ALS 평가: positive를 ALS 아이템 공간으로 제한 (평가 대상 유저 수: %d)",
-                n_reachable,
+        t1 = time.perf_counter()
+        als_events_train_path = self.processed_dir / "als_events_train.csv"
+        als_events_test_path = self.processed_dir / "als_events_test.csv"
+        if als_events_train_path.exists() and als_events_test_path.exists():
+            events_train = pd.read_csv(als_events_train_path)
+            events_test = pd.read_csv(als_events_test_path)
+            train_item_set = set(events_train["itemid"].dropna().astype(int).unique())
+            pos_events = events_test[
+                events_test["event"].isin(["addtocart", "transaction"])
+            ].dropna(subset=["visitorid", "itemid"])
+            pos_events = pos_events.assign(
+                visitorid=pos_events["visitorid"].astype(int),
+                itemid=pos_events["itemid"].astype(int),
             )
-        ndcg, recall = self._evaluate(als_rec, positives_als, test_users, score_col="score")
-        t_eval = time.perf_counter() - t2
+            positives = (
+                pos_events.groupby("visitorid")["itemid"]
+                .apply(lambda s: set(s.tolist()))
+                .to_dict()
+            )
+            positives_filtered = {}
+            for uid, rel in positives.items():
+                filtered = rel & train_item_set
+                if filtered:
+                    positives_filtered[uid] = filtered
+            eval_users = np.array([
+                u for u in positives
+                if len(positives_filtered.get(u, set())) >= self.MIN_TEST_POSITIVES_FOR_ALS
+            ])
+            als_rec = self._read_als_recommendations_for_users(eval_users)
+            if len(eval_users):
+                logger.info("ALS 평가: als_events 기반 (평가 대상 유저 수: %d)", len(eval_users))
+            ndcg, recall = self._evaluate(als_rec, positives_filtered, eval_users, score_col="score")
+        else:
+            positives, test_users = self._load_positives()
+            als_rec, als_item_set = self._read_als_recommendations_and_item_set(test_users)
+            positives_als = {uid: (rel & als_item_set) for uid, rel in positives.items()}
+            n_reachable = sum(1 for rel in positives_als.values() if rel)
+            if n_reachable:
+                logger.info("ALS 평가: positive를 ALS 아이템 공간으로 제한 (평가 대상 유저 수: %d)", n_reachable)
+            ndcg, recall = self._evaluate(als_rec, positives_als, test_users, score_col="score")
+        t_eval = time.perf_counter() - t1
 
         self._diagnose_als()
 
         return {
             "ndcg": ndcg,
             "recall": recall,
-            "times": {"전처리": t_pre, "ALS": t_als, "평가": t_eval, "총합": t_pre + t_als + t_eval},
+            "times": {"전처리": 0.0, "ALS": t_als, "평가": t_eval, "총합": t_als + t_eval},
         }
 
     def _generate_gnn_recs(self, test_users: np.ndarray) -> pd.DataFrame:
@@ -4475,20 +4423,11 @@ class BaselineComparator:
             print(f"{name:14} | {ndcg:^{w}.4f} | {recall:^{w}.4f} | {t_pre:^{w}.2f} | {t_als:^{w}.2f} | {t_gnn:^{w}.2f} | {t_rerank:^{w}.2f} | {t_eval:^{w}.2f} | {t_tot:^{w}.2f}")
 
             if "1. ALS" in name:
-                print(f"  - 전처리    | {blk} | {blk} | {t_pre:^{w}.2f} | {blk} | {blk} | {blk} | {blk} | {blk}")
-                print(f"  - ALS       | {blk} | {blk} | {blk} | {t_als:^{w}.2f} | {blk} | {blk} | {blk} | {blk}")
-                print(f"  - 평가      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_eval:^{w}.2f} | {blk}")
+                pass
             elif "2. GNN" in name:
-                print(f"  - 전처리    | {blk} | {blk} | {t_pre:^{w}.2f} | {blk} | {blk} | {blk} | {blk} | {blk}")
-                print(f"  - GNN       | {blk} | {blk} | {blk} | {blk} | {t_gnn:^{w}.2f} | {blk} | {blk} | {blk}")
-                print(f"  - 평가      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_eval:^{w}.2f} | {blk}")
+                pass
             elif "3. ALS+GNN" in name:
-                print(f"  - 전처리    | {blk} | {blk} | {t_pre:^{w}.2f} | {blk} | {blk} | {blk} | {blk} | {blk}")
-                print(f"  - ALS       | {blk} | {blk} | {blk} | {t_als:^{w}.2f} | {blk} | {blk} | {blk} | {blk}")
-                print(f"  - GNN       | {blk} | {blk} | {blk} | {blk} | {t_gnn:^{w}.2f} | {blk} | {blk} | {blk}")
-                print(f"  - ReRanker  | {blk} | {blk} | {blk} | {blk} | {blk} | {t_rerank:^{w}.2f} | {blk} | {blk}")
-                print(f"  - 평가      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_eval:^{w}.2f} | {blk}")
-            print(f"  - 총합      | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {blk} | {t_tot:^{w}.2f}")
+                pass
             print(sep)
         print()
 
@@ -4504,24 +4443,24 @@ if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
 
-    als_recommender = ALSRecommender()
-    als_recommender.run()
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
 
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
 
-    reranker = ReRanker()
-    reranker.run()
+    # reranker = ReRanker()
+    # reranker.run()
     
-    # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    evaluator = TestSetEvaluator(
-        evaluation_mode="score_based",
-        top_k=50,
-        score_percentile=50.0 # score-based 모드일 시 주석해제
-        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    )
-    evaluator.run()
+    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
+    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
+    # evaluator = TestSetEvaluator(
+    #     evaluation_mode="score_based",
+    #     top_k=50,
+    #     score_percentile=50.0 # score-based 모드일 시 주석해제
+    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    # )
+    # evaluator.run()
     
     # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
     # comparator = RecommendationComparator(top_k=200)
@@ -4533,3 +4472,6 @@ if __name__ == "__main__":
     #     top_k=50,
     # )
     # comparator.run()
+    
+    baseline_comparator = BaselineComparator()
+    baseline_comparator.run()
