@@ -1,19 +1,66 @@
 """
-ALS 단독 테스트 스크립트
-- 데이터 로드 → ALS 학습 → 추천 생성 → NDCG/Recall 평가
-- 각 단계에서 상세 정보 출력
+ALS 단독 테스트 스크립트 (NDCG/Recall 평가용)
+
+[논문용 NDCG/Recall 평가 프로토콜]
+- Train: events_train_clean (이벤트 기반 80% 분할, Core 필터 적용 가능)
+- Test 정답: Test 기간 중 addtocart/transaction 이벤트의 (user, item) 쌍
+- 평가 대상: Test에 positive가 있고 Train에도 등장한 유저만 (추천 가능 유저)
+- 추천: 모델 점수로 전체 아이템 정렬 후 상위 K개
+- NDCG@K: 유저별 DCG/IDCG 평균 (정답이 상위에 있을수록 높음)
+- Recall@K: 유저별 (상위 K개 중 Hit 수)/(해당 유저 정답 수) 평균
+- 보고: NDCG@10, NDCG@50, Recall@10, Recall@50 (논문 표준)
 """
 import pandas as pd
 import numpy as np
 import scipy.sparse as sp
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 from implicit.als import AlternatingLeastSquares
+
+try:
+    from implicit.cpu.bpr import BayesianPersonalizedRanking
+    HAS_BPR = True
+except ImportError:
+    try:
+        from implicit.bpr import BayesianPersonalizedRanking
+        HAS_BPR = True
+    except ImportError:
+        HAS_BPR = False
+
+
+def compute_ndcg_recall_at_k(
+    eval_users: List[int],
+    positives_filtered: Dict[int, Set[int]],
+    recommendations: Dict[int, List[int]],
+    k: int,
+) -> Tuple[float, float]:
+    """NDCG@K, Recall@K 평균 (논문용 프로토콜)."""
+    ndcgs, recalls = [], []
+    for user_id in eval_users:
+        if user_id not in positives_filtered:
+            continue
+        rel = positives_filtered[user_id]
+        rec = recommendations.get(user_id, [])[:k]
+        rec_set = set(rec)
+        hits = rec_set & rel
+        hit_count = len(hits)
+        recall = hit_count / len(rel) if rel else 0.0
+        recalls.append(recall)
+        dcg = sum(1.0 / np.log2(i + 2) for i, item_id in enumerate(rec) if item_id in rel)
+        n = min(len(rel), k)
+        idcg = sum(1.0 / np.log2(j + 2) for j in range(n))
+        ndcg = dcg / idcg if idcg > 0 else 0.0
+        ndcgs.append(ndcg)
+    mean_ndcg = np.mean(ndcgs) if ndcgs else 0.0
+    mean_recall = np.mean(recalls) if recalls else 0.0
+    return mean_ndcg, mean_recall
 
 
 def main():
     processed_dir = Path("data/processed")
     top_k = 50
+    # 논문용 NDCG/Recall 보고 K 값
+    k_list = [10, 50]
     # NDCG/Recall 극대화용 설정
     MIN_USER_EVENTS = 2   # Core 필터: 최소 상호작용 수 (희소도 완화)
     MIN_ITEM_EVENTS = 2
@@ -266,48 +313,73 @@ def main():
     print(f"원본 positives: {len(positives)} 유저")
     print(f"Train 아이템으로 필터링 후: {len(positives_filtered)} 유저")
     
-    # 상세 분석: 몇 명이 hit이 있는지
+    # 상세 분석: Hit 통계 (top_k 기준)
     hit_counts = []
-    ndcgs = []
-    recalls = []
-    
     for user_id in eval_users:
         if user_id not in positives_filtered:
             continue
-        
         rel = positives_filtered[user_id]
-        rec = recommendations.get(user_id, [])
-        rec_set = set(rec[:top_k])
-        
-        hits = rec_set & rel
-        hit_count = len(hits)
-        hit_counts.append(hit_count)
-        
-        # Recall@K
-        recall = hit_count / len(rel) if rel else 0.0
-        recalls.append(recall)
-        
-        # NDCG@K
-        dcg = 0.0
-        for i, item_id in enumerate(rec[:top_k]):
-            if item_id in rel:
-                dcg += 1.0 / np.log2(i + 2)
-        n = min(len(rel), top_k)
-        idcg = sum(1.0 / np.log2(j + 2) for j in range(n))
-        ndcg = dcg / idcg if idcg > 0 else 0.0
-        ndcgs.append(ndcg)
+        rec_set = set(recommendations.get(user_id, [])[:top_k])
+        hit_counts.append(len(rec_set & rel))
     
     print(f"\n평가 유저 수: {len(hit_counts)}")
     print(f"Hit >= 1 인 유저 수: {sum(1 for h in hit_counts if h >= 1)}")
     print(f"Hit 평균: {np.mean(hit_counts):.4f}")
     print(f"Hit 최대: {max(hit_counts) if hit_counts else 0}")
     
-    mean_ndcg = np.mean(ndcgs) if ndcgs else 0.0
-    mean_recall = np.mean(recalls) if recalls else 0.0
+    # 논문용 NDCG/Recall 보고 (K=10, 50)
+    print(f"\n[ALS] NDCG/Recall (논문 보고용):")
+    for k in k_list:
+        mean_ndcg, mean_recall = compute_ndcg_recall_at_k(
+            eval_users, positives_filtered, recommendations, k
+        )
+        print(f"  NDCG@{k}: {mean_ndcg:.6f}  Recall@{k}: {mean_recall:.6f}")
     
-    print(f"\n최종 결과:")
-    print(f"  NDCG@{top_k}: {mean_ndcg:.6f}")
-    print(f"  Recall@{top_k}: {mean_recall:.6f}")
+    # BPR (랭킹 손실 기반) — NDCG/Recall에 맞춘 비교용
+    if HAS_BPR:
+        print("\n" + "=" * 60)
+        print("BPR (ranking-oriented baseline, NDCG/Recall 동일 프로토콜)")
+        print("=" * 60)
+        model_bpr = BayesianPersonalizedRanking(
+            factors=als_factors,
+            regularization=0.01,
+            iterations=als_iterations,
+            random_state=42,
+        )
+        print("BPR 학습 중...")
+        model_bpr.fit(user_item_matrix)
+        rec_bpr: Dict[int, List[int]] = {}
+        for user_id in eval_users:
+            user_idx = user_id_to_idx.get(user_id)
+            if user_idx is None:
+                continue
+            user_items = user_item_matrix[user_idx : user_idx + 1]
+            item_indices, scores = model_bpr.recommend(
+                np.array([user_idx]),
+                user_items,
+                N=recommend_n,
+                filter_already_liked_items=True,
+            )
+            cand_ids = [idx_to_item_id[idx] for idx in item_indices[0] if idx in idx_to_item_id]
+            cand_scores = scores[0][: len(cand_ids)].tolist()
+            if long_tail_bonus > 0 and cand_ids:
+                pop_list = [item_pop_by_id.get(iid, 0) for iid in cand_ids]
+                new_scores = [
+                    s + long_tail_bonus * (1.0 / (p + 1.0))
+                    for s, p in zip(cand_scores, pop_list)
+                ]
+                sorted_pairs = sorted(zip(cand_ids, new_scores), key=lambda x: -x[1])
+                rec_bpr[user_id] = [item_id for item_id, _ in sorted_pairs[:top_k]]
+            else:
+                rec_bpr[user_id] = cand_ids[:top_k]
+        print("[BPR] NDCG/Recall (논문 보고용):")
+        for k in k_list:
+            mean_ndcg, mean_recall = compute_ndcg_recall_at_k(
+                eval_users, positives_filtered, rec_bpr, k
+            )
+            print(f"  NDCG@{k}: {mean_ndcg:.6f}  Recall@{k}: {mean_recall:.6f}")
+    else:
+        print("\n(BPR 비교: implicit에 BayesianPersonalizedRanking 없음, pip install implicit 최신 버전)")
     
     # ========================================
     # 7. 샘플 유저 상세 분석
