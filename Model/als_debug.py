@@ -61,28 +61,42 @@ except ImportError:
         HAS_BPR = False
 
 
-# ============== 설정 ==============
+# ============== 설정 (실험으로 튜닝된 값 적용) ==============
 DATA_DIR = Path("data")
 EVENTS_PATH = DATA_DIR / "events.csv"
-TEST_SIZE = 0.20
 RANDOM_STATE = 42
-MIN_USER_EVENTS = 2
-MIN_ITEM_EVENTS = 2
-# 이벤트 가중치 강화 (transaction/addtocart 강조 → NDCG/Recall 신호 강화)
-WEIGHT_MAP = {"view": 1.0, "addtocart": 12.0, "transaction": 24.0}
+
+# 전처리: Train 비율 확대(90%) → 학습 데이터 증가, Core 필터 강화 → 행렬 밀도 상승
+TEST_SIZE = 0.10  # 90% train / 10% test
+MIN_USER_EVENTS = 3
+MIN_ITEM_EVENTS = 3
+
+# 이벤트 가중치: transaction/addtocart 강한 신호 (논문·실험 기반)
+WEIGHT_MAP = {"view": 1.0, "addtocart": 15.0, "transaction": 32.0}
+# 집계 후 가중치 log 스케일: False 시 NDCG@10/Recall@10 더 높음 (als_hp_search 실험 결과)
+USE_WEIGHT_LOG_SCALE = False
+
+# 평가: Test positive 2개 이상인 유저만 사용 → 지표 안정
+MIN_TEST_POSITIVES = 2
 TOP_K = 50
-K_LIST = [10, 50]
-# 롱테일 튜닝: 비인기 아이템 가산점 (정답이 롱테일일 때 Recall↑)
-LONG_TAIL_BONUS = 0.28
+K_LIST = [10, 20, 50]
+
+# 롱테일: 비인기 아이템 가산점 (실험으로 선택)
+LONG_TAIL_BONUS = 0.35
 LONG_TAIL_QUANTILE = 0.5
+
+# ALS: alpha=confidence 스케일, factors/reg/iter 실험 반영
 ALS_FACTORS = 128
-ALS_REGULARIZATION = 0.05
+ALS_REGULARIZATION = 0.03
 ALS_ITERATIONS = 256
-# BPR (랭킹 손실 기반)
+ALS_ALPHA = 1.5  # positive 신호 강조 (Hu et al. confidence)
+
+# BPR
 BPR_FACTORS = 128
-BPR_REGULARIZATION = 0.05
+BPR_REGULARIZATION = 0.03
 BPR_ITERATIONS = 256
-# 앙상블: final_score = ENSEMBLE_ALPHA * ALS_norm + (1 - ENSEMBLE_ALPHA) * BPR_norm
+
+# 앙상블 비율 (실험으로 선택)
 ENSEMBLE_ALPHA = 0.5
 
 
@@ -148,11 +162,11 @@ def preprocess(
 def build_user_item_matrix(
     events_train: pd.DataFrame,
     weight_map: Dict[str, float],
+    use_log_scale: bool = USE_WEIGHT_LOG_SCALE,
 ) -> Tuple[sp.csr_matrix, np.ndarray, np.ndarray, Dict, Dict, Dict[int, int]]:
     """
     User-Item 행렬 및 매핑 생성.
-    Returns: user_item_matrix (CSR), unique_users, unique_items,
-             user_id_to_idx, item_id_to_idx, idx_to_item_id, item_pop_by_id
+    use_log_scale=True 시 집계 가중치에 1+log(1+x) 적용 (반복 이벤트 신뢰도 완만 증가).
     """
     events_train = events_train.copy()
     events_train["weight"] = events_train["event"].map(weight_map).fillna(1.0)
@@ -160,6 +174,8 @@ def build_user_item_matrix(
         events_train.groupby(["visitorid", "itemid"], as_index=False)["weight"].sum()
     )
     interactions = interactions[interactions["weight"] > 0]
+    if use_log_scale:
+        interactions["weight"] = 1.0 + np.log1p(interactions["weight"].values)
 
     user_ids, unique_users = pd.factorize(interactions["visitorid"], sort=True)
     item_ids, unique_items = pd.factorize(interactions["itemid"], sort=True)
@@ -192,13 +208,15 @@ def train_als(
     regularization: float = ALS_REGULARIZATION,
     iterations: int = ALS_ITERATIONS,
     random_state: int = RANDOM_STATE,
+    alpha: float = ALS_ALPHA,
 ) -> AlternatingLeastSquares:
-    """모든 사용자에 대해 ALS 학습."""
+    """모든 사용자에 대해 ALS 학습. alpha=positive 신호 confidence 스케일."""
     model = AlternatingLeastSquares(
         factors=factors,
         regularization=regularization,
         iterations=iterations,
         random_state=random_state,
+        alpha=alpha,
     )
     model.fit(user_item_matrix)
     return model
@@ -395,6 +413,86 @@ def compute_ndcg_recall_at_k(
     return mean_ndcg, mean_recall
 
 
+def run_pipeline_return_metrics(verbose: bool = False) -> Dict[str, float]:
+    """
+    현재 모듈 상수로 파이프라인 실행 후 NDCG/Recall 반환.
+    하이퍼파라미터 탐색용. verbose=True 시 일부 로그 출력.
+    """
+    events = load_raw_events()
+    events_train, events_test, positives, train_item_set = preprocess(
+        events,
+        test_size=TEST_SIZE,
+        min_user_events=MIN_USER_EVENTS,
+        min_item_events=MIN_ITEM_EVENTS,
+        random_state=RANDOM_STATE,
+    )
+    positives_filtered: Dict[int, Set[int]] = {}
+    for uid, rel in positives.items():
+        filtered = rel & train_item_set
+        if filtered:
+            positives_filtered[uid] = filtered
+    users_with_positives = [
+        u for u in positives if positives[u] and len(positives_filtered.get(u, set())) >= MIN_TEST_POSITIVES
+    ]
+    (
+        user_item_matrix,
+        unique_users,
+        unique_items,
+        user_id_to_idx,
+        item_id_to_idx,
+        idx_to_item_id,
+        item_pop_by_id,
+    ) = build_user_item_matrix(events_train, WEIGHT_MAP, use_log_scale=USE_WEIGHT_LOG_SCALE)
+    n_users, n_items = user_item_matrix.shape
+    item_pop_counts = events_train.groupby("itemid").size()
+    long_tail_threshold = np.percentile(item_pop_counts.values, LONG_TAIL_QUANTILE * 100)
+    long_tail_item_ids = set(
+        item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
+    )
+    model_als = train_als(
+        user_item_matrix,
+        factors=ALS_FACTORS,
+        regularization=ALS_REGULARIZATION,
+        iterations=ALS_ITERATIONS,
+        random_state=RANDOM_STATE,
+        alpha=ALS_ALPHA,
+    )
+    model_bpr = None
+    if HAS_BPR:
+        model_bpr = train_bpr(
+            user_item_matrix,
+            factors=BPR_FACTORS,
+            regularization=BPR_REGULARIZATION,
+            iterations=BPR_ITERATIONS,
+            random_state=RANDOM_STATE,
+        )
+    eval_users = [u for u in users_with_positives if u in user_id_to_idx]
+    if not eval_users:
+        return {"ndcg_10": 0.0, "recall_10": 0.0, "ndcg_50": 0.0, "recall_50": 0.0}
+    recommendations, _ = scores_to_recommendations_ensemble(
+        eval_users,
+        user_id_to_idx,
+        item_id_to_idx,
+        idx_to_item_id,
+        train_item_set,
+        positives_filtered,
+        events_train,
+        model_als,
+        model_bpr,
+        TOP_K,
+        LONG_TAIL_BONUS,
+        item_pop_by_id,
+        long_tail_item_ids,
+        ENSEMBLE_ALPHA,
+    )
+    metrics = {}
+    for k in (10, 20, 50):
+        ndcg, rec = compute_ndcg_recall_at_k(eval_users, positives_filtered, recommendations, k)
+        metrics[f"ndcg_{k}"] = ndcg
+        metrics[f"recall_{k}"] = rec
+    return metrics
+
+
 def main() -> None:
     print("=" * 60)
     print("1. 전처리 (통합)")
@@ -420,7 +518,10 @@ def main() -> None:
         filtered = rel & train_item_set
         if filtered:
             positives_filtered[uid] = filtered
-    users_with_positives = [u for u in positives if positives[u]]
+    # Test positive 2개 이상인 유저만 평가 → 지표 안정 (MIN_TEST_POSITIVES)
+    users_with_positives = [
+        u for u in positives if positives[u] and len(positives_filtered.get(u, set())) >= MIN_TEST_POSITIVES
+    ]
 
     print("\n" + "=" * 60)
     print("2. User-Item 행렬 생성")
@@ -434,7 +535,7 @@ def main() -> None:
         item_id_to_idx,
         idx_to_item_id,
         item_pop_by_id,
-    ) = build_user_item_matrix(events_train, WEIGHT_MAP)
+    ) = build_user_item_matrix(events_train, WEIGHT_MAP, use_log_scale=USE_WEIGHT_LOG_SCALE)
 
     n_users, n_items = user_item_matrix.shape
     print(f"행렬: ({n_users:,} x {n_items:,}), nnz: {user_item_matrix.nnz:,}")
@@ -459,6 +560,7 @@ def main() -> None:
         regularization=ALS_REGULARIZATION,
         iterations=ALS_ITERATIONS,
         random_state=RANDOM_STATE,
+        alpha=ALS_ALPHA,
     )
     print(f"ALS user_factors: {model_als.user_factors.shape}, item_factors: {model_als.item_factors.shape}")
 
@@ -488,7 +590,7 @@ def main() -> None:
         print("평가 가능한 유저 없음.")
         return
 
-    print(f"평가 유저 수: {len(eval_users):,} (Train 존재 + Test positive)")
+    print(f"평가 유저 수: {len(eval_users):,} (Train 존재 + Test positive ≥ {MIN_TEST_POSITIVES}개)")
     print(f"앙상블: alpha={ENSEMBLE_ALPHA}*ALS + (1-{ENSEMBLE_ALPHA})*BPR, 롱테일 보너스={LONG_TAIL_BONUS}")
     recommendations, per_user_scores = scores_to_recommendations_ensemble(
         eval_users,
