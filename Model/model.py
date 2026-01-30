@@ -20,7 +20,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -74,6 +74,25 @@ NUMERIC_PATTERN = re.compile(r"(?P<sign>n|-)?(?P<number>\d+(?:\.\d+)?)")
 
 # 이벤트 타입별 가중치 (transaction > addtocart > view)
 EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
+
+# ALS 전용 가중치·설정 (als_debug 실험 반영, NDCG/Recall 향상)
+ALS_WEIGHT_MAP: Dict[str, float] = {"view": 1.0, "addtocart": 15.0, "transaction": 32.0}
+USE_WEIGHT_LOG_SCALE = False
+LONG_TAIL_BONUS = 0.35
+LONG_TAIL_QUANTILE = 0.5
+ENSEMBLE_ALPHA = 0.5
+BPR_REGULARIZATION = 0.03
+
+try:
+    from implicit.cpu.bpr import BayesianPersonalizedRanking
+    HAS_BPR = True
+except ImportError:
+    try:
+        from implicit.bpr import BayesianPersonalizedRanking
+        HAS_BPR = True
+    except ImportError:
+        HAS_BPR = False
+        BayesianPersonalizedRanking = None
 
 
 def _ndcg_at_k(
@@ -695,55 +714,57 @@ class IsolationForestPreprocessor:
 @dataclass
 class ALSRecommender:
     """
-    ALS(Alternating Least Squares) 기반 협업 필터링 추천 시스템
+    ALS(Alternating Least Squares) 기반 협업 필터링 추천 시스템 (BPR 앙상블·롱테일 보너스 지원).
     
-    암시적 피드백(implicit feedback) 데이터를 사용하여 사용자-아이템 상호작용을 모델링하고
-    추천을 생성합니다. 이벤트 타입(view, addtocart, transaction)에 따라 가중치를 부여하여
-    학습합니다.
+    암시적 피드백 데이터를 사용하며, 이벤트별 가중치(weight_map), 선택적 BPR 앙상블,
+    롱테일 보너스로 Top-K 추천을 생성합니다. ReRanker·평가 파이프라인과 호환됩니다.
     
     Attributes:
         processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
         factors: 사용자/아이템 임베딩 차원 수
-        regularization: 정규화 계수 (과적합 방지)
+        regularization: 정규화 계수
         iterations: ALS 학습 반복 횟수
-        alpha: 암시적 피드백 가중치 (confidence 계산에 사용)
+        alpha: 암시적 피드백 confidence (Hu et al.)
         top_k: 사용자당 추천할 아이템 수
-        random_state: 재현성을 위한 랜덤 시드
-        recommend_batch_size: 추천 생성 시 배치 크기
-        positive_event_boost: 긍정적 이벤트(addtocart, transaction) 가중치 배수
+        weight_map: 이벤트별 가중치 (None이면 ALS_WEIGHT_MAP 사용)
+        use_weight_log_scale: 집계 가중치에 1+log(1+x) 적용 여부
+        long_tail_bonus: 비인기 아이템 가산점
+        ensemble_alpha: ALS+BPR 앙상블 시 alpha*ALS + (1-alpha)*BPR
+        min_user_events, min_item_events: Core 필터 (0이면 미적용)
     """
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
-    factors: int = 32
-    regularization: float = 0.1
-    iterations: int = 128
-    alpha: float = 1.0
-    top_k: int = 20
+    factors: int = 128
+    regularization: float = 0.03
+    iterations: int = 256
+    alpha: float = 1.5
+    top_k: int = 50
     random_state: int = 42
     recommend_batch_size: int = 256
-    positive_event_boost: float = 5.0
-    early_stopping_patience: Optional[int] = 5  # None이면 early stopping 비활성화
-    min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
-    loss_batch_size: int = 1000  # Loss 계산 시 배치 크기 (메모리 효율성)
-    loss_sample_size: Optional[int] = None  # Loss 계산 시 샘플링할 사용자 수 (None이면 전체 사용)
+    weight_map: Optional[Dict[str, float]] = None  # None이면 ALS_WEIGHT_MAP 사용
+    use_weight_log_scale: bool = False
+    long_tail_bonus: float = 0.35
+    long_tail_quantile: float = 0.5
+    ensemble_alpha: float = 0.5  # ALS+BPR 앙상블 시 alpha*ALS + (1-alpha)*BPR
+    min_user_events: int = 0  # 0이면 Core 필터 미적용
+    min_item_events: int = 0
 
     def run(self) -> None:
         """
-        ALS 추천 파이프라인을 실행합니다.
+        ALS 추천 파이프라인을 실행합니다 (als_debug 로직 통합).
         
         실행 순서:
-        1. 전처리된 이벤트 데이터 로드
-        2. 사용자-아이템 상호작용 행렬 생성
-        3. ALS 모델 학습
-        4. 사용자별 상위 K개 아이템 추천 생성
-        5. 결과 저장 및 시각화
+        1. 전처리된 이벤트 데이터 로드 (선택적 Core 필터)
+        2. 사용자-아이템 상호작용 행렬 생성 (가중치·로그 스케일 적용)
+        3. ALS 모델 학습 (alpha=confidence)
+        4. (선택) BPR 앙상블 학습
+        5. 선호도 점수 기반 Top-K 추천 생성 (롱테일 보너스·앙상블)
+        6. 결과 저장 및 시각화
         """
-        # 시드 고정 (재현가능성 보장)
         np.random.seed(self.random_state)
         random.seed(self.random_state)
-        
         try:
             from implicit.als import AlternatingLeastSquares as ALSModel
-        except ImportError as exc:  # pragma: no cover - runtime dependency may be missing in dev env
+        except ImportError as exc:
             raise ImportError(
                 "implicit 패키지가 필요합니다. `pip install implicit` 명령으로 설치한 뒤 다시 실행해 주세요."
             ) from exc
@@ -753,15 +774,36 @@ class ALSRecommender:
             raise FileNotFoundError(
                 f"{events_path} 파일이 없습니다. 먼저 IsolationForestPreprocessor.run()을 실행해 주세요."
             )
-
         logger.info("Loading cleaned training events for ALS from %s", events_path)
         events = pd.read_csv(events_path)
+        if "event" not in events.columns:
+            events["event"] = "view"
 
-        interactions = self._prepare_interactions(events)
+        if self.min_user_events > 0 or self.min_item_events > 0:
+            user_counts = events.groupby("visitorid").size()
+            item_counts = events.groupby("itemid").size()
+            keep_users = set(user_counts[user_counts >= self.min_user_events].index.tolist())
+            keep_items = set(item_counts[item_counts >= self.min_item_events].index.tolist())
+            events = events[
+                events["visitorid"].isin(keep_users) & events["itemid"].isin(keep_items)
+            ].copy()
+        if events.empty:
+            raise ValueError("ALS 학습에 사용할 상호작용 데이터가 비어 있습니다.")
+
+        wmap = self.weight_map if self.weight_map is not None else ALS_WEIGHT_MAP
+        interactions = self._prepare_interactions(events, weight_map=wmap)
         if interactions.empty:
             raise ValueError("ALS 학습에 사용할 상호작용 데이터가 비어 있습니다.")
 
-        user_item_matrix, users, items = self._build_matrix(interactions)
+        (
+            user_item_matrix,
+            users,
+            items,
+            user_id_to_idx,
+            item_id_to_idx,
+            idx_to_item_id,
+            item_pop_by_id,
+        ) = self._build_matrix(interactions)
         logger.info(
             "Constructed user-item matrix with %d users, %d items, %d interactions",
             len(users),
@@ -769,152 +811,63 @@ class ALSRecommender:
             user_item_matrix.nnz,
         )
 
-        model = ALSModel(
+        model_als = ALSModel(
             factors=self.factors,
             regularization=self.regularization,
             iterations=self.iterations,
             random_state=self.random_state,
+            alpha=self.alpha,
         )
+        model_als.fit(user_item_matrix.tocsr())
+        logger.info("ALS model trained (factors=%d, iterations=%d, alpha=%.2f)", self.factors, self.iterations, self.alpha)
 
-        confidence_matrix = user_item_matrix * self.alpha
-        
-        # Train/Validation 분할 (80/20) - 사용자 레벨로 분할
-        np.random.seed(self.random_state)
-        n_users = len(users)
-        user_indices = np.arange(n_users)
-        train_user_indices, val_user_indices = train_test_split(
-            user_indices, test_size=0.2, random_state=self.random_state
-        )
-        
-        train_matrix = confidence_matrix[train_user_indices]
-        val_matrix = confidence_matrix[val_user_indices]
-        
-        logger.info("Training ALS model (factors=%d, iterations=%d)…", self.factors, self.iterations)
-        logger.info("Train users: %d, Validation users: %d", len(train_user_indices), len(val_user_indices))
-        
-        # Loss 계산용 샘플 인덱스 선택 (메모리 효율성)
-        # train_matrix와 val_matrix는 이미 분할된 행렬이므로 0부터 시작하는 인덱스 사용
-        n_train_users = len(train_user_indices)
-        n_val_users = len(val_user_indices)
-        
-        if self.loss_sample_size is not None and self.loss_sample_size < n_train_users:
-            np.random.seed(self.random_state)
-            train_sample_indices = np.random.choice(n_train_users, size=self.loss_sample_size, replace=False)
-            val_sample_indices = np.random.choice(n_val_users, size=min(self.loss_sample_size, n_val_users), replace=False)
-            logger.info("Using sampled users for loss calculation: %d train, %d val", 
-                       len(train_sample_indices), len(val_sample_indices))
-        else:
-            train_sample_indices = np.arange(n_train_users)
-            val_sample_indices = np.arange(n_val_users)
-        
-        # 학습 중 loss 추적
-        train_losses = []
-        val_losses = []
-        
-        # Early stopping 변수
-        best_val_loss = float("inf")
-        patience_counter = 0
-        best_iteration = 0
-        best_user_factors = None
-        best_item_factors = None
-        
-        # 각 iteration마다 모델을 학습하고 loss 계산
-        temp_model = ALSModel(
-            factors=self.factors,
-            regularization=self.regularization,
-            iterations=1,  # 한 번씩 학습
-            random_state=self.random_state,
-        )
-        
-        # 초기 loss 계산 (학습 전) - 샘플링 및 배치 처리로 메모리 효율성 향상
-        initial_user_factors = np.random.randn(len(users), self.factors).astype(np.float32) * 0.01
-        initial_item_factors = np.random.randn(len(items), self.factors).astype(np.float32) * 0.01
-        
-        # matrix (users x items) 기준: user_factors(유저 임베딩), item_factors(아이템 임베딩)
-        train_loss_init = self._compute_als_loss_batch(
-            initial_user_factors[train_user_indices], initial_item_factors,
-            train_matrix, train_sample_indices, self.loss_batch_size
-        )
-        val_loss_init = self._compute_als_loss_batch(
-            initial_user_factors[val_user_indices], initial_item_factors,
-            val_matrix, val_sample_indices, self.loss_batch_size
-        )
-        
-        train_losses.append(train_loss_init)
-        val_losses.append(val_loss_init)
-        
-        logger.info("Initial - Train Loss: %.6f, Val Loss: %.6f", train_loss_init, val_loss_init)
-        
-        # 각 iteration마다 학습. implicit은 (users x items) 행렬 기대: 행=유저, 열=아이템.
-        for iteration in range(1, self.iterations + 1):
-            if iteration == 1:
-                temp_model.fit(train_matrix.tocsr())
-            else:
-                temp_model.fit(train_matrix.tocsr())
-            
-            # train_matrix (users x items) → user_factors(유저), item_factors(아이템)
-            train_loss = self._compute_als_loss_batch(
-                temp_model.user_factors, temp_model.item_factors,
-                train_matrix, train_sample_indices, self.loss_batch_size
-            )
-            train_losses.append(train_loss)
-            
-            val_temp_model = ALSModel(
-                factors=self.factors,
-                regularization=self.regularization,
-                iterations=1,
-                random_state=self.random_state,
-            )
-            val_temp_model.fit(val_matrix.tocsr())
-            val_loss = self._compute_als_loss_batch(
-                val_temp_model.user_factors, val_temp_model.item_factors,
-                val_matrix, val_sample_indices, self.loss_batch_size
-            )
-            val_losses.append(val_loss)
-            
-            logger.info("Iteration %d/%d - Train Loss: %.6f, Val Loss: %.6f", 
-                       iteration, self.iterations, train_loss, val_loss)
-            
-            # Early stopping 체크
-            if self.early_stopping_patience is not None:
-                if val_loss < best_val_loss - self.min_delta:
-                    best_val_loss = val_loss
-                    patience_counter = 0
-                    best_iteration = iteration
-                    best_user_factors = temp_model.user_factors.copy()
-                    best_item_factors = temp_model.item_factors.copy()
-                    logger.info("  *** Best validation loss improved to %.6f at iteration %d ***", 
-                               best_val_loss, best_iteration)
-                else:
-                    patience_counter += 1
-                    logger.info("  No improvement for %d iteration(s) (patience: %d)", 
-                               patience_counter, self.early_stopping_patience)
-                    
-                    if patience_counter >= self.early_stopping_patience:
-                        logger.info("Early stopping triggered at iteration %d. Best iteration: %d (Val Loss: %.6f)",
-                                   iteration, best_iteration, best_val_loss)
-                        break
-        
-        # recommend는 전체 유저 대상이므로 항상 (users x items) 전체 데이터로 학습.
-        # early-stop 시 best iteration은 로깅용; 최종 모델은 전체 fit.
-        if self.early_stopping_patience is not None and best_iteration > 0:
-            logger.info(
-                "Early stop best iteration: %d (Val Loss: %.6f); fitting final model on full data.",
-                best_iteration, best_val_loss,
-            )
-        model.fit(confidence_matrix.tocsr())
-        
-        # Loss 그래프 출력
-        self._plot_als_losses(train_losses, val_losses, best_iteration if self.early_stopping_patience else None)
+        model_bpr = None
+        if HAS_BPR and BayesianPersonalizedRanking is not None:
+            try:
+                model_bpr = BayesianPersonalizedRanking(
+                    factors=self.factors,
+                    regularization=BPR_REGULARIZATION,
+                    iterations=self.iterations,
+                    random_state=self.random_state,
+                )
+                model_bpr.fit(user_item_matrix.tocsr())
+                logger.info("BPR model trained for ensemble (alpha=%.2f)", self.ensemble_alpha)
+            except Exception as e:
+                logger.warning("BPR 학습 건너뜀: %s", e)
 
-        logger.info("Generating top-%d recommendations per user…", self.top_k)
-        recommendations = self._generate_recommendations(model, user_item_matrix, users, items)
+        item_pop_counts = interactions.groupby("itemid").size()
+        long_tail_threshold = float(np.percentile(item_pop_counts.values, self.long_tail_quantile * 100))
+        long_tail_item_ids = set(
+            item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
+        )
+        user_train_items: Dict[int, Set[int]] = (
+            events.groupby("visitorid")["itemid"]
+            .apply(lambda x: set(x.astype(int).tolist()))
+            .to_dict()
+        )
+        eval_users = [int(u) for u in users if u in user_id_to_idx]
+
+        logger.info("Generating top-%d recommendations per user (ensemble=%s, long_tail=%.2f)…",
+                    self.top_k, model_bpr is not None, self.long_tail_bonus)
+        recommendations = self._generate_recommendations(
+            model_als,
+            model_bpr,
+            user_item_matrix,
+            users,
+            items,
+            user_id_to_idx,
+            item_id_to_idx,
+            idx_to_item_id,
+            item_pop_by_id,
+            user_train_items,
+            eval_users,
+            long_tail_item_ids=long_tail_item_ids,
+        )
         logger.info("ALS recommendation generation completed for %d users", len(recommendations.groupby("visitorid")))
 
-        self._save_outputs(recommendations, users, items, model)
+        self._save_outputs(recommendations, users, items, model_als)
         logger.info("Saved ALS recommendations to %s", self.processed_dir.resolve())
 
-        # 시각화 생성
         self._create_visualizations(
             interactions=interactions,
             recommendations=recommendations,
@@ -923,213 +876,128 @@ class ALSRecommender:
             items=items,
         )
 
-    def _plot_als_losses(self, train_losses: List[float], val_losses: List[float], best_iteration: Optional[int] = None) -> None:
+    def _prepare_interactions(
+        self, events: DataFrame, weight_map: Optional[Dict[str, float]] = None
+    ) -> DataFrame:
         """
-        ALS 학습 중 loss 그래프를 출력합니다.
-        
-        Args:
-            train_losses: 학습 loss 리스트
-            val_losses: validation loss 리스트
-            best_iteration: 최적 iteration (early stopping 사용 시)
-        """
-        try:
-            import seaborn as sns
-        except ImportError:
-            logger.warning("seaborn이 설치되지 않아 ALS loss 그래프를 건너뜁니다.")
-            return
-
-        viz_dir = Path("data/visualization")
-        viz_dir.mkdir(parents=True, exist_ok=True)
-
-        # 스타일 설정
-        try:
-            plt.style.use("seaborn-v0_8-darkgrid")
-        except OSError:
-            try:
-                plt.style.use("seaborn-darkgrid")
-            except OSError:
-                plt.style.use("default")
-        sns.set_palette("husl")
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        iterations = range(1, len(train_losses) + 1)
-        
-        ax.plot(iterations, train_losses, label="Train Loss", marker="o", linewidth=2, markersize=6)
-        ax.plot(iterations, val_losses, label="Validation Loss", marker="s", linewidth=2, markersize=6)
-        
-        # Early stopping 지점 표시
-        if best_iteration is not None and best_iteration < len(iterations):
-            ax.axvline(x=best_iteration, color="red", linestyle="--", linewidth=2, 
-                      label=f"Best (iter {best_iteration})", alpha=0.7)
-        
-        ax.set_xlabel("Iteration", fontsize=12)
-        ax.set_ylabel("Reconstruction Error (MSE)", fontsize=12)
-        ax.set_title("ALS Training and Validation Loss", fontsize=14, fontweight="bold")
-        ax.legend(fontsize=11)
-        ax.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        plt.savefig(viz_dir / "als_loss_curve.png", dpi=300, bbox_inches="tight")
-        plt.close()
-        logger.info("Saved ALS loss curve to %s", viz_dir / "als_loss_curve.png")
-
-    def _prepare_interactions(self, events: DataFrame) -> DataFrame:
-        """
-        이벤트 데이터를 상호작용 가중치로 변환합니다.
-        
-        이벤트 타입별 기본 가중치를 적용하고, 긍정적 이벤트(addtocart, transaction)에는
-        추가 가중치를 부여합니다. 같은 사용자-아이템 쌍의 가중치는 합산됩니다.
-        
-        Args:
-            events: 이벤트 데이터프레임
-            
-        Returns:
-            (visitorid, itemid, weight) 컬럼을 가진 상호작용 데이터프레임
+        이벤트 데이터를 상호작용 가중치로 변환합니다 (ALS 전용: weight_map, 선택적 log 스케일).
         """
         events = events.copy()
-        events["event_weight"] = events["event"].map(EVENT_WEIGHT).fillna(1.0)
-        positive_mask = events["event"].isin(["addtocart", "transaction"])
-        if positive_mask.any():
-            events.loc[positive_mask, "event_weight"] = events.loc[positive_mask, "event_weight"] * self.positive_event_boost
+        wmap = weight_map or ALS_WEIGHT_MAP
+        events["weight"] = events["event"].map(wmap).fillna(1.0)
         interactions = (
-            events.groupby(["visitorid", "itemid"], as_index=False)["event_weight"].sum()
+            events.groupby(["visitorid", "itemid"], as_index=False)["weight"].sum()
         )
-        interactions.rename(columns={"event_weight": "weight"}, inplace=True)
         interactions = interactions[interactions["weight"] > 0]
+        if self.use_weight_log_scale:
+            interactions["weight"] = 1.0 + np.log1p(interactions["weight"].values)
         return interactions
 
-    def _build_matrix(self, interactions: DataFrame) -> Tuple[sp.csr_matrix, List[int], List[int]]:
+    def _build_matrix(
+        self, interactions: DataFrame
+    ) -> Tuple[
+        sp.csr_matrix,
+        List[int],
+        List[int],
+        Dict[int, int],
+        Dict[int, int],
+        Dict[int, int],
+        Dict[int, int],
+    ]:
         """
-        사용자-아이템 상호작용 행렬을 생성합니다.
-        
-        Args:
-            interactions: (visitorid, itemid, weight) 상호작용 데이터프레임
-            
+        사용자-아이템 상호작용 행렬 및 매핑·아이템 인기도를 생성합니다.
         Returns:
-            (user_item_matrix, user_ids, item_ids) 튜플
-            - user_item_matrix: 희소 행렬 (CSR 형식)
-            - user_ids: 사용자 ID 리스트 (행 인덱스와 매핑)
-            - item_ids: 아이템 ID 리스트 (열 인덱스와 매핑)
+            (matrix, users, items, user_id_to_idx, item_id_to_idx, idx_to_item_id, item_pop_by_id)
         """
         users, unique_users = pd.factorize(interactions["visitorid"], sort=True)
         items, unique_items = pd.factorize(interactions["itemid"], sort=True)
-
+        user_id_to_idx = {int(uid): idx for idx, uid in enumerate(unique_users)}
+        item_id_to_idx = {int(iid): idx for idx, iid in enumerate(unique_items)}
+        idx_to_item_id = {idx: int(iid) for idx, iid in enumerate(unique_items)}
+        item_pop_by_id = interactions.groupby("itemid").size().to_dict()
+        item_pop_by_id = {int(k): int(v) for k, v in item_pop_by_id.items()}
         matrix = sp.coo_matrix(
             (interactions["weight"].astype(float), (users, items)),
             shape=(len(unique_users), len(unique_items)),
         )
-        return matrix.tocsr(), unique_users.tolist(), unique_items.tolist()
+        return (
+            matrix.tocsr(),
+            unique_users.tolist(),
+            unique_items.tolist(),
+            user_id_to_idx,
+            item_id_to_idx,
+            idx_to_item_id,
+            item_pop_by_id,
+        )
 
-    def _compute_als_loss_batch(
-        self,
-        user_factors: np.ndarray,
-        item_factors: np.ndarray,
-        matrix: sp.csr_matrix,
-        user_indices: np.ndarray,
-        batch_size: int,
-    ) -> float:
-        """
-        배치 처리로 ALS loss를 계산합니다 (메모리 효율성).
-        
-        matrix (users x items) 기준: user_factors(유저 임베딩), item_factors(아이템 임베딩).
-        pred = user_factors @ item_factors.T.
-        
-        Args:
-            user_factors: 유저 임베딩 (model.user_factors)
-            item_factors: 아이템 임베딩 (model.item_factors)
-            matrix: 상호작용 행렬 (users x items)
-            user_indices: 계산할 사용자 인덱스 배열 (matrix 행 기준)
-            batch_size: 배치 크기
-            
-        Returns:
-            평균 reconstruction error (MSE)
-        """
-        total_loss = 0.0
-        n_batches = int(np.ceil(len(user_indices) / batch_size))
-        
-        for i in range(n_batches):
-            start_idx = i * batch_size
-            end_idx = min((i + 1) * batch_size, len(user_indices))
-            batch_user_indices_batch = user_indices[start_idx:end_idx]
-            
-            pred_batch = user_factors[batch_user_indices_batch] @ item_factors.T
-            actual_batch = matrix[batch_user_indices_batch].toarray()
-            total_loss += np.mean((pred_batch - actual_batch) ** 2) * (end_idx - start_idx)
-        
-        return total_loss / len(user_indices) if len(user_indices) > 0 else 0.0
+    @staticmethod
+    def _get_per_user_scores(model: Any, user_idx: int, n_items: int) -> np.ndarray:
+        """한 유저에 대한 전체 아이템 선호도 점수 (user_factors[u] @ item_factors.T)."""
+        return model.user_factors[user_idx] @ model.item_factors.T
 
     def _generate_recommendations(
         self,
-        model: Any,
+        model_als: Any,
+        model_bpr: Any,
         user_item_matrix: sp.csr_matrix,
         users: List[int],
         items: List[int],
+        user_id_to_idx: Dict[int, int],
+        item_id_to_idx: Dict[int, int],
+        idx_to_item_id: Dict[int, int],
+        item_pop_by_id: Dict[int, int],
+        user_train_items: Dict[int, Set[int]],
+        eval_users: List[int],
+        long_tail_item_ids: Set[int],
     ) -> DataFrame:
         """
-        모든 사용자에 대해 상위 K개 추천을 생성합니다.
-        
-        배치 단위로 처리합니다. implicit fit(users x items) 기준으로
-        recommend(userid, user_items)에 user_items = (len(userids), n_items) 전달.
-        
-        Args:
-            model: 학습된 ALS 모델
-            user_item_matrix: 사용자-아이템 상호작용 행렬 (users x items)
-            users: 사용자 ID 리스트
-            items: 아이템 ID 리스트
-            
-        Returns:
-            (visitorid, itemid, score, rank) 컬럼을 가진 추천 결과 데이터프레임
+        선호도 점수 기반 Top-K 추천 생성 (ALS 또는 ALS+BPR 앙상블, 롱테일 보너스).
+        Train에서 본 아이템은 후보에서 제외하고, 상위 K개를 (visitorid, itemid, score, rank) DataFrame으로 반환.
         """
-        records: List[Dict[str, float]] = []
-        max_users = min(user_item_matrix.shape[0], len(users))
-        user_ids_array = np.array(users[:max_users], dtype=int)
+        n_items = len(items)
+        recommend_n = self.top_k * 4 if self.long_tail_bonus > 0 else self.top_k
+        records: List[Dict[str, Any]] = []
 
-        batch_size = max(self.recommend_batch_size, 1)
-        total_batches = int(np.ceil(max_users / batch_size)) if batch_size else 0
-        logger.info(
-            "ALS recommendations: %d users in %d batches (batch_size=%d)",
-            max_users,
-            total_batches,
-            batch_size,
-        )
+        for user_id in eval_users:
+            if user_id not in user_id_to_idx:
+                continue
+            user_idx = user_id_to_idx[user_id]
+            als_scores = self._get_per_user_scores(model_als, user_idx, n_items).ravel().astype(np.float64)
+            if model_bpr is not None and HAS_BPR:
+                bpr_scores = self._get_per_user_scores(model_bpr, user_idx, n_items).ravel().astype(np.float64)
+                als_norm = (als_scores - als_scores.min()) / (als_scores.max() - als_scores.min() + 1e-9)
+                bpr_norm = (bpr_scores - bpr_scores.min()) / (bpr_scores.max() - bpr_scores.min() + 1e-9)
+                scores = self.ensemble_alpha * als_norm + (1.0 - self.ensemble_alpha) * bpr_norm
+            else:
+                scores = als_scores.copy()
 
-        for batch_idx, start in enumerate(range(0, max_users, batch_size), start=1):
-            end = min(start + batch_size, max_users)
-            batch_user_indices = np.arange(start, end, dtype=int)
-            batch_user_ids = user_ids_array[start:end]
-            # user_items: (len(userids), n_items) — 유저당 1행
-            batch_user_items = user_item_matrix[start:end].tocsr()
-            item_idx_batch, score_batch = model.recommend(
-                batch_user_indices,
-                batch_user_items,
-                N=self.top_k,
-                filter_already_liked_items=True,
-            )
+            train_items_u = user_train_items.get(user_id, set()) & set(item_id_to_idx.keys())
+            for item_id in train_items_u:
+                if item_id in item_id_to_idx:
+                    scores[item_id_to_idx[item_id]] = -np.inf
 
-            for row, user_id in enumerate(batch_user_ids):
-                item_indices = item_idx_batch[row]
-                scores = score_batch[row]
-                for rank, (item_index, score) in enumerate(zip(item_indices, scores), start=1):
-                    if item_index >= len(items) or item_index < 0:
-                        continue
-                    records.append(
-                        {
-                            "visitorid": int(user_id),
-                            "itemid": int(items[item_index]),
-                            "score": float(score),
-                            "rank": rank,
-                        }
-                    )
+            top_indices = np.argsort(-scores)[:recommend_n]
+            cand_ids = [idx_to_item_id[i] for i in top_indices if scores[i] > -np.inf]
+            cand_scores = scores[top_indices[: len(cand_ids)]].tolist()
 
-            if batch_idx % 10 == 0 or batch_idx == total_batches:
-                percent = (end / max_users) * 100 if max_users else 100
-                logger.info(
-                    "ALS recommendations progress: batch %d/%d (processed users: %d, %.1f%%)",
-                    batch_idx,
-                    total_batches,
-                    end,
-                    percent,
-                )
+            if self.long_tail_bonus > 0 and cand_ids:
+                pop_list = [item_pop_by_id.get(iid, 0) for iid in cand_ids]
+                new_scores = [
+                    s + self.long_tail_bonus * (1.0 / (p + 1.0))
+                    for s, p in zip(cand_scores, pop_list)
+                ]
+                sorted_pairs = sorted(zip(cand_ids, new_scores), key=lambda x: -x[1])
+                rec_pairs = sorted_pairs[: self.top_k]
+            else:
+                rec_pairs = list(zip(cand_ids[: self.top_k], cand_scores[: self.top_k]))
+
+            for rank, (item_id, score_val) in enumerate(rec_pairs, start=1):
+                records.append({
+                    "visitorid": int(user_id),
+                    "itemid": int(item_id),
+                    "score": float(score_val),
+                    "rank": rank,
+                })
 
         return pd.DataFrame(records)
 
@@ -4636,24 +4504,24 @@ if __name__ == "__main__":
     preprocessor = IsolationForestPreprocessor()
     preprocessor.run()
 
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    als_recommender = ALSRecommender()
+    als_recommender.run()
 
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
+    gnn_generator = GNNEmbeddingGenerator()
+    gnn_generator.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    reranker = ReRanker()
+    reranker.run()
     
-    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    # evaluator = TestSetEvaluator(
-    #     evaluation_mode="score_based",
-    #     top_k=50,
-    #     score_percentile=50.0 # score-based 모드일 시 주석해제
-    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    # )
-    # evaluator.run()
+    # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
+    # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
+    evaluator = TestSetEvaluator(
+        evaluation_mode="score_based",
+        top_k=50,
+        score_percentile=50.0 # score-based 모드일 시 주석해제
+        # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    )
+    evaluator.run()
     
     # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
     # comparator = RecommendationComparator(top_k=200)
