@@ -197,15 +197,6 @@ class IsolationForestPreprocessor:
         feature_table = self._build_feature_table(datasets)
         logger.info("Feature table prepared with %d items and %d features", feature_table.shape[0], feature_table.shape[1])
 
-        logger.info("Splitting feature table into train(%.0f%%)/test(%.0f%%)…", (1 - self.test_size) * 100, self.test_size * 100)
-        train_features, test_features = train_test_split(
-            feature_table,
-            test_size=self.test_size,
-            random_state=self.random_state,
-            shuffle=True,
-        )
-        logger.info("Train set: %d items, Test set: %d items", len(train_features), len(test_features))
-
         exclude_cols = [
             "transaction_count",
             "has_any_transaction",
@@ -215,49 +206,93 @@ class IsolationForestPreprocessor:
             "category_parentid",
             "has_available",
         ]
-        available_exclude = [col for col in exclude_cols if col in train_features.columns]
+        available_exclude = [col for col in exclude_cols if col in feature_table.columns]
         if available_exclude:
             logger.info("Excluding columns from anomaly detection: %s", ", ".join(available_exclude))
-            train_features_for_detection = train_features.drop(columns=available_exclude)
+            feature_table_for_detection = feature_table.drop(columns=available_exclude)
         else:
-            train_features_for_detection = train_features
+            feature_table_for_detection = feature_table
 
-        logger.info("Training Isolation Forest on %d items with %d features…", len(train_features_for_detection), len(train_features_for_detection.columns))
+        logger.info("Training Isolation Forest on full feature table (%d items)…", len(feature_table_for_detection))
         isolation_forest = IsolationForest(
             n_estimators=self.n_estimators,
             contamination=self.contamination,
             random_state=self.random_state,
             n_jobs=-1,
         )
-        isolation_forest.fit(train_features_for_detection)
+        isolation_forest.fit(feature_table_for_detection)
 
-        logger.info("Scoring train items for anomaly detection…")
-        train_predictions = isolation_forest.predict(train_features_for_detection)
-
-        train_inliers = train_features[train_predictions == 1]
-        train_outliers = train_features[train_predictions == -1]
+        logger.info("Scoring all items for anomaly detection…")
+        all_predictions = isolation_forest.predict(feature_table_for_detection)
+        inlier_mask = all_predictions == 1
+        outlier_mask = all_predictions == -1
+        inlier_ids = feature_table.index[inlier_mask].tolist()
+        outlier_ids = feature_table.index[outlier_mask].tolist()
 
         logger.info(
-            "Detected %d anomalies in train set (%.2f%%).",
-            len(train_outliers),
-            (len(train_outliers) / max(len(train_features), 1)) * 100,
+            "Detected %d inliers, %d outliers (%.2f%% outliers).",
+            len(inlier_ids),
+            len(outlier_ids),
+            (len(outlier_ids) / max(len(feature_table), 1)) * 100,
         )
 
-        # Test set은 이상치 제거하지 않음 (평가를 위해 원본 유지)
+        # 이벤트(시간) 기준 train/test 분할 → 같은 아이템이 train·test 양쪽에 나올 수 있음 (추천 평가용)
+        events = datasets["events"].copy()
+        events_inlier = events[events["itemid"].isin(inlier_ids)].copy()
+        if "timestamp" not in events_inlier.columns or events_inlier["timestamp"].isna().all():
+            logger.warning("timestamp가 없거나 전부 NaN이라 이벤트 개수 기준 80/20 분할을 사용합니다.")
+            events_inlier = events_inlier.sample(frac=1, random_state=self.random_state).reset_index(drop=True)
+        else:
+            events_inlier = events_inlier.sort_values("timestamp").reset_index(drop=True)
+        n_events = len(events_inlier)
+        train_end = int((1 - self.test_size) * n_events)
+        events_train_clean = events_inlier.iloc[:train_end].copy()
+        events_test = events_inlier.iloc[train_end:].copy()
+
+        logger.info(
+            "Event-based split: train %.0f%% (%d events), test %.0f%% (%d events).",
+            (1 - self.test_size) * 100,
+            len(events_train_clean),
+            self.test_size * 100,
+            len(events_test),
+        )
+
+        train_item_ids = events_train_clean["itemid"].dropna().astype(int).unique()
+        test_item_ids = events_test["itemid"].dropna().astype(int).unique()
+        train_inlier_ids_set = set(feature_table.index) & set(train_item_ids)
+        test_inlier_ids_set = set(feature_table.index) & set(test_item_ids)
+        overlap = len(train_inlier_ids_set & test_inlier_ids_set)
+        logger.info(
+            "Train unique items: %d, Test unique items: %d, Overlap: %d (추천 평가 시 정답 아이템이 train에 존재 가능).",
+            len(train_inlier_ids_set),
+            len(test_inlier_ids_set),
+            overlap,
+        )
+
+        train_inliers = feature_table.loc[feature_table.index.intersection(train_item_ids)]
+        test_inliers = feature_table.loc[feature_table.index.intersection(test_item_ids)]
+        train_outliers = feature_table.loc[outlier_ids] if outlier_ids else feature_table.iloc[0:0]
+
         self._save_results(
             datasets,
             train_inliers=train_inliers,
-            test_inliers=test_features,
+            test_inliers=test_inliers,
             train_outliers=train_outliers,
+            events_train_clean=events_train_clean,
+            events_test=events_test,
         )
-        logger.info("Isolation Forest preprocessing completed: %d inlier train items, %d test items", len(train_inliers), len(test_features))
+        logger.info(
+            "Isolation Forest preprocessing completed (event-based split): %d train events, %d test events.",
+            len(events_train_clean),
+            len(events_test),
+        )
 
-        # 시각화 생성
+        # 시각화 생성 (이벤트 분할 시 train/test 아이템이 겹치므로 전체 inlier/outlier만 표시)
         self._create_visualizations(
-            train_features=train_features,
-            train_inliers=train_inliers,
+            train_features=feature_table,
+            train_inliers=feature_table.loc[inlier_ids] if inlier_ids else feature_table.iloc[0:0],
             train_outliers=train_outliers,
-            test_features=test_features,
+            test_features=pd.DataFrame(),
         )
 
     def _load_raw(self) -> Dict[str, DataFrame]:
@@ -408,22 +443,26 @@ class IsolationForestPreprocessor:
         train_inliers: DataFrame,
         test_inliers: DataFrame,
         train_outliers: DataFrame,
+        events_train_clean: Optional[DataFrame] = None,
+        events_test: Optional[DataFrame] = None,
     ) -> None:
         """
         전처리된 데이터를 파일로 저장합니다.
         
         저장되는 파일:
         - events_train_clean.csv: 정상 학습 이벤트
-        - events_test.csv: 테스트 이벤트 (holdout 포함)
+        - events_test.csv: 테스트 이벤트 (이벤트 분할 시 train과 아이템 겹침 가능)
         - events_train_outliers.csv: 이상치로 판단된 학습 이벤트
         - item_properties_*.csv: 각 세트에 해당하는 아이템 속성
         - feature_*.csv: 각 세트의 피처 테이블
         
         Args:
             datasets: 원본 데이터 딕셔너리
-            train_inliers: 정상 학습 아이템 피처 테이블
-            test_inliers: 테스트 아이템 피처 테이블
+            train_inliers: 정상 학습 아이템 피처 테이블 (train 이벤트에 등장한 아이템)
+            test_inliers: 테스트 아이템 피처 테이블 (test 이벤트에 등장한 아이템)
             train_outliers: 이상치 학습 아이템 피처 테이블
+            events_train_clean: 이미 분할된 train 이벤트 (제공 시 그대로 사용)
+            events_test: 이미 분할된 test 이벤트 (제공 시 그대로 사용)
         """
         self.processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -434,39 +473,45 @@ class IsolationForestPreprocessor:
         test_inlier_ids = set(test_inliers.index)
         train_outlier_ids = set(train_outliers.index)
 
-        events_train_clean = events[events["itemid"].isin(train_inlier_ids)].copy()
-        events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
-        events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
-
-        # Holdout 세트 생성: 각 사용자의 마지막 긍정적 이벤트(addtocart 또는 transaction)를 테스트 세트로 분리
-        positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
-        if positive_mask.any():
-            positive_events = events_train_clean.loc[positive_mask].copy()
-            positive_events = positive_events.dropna(subset=["timestamp"])
-            positive_events = positive_events.sort_values(["visitorid", "timestamp"])
-            # 각 사용자의 마지막 긍정적 이벤트 인덱스 추출
-            holdout_indices = (
-                positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
+        if events_train_clean is not None and events_test is not None:
+            # 이벤트(시간) 기준 분할: 전달된 train/test 이벤트를 그대로 사용 (아이템 겹침 허용)
+            events_train_clean = events_train_clean.reset_index(drop=True)
+            events_test = events_test.reset_index(drop=True)
+            logger.info(
+                "Saving event-based split: %d train events, %d test events.",
+                len(events_train_clean),
+                len(events_test),
             )
-            events_test_holdout = events_train_clean.loc[holdout_indices].copy()
-            # Holdout 이벤트를 학습 세트에서 제거
-            events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
         else:
-            events_test_holdout = events_train_clean.iloc[0:0].copy()
+            # (레거시) 아이템 기준 분할: item id로 이벤트 필터 후 holdout 생성
+            events_train_clean = events[events["itemid"].isin(train_inlier_ids)].copy()
+            events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
+            positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
+            if positive_mask.any():
+                positive_events = events_train_clean.loc[positive_mask].copy()
+                positive_events = positive_events.dropna(subset=["timestamp"])
+                positive_events = positive_events.sort_values(["visitorid", "timestamp"])
+                holdout_indices = (
+                    positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
+                )
+                events_test_holdout = events_train_clean.loc[holdout_indices].copy()
+                events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
+            else:
+                events_test_holdout = events_train_clean.iloc[0:0].copy()
+            events_test = pd.concat([events_test_base, events_test_holdout], ignore_index=True)
+            events_test = events_test.drop_duplicates(
+                subset=["timestamp", "visitorid", "event", "itemid", "transactionid"]
+            )
+            events_train_clean = events_train_clean.reset_index(drop=True)
+            events_test = events_test.reset_index(drop=True)
+            logger.info(
+                "Created evaluation holdout with %d events from %d users.",
+                len(events_test),
+                events_test["visitorid"].nunique() if not events_test.empty else 0,
+            )
 
-        events_test = pd.concat([events_test_base, events_test_holdout], ignore_index=True)
-        events_test = events_test.drop_duplicates(
-            subset=["timestamp", "visitorid", "event", "itemid", "transactionid"]
-        )
-
-        events_test = events_test.reset_index(drop=True)
-        events_train_clean = events_train_clean.reset_index(drop=True)
+        events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
         events_train_outliers = events_train_outliers.reset_index(drop=True)
-        logger.info(
-            "Created evaluation holdout with %d events from %d users (after filtering positives).",
-            len(events_test),
-            events_test["visitorid"].nunique() if not events_test.empty else 0,
-        )
 
         item_props_train_clean = item_properties[item_properties["itemid"].isin(train_inlier_ids)]
         item_props_train_outliers = item_properties[item_properties["itemid"].isin(train_outlier_ids)]
@@ -535,28 +580,33 @@ class IsolationForestPreprocessor:
             num_inliers = len(train_inliers)
             num_outliers = len(train_outliers)
             outlier_pct = (num_outliers / total_train * 100) if total_train > 0 else 0
+            has_test_split = test_features is not None and len(test_features) > 0
 
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+            if has_test_split:
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+            else:
+                fig, ax1 = plt.subplots(1, 1, figsize=(7, 6))
 
-            # Train set 이상치 비율
+            # Inliers vs Outliers
             sizes = [num_inliers, num_outliers]
             labels = [f"Inliers\n({num_inliers:,})", f"Outliers\n({num_outliers:,})"]
             colors = ["#66b3ff", "#ff9999"]
             ax1.pie(sizes, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 11})
-            ax1.set_title(f"Train Set Anomaly Detection\n(Total: {total_train:,} items)", fontsize=14, fontweight="bold")
+            ax1.set_title(f"Anomaly Detection\n(Total: {total_train:,} items)", fontsize=14, fontweight="bold")
 
-            # 전체 데이터셋 비율 (Train + Test)
-            total_all = total_train + len(test_features)
-            test_count = len(test_features)
-            sizes_all = [num_inliers, num_outliers, test_count]
-            labels_all = [
-                f"Train Inliers\n({num_inliers:,})",
-                f"Train Outliers\n({num_outliers:,})",
-                f"Test Set\n({test_count:,})",
-            ]
-            colors_all = ["#66b3ff", "#ff9999", "#99ff99"]
-            ax2.pie(sizes_all, labels=labels_all, colors=colors_all, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 10})
-            ax2.set_title(f"Overall Dataset Distribution\n(Total: {total_all:,} items)", fontsize=14, fontweight="bold")
+            if has_test_split:
+                # 아이템 기준 분할 시: 전체 데이터셋 비율 (Train + Test)
+                total_all = total_train + len(test_features)
+                test_count = len(test_features)
+                sizes_all = [num_inliers, num_outliers, test_count]
+                labels_all = [
+                    f"Train Inliers\n({num_inliers:,})",
+                    f"Train Outliers\n({num_outliers:,})",
+                    f"Test Set\n({test_count:,})",
+                ]
+                colors_all = ["#66b3ff", "#ff9999", "#99ff99"]
+                ax2.pie(sizes_all, labels=labels_all, colors=colors_all, autopct="%1.1f%%", startangle=90, textprops={"fontsize": 10})
+                ax2.set_title(f"Overall Dataset Distribution\n(Total: {total_all:,} items)", fontsize=14, fontweight="bold")
 
             plt.tight_layout()
             plt.savefig(viz_dir / "anomaly_detection_distribution.png", dpi=300, bbox_inches="tight")
@@ -4553,9 +4603,35 @@ if __name__ == "__main__":
     3. 전처리 -> ALS -> GNN -> 평가 (NDCG, Recall)
     단계별 실행시간을 표로 출력합니다.
     """
-    comparator = BaselineComparator(
-        processed_dir=Path("data/processed"),
-        data_dir=Path("data"),
-        top_k=50,
-    )
-    comparator.run()
+    preprocessor = IsolationForestPreprocessor()
+    preprocessor.run()
+
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
+
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
+
+    # reranker = ReRanker()
+    # reranker.run()
+    
+    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
+    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
+    # evaluator = TestSetEvaluator(
+    #     evaluation_mode="score_based",
+    #     top_k=50,
+    #     score_percentile=50.0 # score-based 모드일 시 주석해제
+    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
+    # )
+    # evaluator.run()
+    
+    # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
+    # comparator = RecommendationComparator(top_k=200)
+    # comparator.run()
+    
+    # comparator = BaselineComparator(
+    #     processed_dir=Path("data/processed"),
+    #     data_dir=Path("data"),
+    #     top_k=50,
+    # )
+    # comparator.run()
