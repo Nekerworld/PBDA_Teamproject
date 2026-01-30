@@ -14,10 +14,17 @@ from implicit.als import AlternatingLeastSquares
 def main():
     processed_dir = Path("data/processed")
     top_k = 50
-    # 롱테일 보너스: 추천 시 비인기 아이템에 가산점 (0이면 미적용)
-    long_tail_bonus = 0.15
-    # 롱테일 정의: Train 상호작용 수가 하위 50% 이하인 아이템
+    # NDCG/Recall 극대화용 설정
+    MIN_USER_EVENTS = 2   # Core 필터: 최소 상호작용 수 (희소도 완화)
+    MIN_ITEM_EVENTS = 2
+    long_tail_bonus = 0.2   # 비인기 아이템 가산점 (정답이 롱테일일 때 Hit↑)
     long_tail_quantile = 0.5
+    # 이벤트 가중치: transaction/addtocart 강조 (강한 positive 신호)
+    weight_map = {"view": 1.0, "addtocart": 8.0, "transaction": 16.0}
+    # ALS 하이퍼파라미터 (랭킹 품질 우선)
+    als_factors = 64
+    als_regularization = 0.08
+    als_iterations = 80
     
     # ========================================
     # 1. 데이터 로드
@@ -29,8 +36,18 @@ def main():
     events_train = pd.read_csv(processed_dir / "events_train_clean.csv")
     events_test = pd.read_csv(processed_dir / "events_test.csv")
     
-    print(f"events_train_clean: {len(events_train):,} rows")
+    print(f"events_train_clean: {len(events_train):,} rows (원본)")
     print(f"events_test: {len(events_test):,} rows")
+    
+    # Core 필터: 희소도 완화 (최소 상호작용 수 미만 유저/아이템 제외)
+    user_counts = events_train.groupby("visitorid").size()
+    item_counts = events_train.groupby("itemid").size()
+    keep_users = set(user_counts[user_counts >= MIN_USER_EVENTS].index.tolist())
+    keep_items = set(item_counts[item_counts >= MIN_ITEM_EVENTS].index.tolist())
+    events_train = events_train[
+        events_train["visitorid"].isin(keep_users) & events_train["itemid"].isin(keep_items)
+    ].copy()
+    print(f"Core 필터 적용 (min_user={MIN_USER_EVENTS}, min_item={MIN_ITEM_EVENTS}): train {len(events_train):,} rows")
     
     # Train 데이터 통계
     train_users = events_train["visitorid"].dropna().astype(int).unique()
@@ -93,8 +110,7 @@ def main():
     print("3. User-Item 행렬 생성")
     print("=" * 60)
     
-    # 가중치 부여
-    weight_map = {"view": 1.0, "addtocart": 6.0, "transaction": 12.0}
+    # 가중치 부여 (transaction/addtocart 강조 → NDCG/Recall 신호 강화)
     events_train["weight"] = events_train["event"].map(weight_map).fillna(1.0)
     
     interactions = (
@@ -154,13 +170,13 @@ def main():
     print("=" * 60)
     
     model = AlternatingLeastSquares(
-        factors=32,
-        regularization=0.1,
-        iterations=50,
+        factors=als_factors,
+        regularization=als_regularization,
+        iterations=als_iterations,
         random_state=42,
     )
     
-    print(f"ALS 파라미터: factors=32, regularization=0.1, iterations=50")
+    print(f"ALS 파라미터: factors={als_factors}, regularization={als_regularization}, iterations={als_iterations} (NDCG/Recall 극대화용)")
     print("학습 중...")
     model.fit(user_item_matrix)
     
@@ -186,7 +202,7 @@ def main():
     
     # 추천 생성 (N>top_k로 후보 뽑은 뒤 롱테일 보너스로 리랭킹)
     recommendations: Dict[int, List[int]] = {}
-    recommend_n = top_k * 3 if long_tail_bonus > 0 else top_k  # 보너스 적용 시 후보 더 뽑음
+    recommend_n = top_k * 4 if long_tail_bonus > 0 else top_k  # 롱테일 리랭킹 여유 확보
 
     print(f"\n{len(eval_users)}명에 대해 Top-{top_k} 추천 생성 중... (롱테일 보너스={'%.2f' % long_tail_bonus if long_tail_bonus else '미적용'})")
     

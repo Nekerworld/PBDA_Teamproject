@@ -175,8 +175,8 @@ class IsolationForestPreprocessor:
     test_size: float = 0.20
     contamination: str | float = "auto"
     n_estimators: int = 200
-    min_user_events: int = 0
-    min_item_events: int = 0
+    min_user_events: int = 2
+    min_item_events: int = 2
 
     def run(self) -> None:
         """
