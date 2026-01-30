@@ -4053,20 +4053,20 @@ class BaselineComparator:
     def run(self) -> None:
         results: Dict[str, Dict[str, Any]] = {}
 
-        logger.info("=" * 80)
-        logger.info("시나리오 1: 전처리 -> ALS -> 평가")
-        logger.info("=" * 80)
-        results["1. ALS"] = self._run_als_scenario()
+        # logger.info("=" * 80)
+        # logger.info("시나리오 1: 전처리 -> ALS -> 평가")
+        # logger.info("=" * 80)
+        # results["1. ALS"] = self._run_als_scenario()
 
         logger.info("\n" + "=" * 80)
         logger.info("시나리오 2: 전처리 -> GNN -> 평가")
         logger.info("=" * 80)
         results["2. GNN"] = self._run_gnn_scenario()
 
-        logger.info("\n" + "=" * 80)
-        logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 평가")
-        logger.info("=" * 80)
-        results["3. ALS+GNN"] = self._run_combined_scenario()
+        # logger.info("\n" + "=" * 80)
+        # logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 평가")
+        # logger.info("=" * 80)
+        # results["3. ALS+GNN"] = self._run_combined_scenario()
 
         self._print_table(results)
 
@@ -4317,6 +4317,11 @@ class BaselineComparator:
         }
 
     def _generate_gnn_recs(self, test_users: np.ndarray) -> pd.DataFrame:
+        """
+        GNN 임베딩으로 테스트 유저별 Top-K 추천 생성.
+        그래프에 없는 테스트 유저(cold user)는 전체 유저 임베딩 평균을 fallback으로 사용해
+        추천을 생성하여 평가 시 NDCG/Recall이 0이 되지 않도록 함.
+        """
         u_df = pd.read_csv(self.processed_dir / "gnn_user_embeddings.csv")
         i_df = pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv")
         u_ids = u_df["visitorid"].values.astype(int)
@@ -4326,11 +4331,13 @@ class BaselineComparator:
         U = u_df[u_cols].values.astype(np.float32)
         I = i_df[i_cols].values.astype(np.float32)
         u_map = {x: j for j, x in enumerate(u_ids)}
+        fallback_vec = np.mean(U, axis=0).astype(np.float32)  # cold user용
         rows: List[Dict[str, Any]] = []
         for uid in test_users:
-            if uid not in u_map:
-                continue
-            vec = U[u_map[uid]]
+            if uid in u_map:
+                vec = U[u_map[uid]]
+            else:
+                vec = fallback_vec
             scores = I @ vec
             idx = np.argsort(scores)[::-1][: self.top_k]
             for r, j in enumerate(idx, start=1):
@@ -4351,6 +4358,15 @@ class BaselineComparator:
         t2 = time.perf_counter()
         positives, test_users = self._load_positives()
         gnn_rec = self._generate_gnn_recs(test_users)
+        # 진단: positive 있는 유저 중 GNN 추천이 있는 유저 수 (0이면 NDCG/Recall 0 원인)
+        users_with_pos = set(positives.keys())
+        users_in_rec = set(gnn_rec["visitorid"].astype(int).unique()) if not gnn_rec.empty else set()
+        overlap = len(users_with_pos & users_in_rec)
+        if users_with_pos:
+            logger.info(
+                "GNN 평가: 테스트 positive 유저 %d명, GNN 추천 있는 유저 %d명, 교집합 %d명 (평가 대상).",
+                len(users_with_pos), len(users_in_rec), overlap,
+            )
         ndcg, recall = self._evaluate(gnn_rec, positives, test_users, score_col="score")
         t_eval = time.perf_counter() - t2
 
@@ -4440,8 +4456,8 @@ if __name__ == "__main__":
     3. 전처리 -> ALS -> GNN -> 평가 (NDCG, Recall)
     단계별 실행시간을 표로 출력합니다.
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
 
     # als_recommender = ALSRecommender()
     # als_recommender.run()
