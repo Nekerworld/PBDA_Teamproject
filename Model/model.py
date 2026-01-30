@@ -166,6 +166,8 @@ class IsolationForestPreprocessor:
         test_size: 테스트 세트 비율 (0.0 ~ 1.0)
         contamination: 이상치 비율 예상값 ("auto" 또는 0.0 ~ 1.0 사이의 float)
         n_estimators: Isolation Forest의 트리 개수
+        min_user_events: 최소 유저당 train 이벤트 수 (0이면 미적용, 희소도 완화용)
+        min_item_events: 최소 아이템당 train 이벤트 수 (0이면 미적용, 희소도 완화용)
     """
     data_dir: Path = field(default_factory=lambda: Path("data"))
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -173,6 +175,8 @@ class IsolationForestPreprocessor:
     test_size: float = 0.20
     contamination: str | float = "auto"
     n_estimators: int = 200
+    min_user_events: int = 0
+    min_item_events: int = 0
 
     def run(self) -> None:
         """
@@ -268,6 +272,32 @@ class IsolationForestPreprocessor:
             len(test_inlier_ids_set),
             overlap,
         )
+
+        # Core 필터: 희소도 완화 (최소 상호작용 수 미만 유저/아이템 제외)
+        if self.min_user_events > 0 or self.min_item_events > 0:
+            user_counts = events_train_clean.groupby("visitorid").size()
+            item_counts = events_train_clean.groupby("itemid").size()
+            keep_users = set(user_counts[user_counts >= self.min_user_events].index.tolist())
+            keep_items = set(item_counts[item_counts >= self.min_item_events].index.tolist())
+            before_train = len(events_train_clean)
+            before_test = len(events_test)
+            events_train_clean = events_train_clean[
+                events_train_clean["visitorid"].isin(keep_users) & events_train_clean["itemid"].isin(keep_items)
+            ].copy()
+            events_test = events_test[
+                events_test["visitorid"].isin(keep_users) & events_test["itemid"].isin(keep_items)
+            ].copy()
+            logger.info(
+                "Core filter (min_user_events=%d, min_item_events=%d): train %d→%d events, test %d→%d events.",
+                self.min_user_events,
+                self.min_item_events,
+                before_train,
+                len(events_train_clean),
+                before_test,
+                len(events_test),
+            )
+            train_item_ids = events_train_clean["itemid"].dropna().astype(int).unique()
+            test_item_ids = events_test["itemid"].dropna().astype(int).unique()
 
         train_inliers = feature_table.loc[feature_table.index.intersection(train_item_ids)]
         test_inliers = feature_table.loc[feature_table.index.intersection(test_item_ids)]
