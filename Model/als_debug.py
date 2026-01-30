@@ -50,6 +50,16 @@ from typing import Dict, List, Set, Tuple
 
 from implicit.als import AlternatingLeastSquares
 
+try:
+    from implicit.cpu.bpr import BayesianPersonalizedRanking
+    HAS_BPR = True
+except ImportError:
+    try:
+        from implicit.bpr import BayesianPersonalizedRanking
+        HAS_BPR = True
+    except ImportError:
+        HAS_BPR = False
+
 
 # ============== 설정 ==============
 DATA_DIR = Path("data")
@@ -58,14 +68,22 @@ TEST_SIZE = 0.20
 RANDOM_STATE = 42
 MIN_USER_EVENTS = 2
 MIN_ITEM_EVENTS = 2
-WEIGHT_MAP = {"view": 1.0, "addtocart": 8.0, "transaction": 16.0}
+# 이벤트 가중치 강화 (transaction/addtocart 강조 → NDCG/Recall 신호 강화)
+WEIGHT_MAP = {"view": 1.0, "addtocart": 12.0, "transaction": 24.0}
 TOP_K = 50
 K_LIST = [10, 50]
-LONG_TAIL_BONUS = 0.2
+# 롱테일 튜닝: 비인기 아이템 가산점 (정답이 롱테일일 때 Recall↑)
+LONG_TAIL_BONUS = 0.28
 LONG_TAIL_QUANTILE = 0.5
-ALS_FACTORS = 64
-ALS_REGULARIZATION = 0.08
-ALS_ITERATIONS = 80
+ALS_FACTORS = 128
+ALS_REGULARIZATION = 0.05
+ALS_ITERATIONS = 256
+# BPR (랭킹 손실 기반)
+BPR_FACTORS = 128
+BPR_REGULARIZATION = 0.05
+BPR_ITERATIONS = 256
+# 앙상블: final_score = ENSEMBLE_ALPHA * ALS_norm + (1 - ENSEMBLE_ALPHA) * BPR_norm
+ENSEMBLE_ALPHA = 0.5
 
 
 def load_raw_events() -> pd.DataFrame:
@@ -186,13 +204,101 @@ def train_als(
     return model
 
 
-def get_per_user_scores(
-    model: AlternatingLeastSquares,
-    user_idx: int,
-    n_items: int,
-) -> np.ndarray:
-    """한 유저에 대한 전체 아이템 선호도 점수 (user_factors[u] @ item_factors.T)."""
+def train_bpr(
+    user_item_matrix: sp.csr_matrix,
+    factors: int = BPR_FACTORS,
+    regularization: float = BPR_REGULARIZATION,
+    iterations: int = BPR_ITERATIONS,
+    random_state: int = RANDOM_STATE,
+):
+    """모든 사용자에 대해 BPR 학습 (랭킹 손실)."""
+    if not HAS_BPR:
+        return None
+    model = BayesianPersonalizedRanking(
+        factors=factors,
+        regularization=regularization,
+        iterations=iterations,
+        random_state=random_state,
+    )
+    model.fit(user_item_matrix)
+    return model
+
+
+def get_per_user_scores(model, user_idx: int, n_items: int) -> np.ndarray:
+    """한 유저에 대한 전체 아이템 선호도 점수 (user_factors[u] @ item_factors.T). ALS/BPR 공통."""
     return model.user_factors[user_idx] @ model.item_factors.T
+
+
+def scores_to_recommendations_ensemble(
+    eval_users: List[int],
+    user_id_to_idx: Dict[int, int],
+    item_id_to_idx: Dict[int, int],
+    idx_to_item_id: Dict[int, int],
+    train_item_set: Set[int],
+    positives_filtered: Dict[int, Set[int]],
+    events_train: pd.DataFrame,
+    model_als: AlternatingLeastSquares,
+    model_bpr,
+    top_k: int,
+    long_tail_bonus: float,
+    item_pop_by_id: Dict[int, int],
+    long_tail_item_ids: Set[int],
+    ensemble_alpha: float,
+) -> Tuple[Dict[int, List[int]], Dict[int, np.ndarray]]:
+    """
+    ALS + BPR 앙상블: 유저별로 점수 min-max 정규화 후 alpha*ALS + (1-alpha)*BPR 결합,
+    hold-out·롱테일 보너스 적용하여 Top-K 추천 생성.
+    """
+    n_items = model_als.item_factors.shape[0]
+    user_train_items: Dict[int, Set[int]] = (
+        events_train.groupby("visitorid")["itemid"]
+        .apply(lambda x: set(x.astype(int).tolist()))
+        .to_dict()
+    )
+    recommendations: Dict[int, List[int]] = {}
+    per_user_scores: Dict[int, np.ndarray] = {}
+    recommend_n = top_k * 4 if long_tail_bonus > 0 else top_k
+
+    for user_id in eval_users:
+        user_idx = user_id_to_idx[user_id]
+        als_scores = get_per_user_scores(model_als, user_idx, n_items).ravel().astype(np.float64)
+        if model_bpr is not None and HAS_BPR:
+            bpr_scores = get_per_user_scores(model_bpr, user_idx, n_items).ravel().astype(np.float64)
+            def _norm(s: np.ndarray) -> np.ndarray:
+                smin, smax = s.min(), s.max()
+                return (s - smin) / (smax - smin + 1e-9)
+            combined = ensemble_alpha * _norm(als_scores) + (1.0 - ensemble_alpha) * _norm(bpr_scores)
+            scores = combined.copy()
+        else:
+            scores = als_scores.copy()
+
+        per_user_scores[user_id] = scores.copy()
+
+        train_items_u = user_train_items.get(user_id, set()) & set(item_id_to_idx.keys())
+        test_positives_u = positives_filtered.get(user_id, set())
+        exclude = train_items_u - test_positives_u
+        for item_id in exclude:
+            if item_id in item_id_to_idx:
+                scores[item_id_to_idx[item_id]] = -np.inf
+
+        top_indices = np.argsort(-scores)[:recommend_n]
+        cand_ids = [idx_to_item_id[i] for i in top_indices if scores[i] > -np.inf]
+        cand_scores = scores[top_indices[: len(cand_ids)]].tolist()
+
+        if long_tail_bonus > 0 and cand_ids:
+            pop_list = [item_pop_by_id.get(iid, 0) for iid in cand_ids]
+            new_scores = [
+                s + long_tail_bonus * (1.0 / (p + 1.0))
+                for s, p in zip(cand_scores, pop_list)
+            ]
+            sorted_pairs = sorted(zip(cand_ids, new_scores), key=lambda x: -x[1])
+            rec_list = [item_id for item_id, _ in sorted_pairs[:top_k]]
+        else:
+            rec_list = cand_ids[:top_k]
+
+        recommendations[user_id] = rec_list
+
+    return recommendations, per_user_scores
 
 
 def scores_to_recommendations(
@@ -347,17 +453,34 @@ def main() -> None:
     print("3. ALS 학습 (모든 사용자)")
     print("=" * 60)
 
-    model = train_als(
+    model_als = train_als(
         user_item_matrix,
         factors=ALS_FACTORS,
         regularization=ALS_REGULARIZATION,
         iterations=ALS_ITERATIONS,
         random_state=RANDOM_STATE,
     )
-    print(f"user_factors: {model.user_factors.shape}, item_factors: {model.item_factors.shape}")
+    print(f"ALS user_factors: {model_als.user_factors.shape}, item_factors: {model_als.item_factors.shape}")
+
+    model_bpr = None
+    if HAS_BPR:
+        print("\n" + "=" * 60)
+        print("3.5 BPR 학습 (랭킹 손실, 모든 사용자)")
+        print("=" * 60)
+        model_bpr = train_bpr(
+            user_item_matrix,
+            factors=BPR_FACTORS,
+            regularization=BPR_REGULARIZATION,
+            iterations=BPR_ITERATIONS,
+            random_state=RANDOM_STATE,
+        )
+        if model_bpr is not None:
+            print(f"BPR user_factors: {model_bpr.user_factors.shape}, item_factors: {model_bpr.item_factors.shape}")
+    else:
+        print("\n(BPR 미사용: implicit에 BayesianPersonalizedRanking 없음)")
 
     print("\n" + "=" * 60)
-    print("4. 유저별 선호도 점수 → 추천 리스트")
+    print("4. 유저별 선호도 점수 → 앙상블 → 추천 리스트")
     print("=" * 60)
 
     eval_users = [u for u in users_with_positives if u in user_id_to_idx]
@@ -366,7 +489,8 @@ def main() -> None:
         return
 
     print(f"평가 유저 수: {len(eval_users):,} (Train 존재 + Test positive)")
-    recommendations, per_user_scores = scores_to_recommendations(
+    print(f"앙상블: alpha={ENSEMBLE_ALPHA}*ALS + (1-{ENSEMBLE_ALPHA})*BPR, 롱테일 보너스={LONG_TAIL_BONUS}")
+    recommendations, per_user_scores = scores_to_recommendations_ensemble(
         eval_users,
         user_id_to_idx,
         item_id_to_idx,
@@ -374,17 +498,19 @@ def main() -> None:
         train_item_set,
         positives_filtered,
         events_train,
-        model,
+        model_als,
+        model_bpr,
         TOP_K,
         LONG_TAIL_BONUS,
         item_pop_by_id,
         long_tail_item_ids,
+        ENSEMBLE_ALPHA,
     )
-    print(f"유저별 선호도 점수 벡터: {len(per_user_scores):,} users x {n_items:,} items (평가 유저만)")
+    print(f"유저별 앙상블 점수 벡터: {len(per_user_scores):,} users x {n_items:,} items")
     print(f"추천 리스트: 유저당 Top-{TOP_K} 생성 완료")
 
     print("\n" + "=" * 60)
-    print("5. NDCG / Recall (선호도 점수 기반 랭킹)")
+    print("5. NDCG / Recall (앙상블 선호도 점수 기반 랭킹)")
     print("=" * 60)
 
     hit_counts = [
@@ -395,20 +521,20 @@ def main() -> None:
     print(f"평가 유저 수: {len(hit_counts):,}")
     print(f"Hit >= 1: {sum(1 for h in hit_counts if h >= 1):,}, Hit 평균: {np.mean(hit_counts):.4f}")
 
-    print("\n[ALS] NDCG / Recall (논문 보고용):")
+    print("\n[ALS+BPR 앙상블] NDCG / Recall (논문 보고용):")
     for k in K_LIST:
         mean_ndcg, mean_recall = compute_ndcg_recall_at_k(
             eval_users, positives_filtered, recommendations, k
         )
         print(f"  NDCG@{k}: {mean_ndcg:.6f}  Recall@{k}: {mean_recall:.6f}")
 
-    # 샘플 출력: 유저 1명의 선호도 점수 상위 10개 아이템
+    # 샘플 출력: 유저 1명의 앙상블 점수 상위 10개 아이템
     if eval_users and eval_users[0] in per_user_scores:
         uid = eval_users[0]
         scores = per_user_scores[uid]
         top10_idx = np.argsort(-scores)[:10]
         top10_ids = [idx_to_item_id[i] for i in top10_idx]
-        print(f"\n샘플 (유저 {uid}) 선호도 Top-10 아이템 ID: {top10_ids}")
+        print(f"\n샘플 (유저 {uid}) 앙상블 선호도 Top-10 아이템 ID: {top10_ids}")
 
 
 if __name__ == "__main__":
