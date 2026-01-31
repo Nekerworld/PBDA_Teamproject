@@ -1426,7 +1426,7 @@ class GNNEmbeddingGenerator:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     embedding_dim: int = 8
     layers: int = 2
-    epochs: int = 100
+    epochs: int = 512
     batch_size: int = 8192
     learning_rate: float = 1e-3
     reg: float = 1e-4
@@ -2460,38 +2460,8 @@ class ReRanker:
             else:
                 gnn_scores = np.zeros_like(top_scores)
 
-            positives = positives_by_user.get(visitor_id, set())
-            if positives:
-                candidate_map = {item_id: idx for idx, item_id in enumerate(item_ids_subset)}
-                for pos_item in positives:
-                    if pos_item not in candidate_map:
-                        if pos_item in item_id_array:
-                            pos_global_idx = np.where(item_id_array == pos_item)[0]
-                            if pos_global_idx.size > 0:
-                                idx = int(pos_global_idx[0])
-                                candidate_indices = np.append(candidate_indices, idx)
-                                top_scores = np.append(top_scores, als_scores_full[idx])
-                                if gnn_item_embeddings.size > 0:
-                                    gnn_idx = gnn_index_lookup[idx]
-                                    if gnn_idx >= 0:
-                                        gnn_scores = np.append(gnn_scores, gnn_item_embeddings[gnn_idx] @ gnn_user_vector)
-                                    else:
-                                        gnn_scores = np.append(gnn_scores, 0.0)
-                                else:
-                                    gnn_scores = np.append(gnn_scores, 0.0)
-                                item_ids_subset = np.append(item_ids_subset, pos_item)
-                                candidate_map[pos_item] = len(item_ids_subset) - 1
-
-                positive_indices = [candidate_map[pos_item] for pos_item in positives if pos_item in candidate_map]
-            else:
-                positive_indices = []
-
-            # ALS와 GNN 점수를 가중 결합
+            # ALS와 GNN 점수만 가중 결합 (테스트 정답 미사용 — 사용 시 데이터 누수로 하이브리드 NDCG/Recall이 비정상적으로 높아짐)
             combined_scores, weight_a = self._combine_scores(top_scores, gnn_scores)
-
-            # 테스트 세트의 실제 긍정적 아이템에 보너스 점수 부여 (평가 시 recall 향상)
-            if positive_indices:
-                combined_scores[positive_indices] += 10.0
 
             # 결합된 점수 기준으로 상위 K개 선택
             order = np.argsort(combined_scores)[::-1][: self.top_k]
@@ -4705,18 +4675,31 @@ class BaselineComparator:
         als_pre.run()
         t_pre_als = time.perf_counter() - t0
         t1 = time.perf_counter()
-        als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
-        als.run()
-        t_als = time.perf_counter() - t1
+        # 시나리오 1에서 이미 ALS 결과(팩터·추천)가 있으면 재실행 생략 → 895만 행 재생성으로 인한 메모리 에러 방지
+        als_factors_path = self.processed_dir / "als_user_factors.npy"
+        if als_factors_path.exists():
+            logger.info("ALS 결과가 이미 있음 — 시나리오 3에서 ALS.run() 생략 (메모리 절약)")
+            t_als = 0.0
+        else:
+            als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
+            als.run()
+            t_als = time.perf_counter() - t1
 
         t2 = time.perf_counter()
-        gnn_pre = GNNPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
-        gnn_pre.run()
-        t_pre_gnn = time.perf_counter() - t2
-        t3 = time.perf_counter()
-        gnn = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
-        gnn.run()
-        t_gnn = time.perf_counter() - t3
+        # 시나리오 2에서 이미 GNN 결과(임베딩·events_test)가 있으면 재실행 생략 → 메모리·시간 절약
+        gnn_emb_path = self.processed_dir / "gnn_user_embeddings.csv"
+        if gnn_emb_path.exists():
+            logger.info("GNN 결과가 이미 있음 — 시나리오 3에서 GNN 전처리·GNN.run() 생략 (메모리 절약)")
+            t_pre_gnn = 0.0
+            t_gnn = 0.0
+        else:
+            gnn_pre = GNNPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+            gnn_pre.run()
+            t_pre_gnn = time.perf_counter() - t2
+            t3 = time.perf_counter()
+            gnn = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
+            gnn.run()
+            t_gnn = time.perf_counter() - t3
 
         t4 = time.perf_counter()
         reranker = ReRanker(processed_dir=self.processed_dir)
