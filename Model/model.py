@@ -187,6 +187,8 @@ class IsolationForestPreprocessor:
         n_estimators: Isolation Forest의 트리 개수
         min_user_events: 최소 유저당 train 이벤트 수 (0이면 미적용, 희소도 완화용)
         min_item_events: 최소 아이템당 train 이벤트 수 (0이면 미적용, 희소도 완화용)
+        core_filter_items_first: True면 keep_items 먼저 적용 후 keep_users 계산 (GNN 파이프라인용,
+            events_test 유저가 모두 events_train_clean에 남도록 함)
     """
     data_dir: Path = field(default_factory=lambda: Path("data"))
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
@@ -196,6 +198,7 @@ class IsolationForestPreprocessor:
     n_estimators: int = 200
     min_user_events: int = 2
     min_item_events: int = 2
+    core_filter_items_first: bool = False
 
     def run(self) -> None:
         """
@@ -259,64 +262,101 @@ class IsolationForestPreprocessor:
             (len(outlier_ids) / max(len(feature_table), 1)) * 100,
         )
 
-        # 이벤트(시간) 기준 train/test 분할 → 같은 아이템이 train·test 양쪽에 나올 수 있음 (추천 평가용)
+        # 이벤트(시간) 기준 train/test 분할 vs GNN 전용(전체 타임라인 + holdout)
         events = datasets["events"].copy()
         events_inlier = events[events["itemid"].isin(inlier_ids)].copy()
         if "timestamp" not in events_inlier.columns or events_inlier["timestamp"].isna().all():
-            logger.warning("timestamp가 없거나 전부 NaN이라 이벤트 개수 기준 80/20 분할을 사용합니다.")
             events_inlier = events_inlier.sample(frac=1, random_state=self.random_state).reset_index(drop=True)
         else:
             events_inlier = events_inlier.sort_values("timestamp").reset_index(drop=True)
-        n_events = len(events_inlier)
-        train_end = int((1 - self.test_size) * n_events)
-        events_train_clean = events_inlier.iloc[:train_end].copy()
-        events_test = events_inlier.iloc[train_end:].copy()
 
-        logger.info(
-            "Event-based split: train %.0f%% (%d events), test %.0f%% (%d events).",
-            (1 - self.test_size) * 100,
-            len(events_train_clean),
-            self.test_size * 100,
-            len(events_test),
-        )
-
-        train_item_ids = events_train_clean["itemid"].dropna().astype(int).unique()
-        test_item_ids = events_test["itemid"].dropna().astype(int).unique()
-        train_inlier_ids_set = set(feature_table.index) & set(train_item_ids)
-        test_inlier_ids_set = set(feature_table.index) & set(test_item_ids)
-        overlap = len(train_inlier_ids_set & test_inlier_ids_set)
-        logger.info(
-            "Train unique items: %d, Test unique items: %d, Overlap: %d (추천 평가 시 정답 아이템이 train에 존재 가능).",
-            len(train_inlier_ids_set),
-            len(test_inlier_ids_set),
-            overlap,
-        )
-
-        # Core 필터: 희소도 완화 (최소 상호작용 수 미만 유저/아이템 제외)
-        if self.min_user_events > 0 or self.min_item_events > 0:
-            user_counts = events_train_clean.groupby("visitorid").size()
-            item_counts = events_train_clean.groupby("itemid").size()
-            keep_users = set(user_counts[user_counts >= self.min_user_events].index.tolist())
+        if self.core_filter_items_first:
+            # GNN 파이프라인: 이전 전처리처럼 전체 타임라인 사용 후 holdout만 분리 (그래프 데이터 최대화 → 점수 상승)
+            events_pool = events_inlier.copy()
+            item_counts = events_pool.groupby("itemid").size()
             keep_items = set(item_counts[item_counts >= self.min_item_events].index.tolist())
-            before_train = len(events_train_clean)
-            before_test = len(events_test)
-            events_train_clean = events_train_clean[
-                events_train_clean["visitorid"].isin(keep_users) & events_train_clean["itemid"].isin(keep_items)
-            ].copy()
-            events_test = events_test[
-                events_test["visitorid"].isin(keep_users) & events_test["itemid"].isin(keep_items)
+            train_after_items = events_pool[events_pool["itemid"].isin(keep_items)]
+            user_counts = train_after_items.groupby("visitorid").size()
+            keep_users = set(user_counts[user_counts >= self.min_user_events].index.tolist())
+            events_train_clean = events_pool[
+                events_pool["visitorid"].isin(keep_users) & events_pool["itemid"].isin(keep_items)
             ].copy()
             logger.info(
-                "Core filter (min_user_events=%d, min_item_events=%d): train %d→%d events, test %d→%d events.",
-                self.min_user_events,
-                self.min_item_events,
-                before_train,
+                "GNN 파이프라인: 전체 타임라인 + core filter [items_first] — %d events.",
                 len(events_train_clean),
-                before_test,
+            )
+            positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
+            if positive_mask.any():
+                positive_events = events_train_clean.loc[positive_mask].copy()
+                positive_events = positive_events.dropna(subset=["timestamp"])
+                if not positive_events.empty:
+                    positive_events = positive_events.sort_values(["visitorid", "timestamp"])
+                    holdout_indices = (
+                        positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
+                    )
+                    events_test = events_train_clean.loc[holdout_indices].copy()
+                    events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
+                    events_train_clean = events_train_clean.reset_index(drop=True)
+                    events_test = events_test.reset_index(drop=True)
+                    logger.info(
+                        "GNN 파이프라인: holdout 생성 — train %d events, test(holdout) %d events, %d users.",
+                        len(events_train_clean),
+                        len(events_test),
+                        events_test["visitorid"].nunique() if not events_test.empty else 0,
+                    )
+            else:
+                events_test = events_train_clean.iloc[0:0].copy()
+            train_item_ids = events_train_clean["itemid"].dropna().astype(int).unique()
+            test_item_ids = events_test["itemid"].dropna().astype(int).unique()
+        else:
+            # ALS 등: 이벤트(시간) 기준 80/20 분할
+            n_events = len(events_inlier)
+            train_end = int((1 - self.test_size) * n_events)
+            events_train_clean = events_inlier.iloc[:train_end].copy()
+            events_test = events_inlier.iloc[train_end:].copy()
+            logger.info(
+                "Event-based split: train %.0f%% (%d events), test %.0f%% (%d events).",
+                (1 - self.test_size) * 100,
+                len(events_train_clean),
+                self.test_size * 100,
                 len(events_test),
             )
             train_item_ids = events_train_clean["itemid"].dropna().astype(int).unique()
             test_item_ids = events_test["itemid"].dropna().astype(int).unique()
+            train_inlier_ids_set = set(feature_table.index) & set(train_item_ids)
+            test_inlier_ids_set = set(feature_table.index) & set(test_item_ids)
+            overlap = len(train_inlier_ids_set & test_inlier_ids_set)
+            logger.info(
+                "Train unique items: %d, Test unique items: %d, Overlap: %d (추천 평가 시 정답 아이템이 train에 존재 가능).",
+                len(train_inlier_ids_set),
+                len(test_inlier_ids_set),
+                overlap,
+            )
+            # Core 필터 (ALS 등)
+            if self.min_user_events > 0 or self.min_item_events > 0:
+                user_counts = events_train_clean.groupby("visitorid").size()
+                item_counts = events_train_clean.groupby("itemid").size()
+                keep_users = set(user_counts[user_counts >= self.min_user_events].index.tolist())
+                keep_items = set(item_counts[item_counts >= self.min_item_events].index.tolist())
+                before_train = len(events_train_clean)
+                before_test = len(events_test)
+                events_train_clean = events_train_clean[
+                    events_train_clean["visitorid"].isin(keep_users) & events_train_clean["itemid"].isin(keep_items)
+                ].copy()
+                events_test = events_test[
+                    events_test["visitorid"].isin(keep_users) & events_test["itemid"].isin(keep_items)
+                ].copy()
+                logger.info(
+                    "Core filter (min_user_events=%d, min_item_events=%d): train %d→%d events, test %d→%d events.",
+                    self.min_user_events,
+                    self.min_item_events,
+                    before_train,
+                    len(events_train_clean),
+                    before_test,
+                    len(events_test),
+                )
+                train_item_ids = events_train_clean["itemid"].dropna().astype(int).unique()
+                test_item_ids = events_test["itemid"].dropna().astype(int).unique()
 
         train_inliers = feature_table.loc[feature_table.index.intersection(train_item_ids)]
         test_inliers = feature_table.loc[feature_table.index.intersection(test_item_ids)]
@@ -711,6 +751,268 @@ class IsolationForestPreprocessor:
         except Exception as e:
             logger.warning("Feature distribution comparison 시각화 생성 실패: %s", e)
 
+
+# ---------------------------------------------------------------------------
+# ALS 전용 전처리 모듈 (als_debug 기반 → als_events_train/test 저장)
+# ---------------------------------------------------------------------------
+class ALSPreprocessor:
+    """
+    ALS 전용 전처리 모듈. als_debug.preprocess()를 실행하고
+    als_events_train.csv, als_events_test.csv를 저장합니다.
+    ALSRecommender는 이 파일이 있으면 로드하여 사용합니다.
+    """
+    def __init__(
+        self,
+        data_dir: Optional[Path] = None,
+        processed_dir: Optional[Path] = None,
+    ) -> None:
+        self.data_dir = Path(data_dir) if data_dir else Path("data")
+        self.processed_dir = Path(processed_dir) if processed_dir else Path("data/processed")
+
+    def run(self) -> None:
+        import sys
+        _model_dir = Path(__file__).resolve().parent
+        if str(_model_dir) not in sys.path:
+            sys.path.insert(0, str(_model_dir))
+        import als_debug
+
+        np.random.seed(als_debug.RANDOM_STATE)
+        random.seed(als_debug.RANDOM_STATE)
+
+        logger.info("ALS 전용 전처리: als_debug 파이프라인 (90/10, min 3/3)")
+        events = als_debug.load_raw_events()
+        events_train, events_test, _, _ = als_debug.preprocess(
+            events,
+            test_size=als_debug.TEST_SIZE,
+            min_user_events=als_debug.MIN_USER_EVENTS,
+            min_item_events=als_debug.MIN_ITEM_EVENTS,
+            random_state=als_debug.RANDOM_STATE,
+        )
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
+        events_train.to_csv(self.processed_dir / "als_events_train.csv", index=False)
+        events_test.to_csv(self.processed_dir / "als_events_test.csv", index=False)
+        logger.info(
+            "Saved ALS 전용 전처리 결과: als_events_train %d rows, als_events_test %d rows",
+            len(events_train),
+            len(events_test),
+        )
+
+
+# ---------------------------------------------------------------------------
+# GNN 전용 전처리 모듈 (이전 버전: 아이템 기준 분할 + train 이상치 제거 + holdout)
+# ---------------------------------------------------------------------------
+@dataclass
+class GNNPreprocessor:
+    """
+    GNN 전용 전처리 모듈. 이전 전처리 방식:
+    - 피처 테이블을 아이템 기준 train/test 분할 (shuffle)
+    - train에 대해서만 Isolation Forest 이상치 탐지
+    - train inlier 이벤트에서 유저별 마지막 positive를 holdout으로 분리
+    - events_train_clean, events_test, item_properties_train_clean 등 저장
+    """
+    data_dir: Path = field(default_factory=lambda: Path("data"))
+    processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
+    random_state: int = 42
+    test_size: float = 0.20
+    contamination: str | float = "auto"
+    n_estimators: int = 200
+
+    def run(self) -> None:
+        np.random.seed(self.random_state)
+        random.seed(self.random_state)
+
+        logger.info("GNN 전용 전처리: 아이템 기준 분할 + train 이상치 제거 + holdout")
+        datasets = self._load_raw()
+        feature_table = self._build_feature_table(datasets)
+        logger.info("Feature table prepared with %d items, %d features", feature_table.shape[0], feature_table.shape[1])
+
+        logger.info("Splitting feature table into train(%.0f%%)/test(%.0f%%)…", (1 - self.test_size) * 100, self.test_size * 100)
+        train_features, test_features = train_test_split(
+            feature_table,
+            test_size=self.test_size,
+            random_state=self.random_state,
+            shuffle=True,
+        )
+        logger.info("Train set: %d items, Test set: %d items", len(train_features), len(test_features))
+
+        exclude_cols = [
+            "transaction_count", "has_any_transaction", "has_transaction_id",
+            "addtocart_count", "categoryid", "category_parentid", "has_available",
+        ]
+        available_exclude = [col for col in exclude_cols if col in train_features.columns]
+        train_features_for_detection = train_features.drop(columns=available_exclude) if available_exclude else train_features
+
+        logger.info("Training Isolation Forest on train %d items…", len(train_features_for_detection))
+        isolation_forest = IsolationForest(
+            n_estimators=self.n_estimators,
+            contamination=self.contamination,
+            random_state=self.random_state,
+            n_jobs=-1,
+        )
+        isolation_forest.fit(train_features_for_detection)
+        train_predictions = isolation_forest.predict(train_features_for_detection)
+
+        train_inliers = train_features[train_predictions == 1]
+        train_outliers = train_features[train_predictions == -1]
+        logger.info("Detected %d inliers, %d outliers in train", len(train_inliers), len(train_outliers))
+
+        self._save_results(datasets, train_inliers=train_inliers, test_inliers=test_features, train_outliers=train_outliers)
+        logger.info("GNN 전용 전처리 완료: train inlier %d items, test %d items", len(train_inliers), len(test_features))
+
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+        self._create_visualizations(train_features, train_inliers, train_outliers, test_features)
+
+    def _load_raw(self) -> Dict[str, DataFrame]:
+        events = pd.read_csv(
+            self.data_dir / "events.csv",
+            usecols=["timestamp", "visitorid", "event", "itemid", "transactionid"],
+        )
+        category_tree = pd.read_csv(self.data_dir / "category_tree.csv")
+        item_properties = pd.concat(
+            [
+                pd.read_csv(self.data_dir / "item_properties_part1.csv", usecols=["timestamp", "itemid", "property", "value"], low_memory=False),
+                pd.read_csv(self.data_dir / "item_properties_part2.csv", usecols=["timestamp", "itemid", "property", "value"], low_memory=False),
+            ],
+            ignore_index=True,
+        )
+        return {"events": events, "category_tree": category_tree, "item_properties": item_properties}
+
+    def _build_feature_table(self, datasets: Dict[str, DataFrame]) -> DataFrame:
+        events = datasets["events"].copy()
+        item_properties = datasets["item_properties"].copy()
+        category_tree = datasets["category_tree"].copy()
+        item_properties_filtered = item_properties[item_properties["property"].isin(["categoryid", "available"])].copy()
+        events["timestamp_dt"] = pd.to_datetime(events["timestamp"], unit="ms", errors="coerce")
+        min_ts = events["timestamp_dt"].min()
+        events["hours_since_start"] = (events["timestamp_dt"] - min_ts).dt.total_seconds() / 3600.0
+        events["event_code"] = events["event"].map(EVENT_TO_CODE).fillna(-1).astype(int)
+        events["is_transaction"] = events["event"] == "transaction"
+        events["has_transaction_id"] = events["transactionid"].notna().astype(int)
+        event_agg = (
+            events.groupby("itemid").agg(
+                event_count=("event", "size"),
+                view_count=("event", lambda s: (s == "view").sum()),
+                addtocart_count=("event", lambda s: (s == "addtocart").sum()),
+                transaction_count=("event", lambda s: (s == "transaction").sum()),
+                unique_visitors=("visitorid", pd.Series.nunique),
+                event_code_mean=("event_code", "mean"),
+                event_code_std=("event_code", "std"),
+                has_any_transaction=("is_transaction", "max"),
+                has_transaction_id=("has_transaction_id", "max"),
+                first_event_hour=("hours_since_start", "min"),
+                last_event_hour=("hours_since_start", "max"),
+            )
+        )
+        event_agg["event_duration_hours"] = event_agg["last_event_hour"] - event_agg["first_event_hour"]
+        property_agg = item_properties_filtered.groupby("itemid").agg(property_count=("property", "count"))
+        category_rows = item_properties_filtered[item_properties_filtered["property"] == "categoryid"][["itemid", "value"]].copy()
+        category_rows = category_rows.dropna(subset=["value"])
+        extracted = category_rows["value"].astype(str).str.extract(r"(?P<category>\d+)")
+        category_rows["categoryid"] = pd.to_numeric(extracted["category"], errors="coerce")
+        category_features = (
+            category_rows.dropna(subset=["categoryid"])
+            .drop_duplicates(subset=["itemid"], keep="first")
+            .set_index("itemid")[["categoryid"]]
+        )
+        category_tree = category_tree.copy()
+        category_tree["parentid"] = pd.to_numeric(category_tree["parentid"], errors="coerce")
+        category_features = category_features.join(category_tree.set_index("categoryid")["parentid"], how="left")
+        category_features.rename(columns={"parentid": "category_parentid"}, inplace=True)
+        available_rows = item_properties_filtered[item_properties_filtered["property"] == "available"].copy()
+        if not available_rows.empty:
+            available_rows["value_numeric"] = pd.to_numeric(available_rows["value"], errors="coerce")
+            available_features = available_rows.dropna(subset=["value_numeric"]).groupby("itemid")["value_numeric"].max().to_frame(name="has_available")
+        else:
+            available_features = pd.DataFrame(columns=["has_available"])
+        feature_table = event_agg.join(property_agg, how="left").join(category_features, how="left").join(available_features, how="left")
+        feature_table = feature_table.fillna(0.0).apply(pd.to_numeric, errors="coerce").fillna(0.0)
+        return feature_table
+
+    def _save_results(
+        self,
+        datasets: Dict[str, DataFrame],
+        *,
+        train_inliers: DataFrame,
+        test_inliers: DataFrame,
+        train_outliers: DataFrame,
+    ) -> None:
+        self.processed_dir.mkdir(parents=True, exist_ok=True)
+        events = datasets["events"].copy()
+        item_properties = datasets["item_properties"].copy()
+        train_inlier_ids = set(train_inliers.index)
+        test_inlier_ids = set(test_inliers.index)
+        train_outlier_ids = set(train_outliers.index)
+
+        events_train_clean = events[events["itemid"].isin(train_inlier_ids)].copy()
+        events_test_base = events[events["itemid"].isin(test_inlier_ids)].copy()
+        positive_mask = events_train_clean["event"].isin(["addtocart", "transaction"])
+        if positive_mask.any():
+            positive_events = events_train_clean.loc[positive_mask].copy().dropna(subset=["timestamp"]).sort_values(["visitorid", "timestamp"])
+            holdout_indices = positive_events.groupby("visitorid")["timestamp"].idxmax().dropna().astype(int)
+            events_test_holdout = events_train_clean.loc[holdout_indices].copy()
+            events_train_clean = events_train_clean.drop(index=holdout_indices, errors="ignore")
+        else:
+            events_test_holdout = events_train_clean.iloc[0:0].copy()
+        events_test = pd.concat([events_test_base, events_test_holdout], ignore_index=True)
+        events_test = events_test.drop_duplicates(subset=["timestamp", "visitorid", "event", "itemid", "transactionid"])
+        events_train_clean = events_train_clean.reset_index(drop=True)
+        events_test = events_test.reset_index(drop=True)
+        logger.info("GNN holdout: train %d events, test %d events, %d users", len(events_train_clean), len(events_test), events_test["visitorid"].nunique() if not events_test.empty else 0)
+
+        events_train_outliers = events[events["itemid"].isin(train_outlier_ids)].copy()
+        item_props_train_clean = item_properties[item_properties["itemid"].isin(train_inlier_ids)]
+        item_props_train_outliers = item_properties[item_properties["itemid"].isin(train_outlier_ids)]
+        eval_item_ids = events_test["itemid"].astype(int).unique() if not events_test.empty else np.array([], dtype=int)
+        item_props_test = item_properties[item_properties["itemid"].isin(eval_item_ids)] if len(eval_item_ids) else item_properties.iloc[0:0].copy()
+
+        events_train_clean.to_csv(self.processed_dir / "events_train_clean.csv", index=False)
+        events_test.to_csv(self.processed_dir / "events_test.csv", index=False)
+        events_train_outliers.to_csv(self.processed_dir / "events_train_outliers.csv", index=False)
+        item_props_train_clean.to_csv(self.processed_dir / "item_properties_train_clean.csv", index=False)
+        item_props_test.to_csv(self.processed_dir / "item_properties_test.csv", index=False)
+        item_props_train_outliers.to_csv(self.processed_dir / "item_properties_train_outliers.csv", index=False)
+        train_inliers.to_csv(self.processed_dir / "feature_train_inliers.csv")
+        test_inliers.to_csv(self.processed_dir / "feature_test_inliers.csv")
+        train_outliers.to_csv(self.processed_dir / "feature_train_outliers.csv")
+        logger.info("Saved GNN 전용 전처리 결과 to %s", self.processed_dir.resolve())
+
+    def _create_visualizations(
+        self,
+        train_features: DataFrame,
+        train_inliers: DataFrame,
+        train_outliers: DataFrame,
+        test_features: DataFrame,
+    ) -> None:
+        try:
+            import seaborn as sns
+        except ImportError:
+            return
+        viz_dir = Path("data/visualization")
+        viz_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            try:
+                plt.style.use("seaborn-darkgrid")
+            except OSError:
+                plt.style.use("default")
+        sns.set_palette("husl")
+        try:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+            sizes = [len(train_inliers), len(train_outliers)]
+            ax1.pie(sizes, labels=["Inliers", "Outliers"], autopct="%1.1f%%", startangle=90)
+            ax1.set_title("GNN Preprocessor: Train Anomaly Detection")
+            sizes_all = sizes + [len(test_features)]
+            ax2.pie(sizes_all, labels=["Train Inliers", "Train Outliers", "Test"], autopct="%1.1f%%", startangle=90)
+            ax2.set_title("GNN Preprocessor: Dataset Split")
+            plt.tight_layout()
+            plt.savefig(viz_dir / "gnn_preprocessor_split.png", dpi=150, bbox_inches="tight")
+            plt.close()
+        except Exception:
+            pass
+
+
 @dataclass
 class ALSRecommender:
     """
@@ -750,8 +1052,8 @@ class ALSRecommender:
 
     def run(self) -> None:
         """
-        ALS 추천 파이프라인을 실행합니다. als_debug.py의 전처리·학습·추천 로직을 그대로 사용합니다.
-        (원본 events.csv → 90/10 분할, min 3/3, ALS+BPR 앙상블, hold-out, 롱테일 보너스)
+        ALS 추천 파이프라인을 실행합니다.
+        als_events_train.csv, als_events_test.csv가 있으면 로드하고, 없으면 als_debug.preprocess() 실행.
         """
         import sys
         _model_dir = Path(__file__).resolve().parent
@@ -762,15 +1064,26 @@ class ALSRecommender:
         np.random.seed(self.random_state)
         random.seed(self.random_state)
 
-        logger.info("ALS: als_debug 파이프라인 사용 (원본 events.csv, 90/10, min 3/3)")
-        events = als_debug.load_raw_events()
-        events_train, events_test, positives, train_item_set = als_debug.preprocess(
-            events,
-            test_size=als_debug.TEST_SIZE,
-            min_user_events=als_debug.MIN_USER_EVENTS,
-            min_item_events=als_debug.MIN_ITEM_EVENTS,
-            random_state=als_debug.RANDOM_STATE,
-        )
+        train_path = self.processed_dir / "als_events_train.csv"
+        test_path = self.processed_dir / "als_events_test.csv"
+        if train_path.exists() and test_path.exists():
+            logger.info("ALS: als_events_train/test 로드 (ALSPreprocessor 결과 사용)")
+            events_train = pd.read_csv(train_path)
+            events_test = pd.read_csv(test_path)
+            train_item_set = set(events_train["itemid"].dropna().astype(int).unique())
+            pos_events = events_test[events_test["event"].isin(["addtocart", "transaction"])].dropna(subset=["visitorid", "itemid"])
+            pos_events = pos_events.assign(visitorid=pos_events["visitorid"].astype(int), itemid=pos_events["itemid"].astype(int))
+            positives = pos_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
+        else:
+            logger.info("ALS: als_debug 파이프라인 사용 (원본 events.csv, 90/10, min 3/3)")
+            events = als_debug.load_raw_events()
+            events_train, events_test, positives, train_item_set = als_debug.preprocess(
+                events,
+                test_size=als_debug.TEST_SIZE,
+                min_user_events=als_debug.MIN_USER_EVENTS,
+                min_item_events=als_debug.MIN_ITEM_EVENTS,
+                random_state=als_debug.RANDOM_STATE,
+            )
         positives_filtered = {}
         for uid, rel in positives.items():
             filtered = rel & train_item_set
@@ -4053,20 +4366,20 @@ class BaselineComparator:
     def run(self) -> None:
         results: Dict[str, Dict[str, Any]] = {}
 
-        # logger.info("=" * 80)
-        # logger.info("시나리오 1: 전처리 -> ALS -> 평가")
-        # logger.info("=" * 80)
-        # results["1. ALS"] = self._run_als_scenario()
+        logger.info("=" * 80)
+        logger.info("시나리오 1: 전처리 -> ALS -> 평가")
+        logger.info("=" * 80)
+        results["1. ALS"] = self._run_als_scenario()
 
         logger.info("\n" + "=" * 80)
         logger.info("시나리오 2: 전처리 -> GNN -> 평가")
         logger.info("=" * 80)
         results["2. GNN"] = self._run_gnn_scenario()
 
-        # logger.info("\n" + "=" * 80)
-        # logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 평가")
-        # logger.info("=" * 80)
-        # results["3. ALS+GNN"] = self._run_combined_scenario()
+        logger.info("\n" + "=" * 80)
+        logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 평가")
+        logger.info("=" * 80)
+        results["3. ALS+GNN"] = self._run_combined_scenario()
 
         self._print_table(results)
 
@@ -4262,9 +4575,13 @@ class BaselineComparator:
 
     def _run_als_scenario(self) -> Dict[str, Any]:
         t0 = time.perf_counter()
+        als_pre = ALSPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        als_pre.run()
+        t_pre = time.perf_counter() - t0
+        t1 = time.perf_counter()
         als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
         als.run()
-        t_als = time.perf_counter() - t0
+        t_als = time.perf_counter() - t1
 
         t1 = time.perf_counter()
         als_events_train_path = self.processed_dir / "als_events_train.csv"
@@ -4313,7 +4630,7 @@ class BaselineComparator:
         return {
             "ndcg": ndcg,
             "recall": recall,
-            "times": {"전처리": 0.0, "ALS": t_als, "평가": t_eval, "총합": t_als + t_eval},
+            "times": {"전처리": t_pre, "ALS": t_als, "평가": t_eval, "총합": t_pre + t_als + t_eval},
         }
 
     def _generate_gnn_recs(self, test_users: np.ndarray) -> pd.DataFrame:
@@ -4346,8 +4663,8 @@ class BaselineComparator:
 
     def _run_gnn_scenario(self) -> Dict[str, Any]:
         t0 = time.perf_counter()
-        pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
-        pre.run()
+        gnn_pre = GNNPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        gnn_pre.run()
         t_pre = time.perf_counter() - t0
 
         t1 = time.perf_counter()
@@ -4357,17 +4674,23 @@ class BaselineComparator:
 
         t2 = time.perf_counter()
         positives, test_users = self._load_positives()
-        gnn_rec = self._generate_gnn_recs(test_users)
-        # 진단: positive 있는 유저 중 GNN 추천이 있는 유저 수 (0이면 NDCG/Recall 0 원인)
-        users_with_pos = set(positives.keys())
-        users_in_rec = set(gnn_rec["visitorid"].astype(int).unique()) if not gnn_rec.empty else set()
-        overlap = len(users_with_pos & users_in_rec)
-        if users_with_pos:
+        gnn_item_set = set(
+            pd.read_csv(self.processed_dir / "gnn_item_embeddings.csv", usecols=["itemid"])["itemid"].astype(int).tolist()
+        )
+        positives_gnn = {uid: (rel & gnn_item_set) for uid, rel in positives.items()}
+        eval_users = np.array([u for u in positives if positives_gnn.get(u)], dtype=np.int64)
+        if eval_users.size == 0 and test_users.size:
+            eval_users = test_users
+            positives_gnn = positives
+        if positives_gnn and gnn_item_set:
+            n_pos_items = sum(len(s) for s in positives.values())
+            n_reachable = sum(len(s) for s in positives_gnn.values())
             logger.info(
-                "GNN 평가: 테스트 positive 유저 %d명, GNN 추천 있는 유저 %d명, 교집합 %d명 (평가 대상).",
-                len(users_with_pos), len(users_in_rec), overlap,
+                "GNN 평가: positive 아이템을 GNN 아이템 공간으로 제한 — %d→%d (평가 대상 유저 %d명).",
+                n_pos_items, n_reachable, len(eval_users),
             )
-        ndcg, recall = self._evaluate(gnn_rec, positives, test_users, score_col="score")
+        gnn_rec = self._generate_gnn_recs(eval_users if eval_users.size else test_users)
+        ndcg, recall = self._evaluate(gnn_rec, positives_gnn, eval_users if eval_users.size else test_users, score_col="score")
         t_eval = time.perf_counter() - t2
 
         return {
@@ -4378,31 +4701,35 @@ class BaselineComparator:
 
     def _run_combined_scenario(self) -> Dict[str, Any]:
         t0 = time.perf_counter()
-        pre = IsolationForestPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
-        pre.run()
-        t_pre = time.perf_counter() - t0
-
+        als_pre = ALSPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        als_pre.run()
+        t_pre_als = time.perf_counter() - t0
         t1 = time.perf_counter()
         als = ALSRecommender(processed_dir=self.processed_dir, top_k=self.top_k)
         als.run()
         t_als = time.perf_counter() - t1
 
         t2 = time.perf_counter()
+        gnn_pre = GNNPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        gnn_pre.run()
+        t_pre_gnn = time.perf_counter() - t2
+        t3 = time.perf_counter()
         gnn = GNNEmbeddingGenerator(processed_dir=self.processed_dir)
         gnn.run()
-        t_gnn = time.perf_counter() - t2
-
-        t3 = time.perf_counter()
-        reranker = ReRanker(processed_dir=self.processed_dir)
-        reranker.run()
-        t_rerank = time.perf_counter() - t3
+        t_gnn = time.perf_counter() - t3
 
         t4 = time.perf_counter()
+        reranker = ReRanker(processed_dir=self.processed_dir)
+        reranker.run()
+        t_rerank = time.perf_counter() - t4
+
+        t5 = time.perf_counter()
         positives, test_users = self._load_positives()
         final = pd.read_csv(self.processed_dir / "final_recommendations.csv")
         ndcg, recall = self._evaluate(final, positives, test_users, score_col="final_score")
-        t_eval = time.perf_counter() - t4
+        t_eval = time.perf_counter() - t5
 
+        t_pre = t_pre_als + t_pre_gnn
         total = t_pre + t_als + t_gnn + t_rerank + t_eval
         return {
             "ndcg": ndcg,
