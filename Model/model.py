@@ -1426,14 +1426,14 @@ class GNNEmbeddingGenerator:
     data_dir: Path = field(default_factory=lambda: Path("data"))
     embedding_dim: int = 8
     layers: int = 2
-    epochs: int = 512
+    epochs: int = 1024
     batch_size: int = 8192
     learning_rate: float = 1e-3
     reg: float = 1e-4
     num_negative: int = 1
     seed: int = 42
     device: Optional[str] = None
-    early_stopping_patience: Optional[int] = None  # None이면 early stopping 비활성화
+    early_stopping_patience: Optional[int] = 50  # None이면 early stopping 비활성화
     min_delta: float = 1e-6  # 개선으로 간주할 최소 변화량
 
     def __post_init__(self) -> None:
