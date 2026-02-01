@@ -1112,14 +1112,14 @@ class ALSRecommender:
 
         model_als = als_debug.train_als(
             user_item_matrix,
-            factors=als_debug.ALS_FACTORS,
-            regularization=als_debug.ALS_REGULARIZATION,
-            iterations=als_debug.ALS_ITERATIONS,
+            factors=self.factors,
+            regularization=self.regularization,
+            iterations=self.iterations,
             random_state=als_debug.RANDOM_STATE,
-            alpha=als_debug.ALS_ALPHA,
+            alpha=self.alpha,
         )
         logger.info("ALS model trained (factors=%d, iterations=%d, alpha=%.2f)",
-                    als_debug.ALS_FACTORS, als_debug.ALS_ITERATIONS, als_debug.ALS_ALPHA)
+                    self.factors, self.iterations, self.alpha)
 
         model_bpr = None
         if als_debug.HAS_BPR:
@@ -1136,14 +1136,14 @@ class ALSRecommender:
                 logger.warning("BPR 학습 건너뜀: %s", e)
 
         item_pop_counts = events_train.groupby("itemid").size()
-        long_tail_threshold = float(np.percentile(item_pop_counts.values, als_debug.LONG_TAIL_QUANTILE * 100))
+        long_tail_threshold = float(np.percentile(item_pop_counts.values, self.long_tail_quantile * 100))
         long_tail_item_ids = set(
             item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
         )
         eval_users = [int(u) for u in unique_users if u in user_id_to_idx]
 
         logger.info("Generating top-%d recommendations per user (ensemble=%s, long_tail=%.2f)…",
-                    self.top_k, model_bpr is not None, als_debug.LONG_TAIL_BONUS)
+                    self.top_k, model_bpr is not None, self.long_tail_bonus)
         recommendations_dict, _ = als_debug.scores_to_recommendations_ensemble(
             eval_users,
             user_id_to_idx,
@@ -1155,10 +1155,10 @@ class ALSRecommender:
             model_als,
             model_bpr,
             self.top_k,
-            als_debug.LONG_TAIL_BONUS,
+            self.long_tail_bonus,
             item_pop_by_id,
             long_tail_item_ids,
-            als_debug.ENSEMBLE_ALPHA,
+            self.ensemble_alpha,
         )
 
         records = []
