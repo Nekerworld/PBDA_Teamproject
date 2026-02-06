@@ -76,6 +76,7 @@ class SensitivityConfig:
     gnn_reg: float = 1e-4
     gnn_num_negative: int = 1
     gnn_early_stopping_patience: Optional[int] = 50
+    gnn_device: Optional[str] = None  # None이면 GNNEmbeddingGenerator가 cuda 가능 시 자동 사용
 
     # ReRanker
     als_weight: float = 0.4
@@ -203,7 +204,7 @@ def run_gnn(config: SensitivityConfig) -> None:
         reg=config.gnn_reg,
         num_negative=config.gnn_num_negative,
         early_stopping_patience=config.gnn_early_stopping_patience,
-        device=getattr(config, "gnn_device", "cpu"),
+        device=config.gnn_device,  # None이면 model.py와 동일하게 cuda 자동 선택
     )
     try:
         gnn.run()
