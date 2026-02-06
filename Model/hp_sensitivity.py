@@ -12,11 +12,12 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import gc
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -107,6 +108,17 @@ def _clear_gnn_memory() -> None:
         pass
 
 
+def clear_memory() -> None:
+    """한 실험 종료 후 메모리 초기화 (다음 실험 전에 호출)."""
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # 실험 실행
 # ---------------------------------------------------------------------------
@@ -115,14 +127,31 @@ def run_priority_sensitivity(
     processed_dir: Path,
     data_dir: Path,
     top_k: int = 50,
+    output_path: Optional[Path] = None,
 ) -> pd.DataFrame:
     """
     우선순위 8개 하이퍼파라미터에 대해 one-at-a-time 실험 수행.
     기여도는 기본 방식: (Parameter, Value, NDCG@K, Recall@K) 표로 기록.
+    output_path가 주어지면 실험마다 해당 CSV에 행을 추가하고 메모리를 초기화한다.
     """
     default_config = get_default_config(processed_dir, data_dir, top_k)
     grids = get_priority_parameter_grids()
     rows: List[Dict[str, Any]] = []
+    csv_file = None
+    writer = None
+    if output_path:
+        csv_file = open(output_path, "w", newline="", encoding="utf-8")
+        writer = csv.writer(csv_file)
+        writer.writerow(["Parameter", "Value", "NDCG", "Recall"])
+        csv_file.flush()
+
+    def record_row(parameter: str, value: Any, ndcg: float, recall: float) -> None:
+        if writer is not None and csv_file is not None:
+            writer.writerow([parameter, value, ndcg, recall])
+            csv_file.flush()
+        else:
+            rows.append({"Parameter": parameter, "Value": value, "NDCG": ndcg, "Recall": recall})
+        clear_memory()
 
     # 0) 전처리 1회
     if not (processed_dir / "als_events_train.csv").exists():
@@ -138,12 +167,7 @@ def run_priority_sensitivity(
     run_gnn(default_config)
     run_reranker(default_config)
     ndcg0, recall0 = evaluate_recommendations(processed_dir, top_k)
-    rows.append({
-        "Parameter": "(baseline)",
-        "Value": "default",
-        "NDCG": ndcg0,
-        "Recall": recall0,
-    })
+    record_row("(baseline)", "default", ndcg0, recall0)
     logger.info("Baseline -> NDCG=%.4f, Recall=%.4f", ndcg0, recall0)
 
     # 2) als_weight: ReRanker만 재실행
@@ -154,7 +178,7 @@ def run_priority_sensitivity(
             cfg = default_config.copy_with(**{field_name: v})
             run_reranker(cfg)
             ndcg, recall = evaluate_recommendations(processed_dir, top_k)
-            rows.append({"Parameter": param_label, "Value": v, "NDCG": ndcg, "Recall": recall})
+            record_row(param_label, v, ndcg, recall)
             logger.info("%s = %s -> NDCG=%.4f, Recall=%.4f", param_label, v, ndcg, recall)
         break
 
@@ -167,7 +191,7 @@ def run_priority_sensitivity(
             run_als(cfg)
             run_reranker(cfg)
             ndcg, recall = evaluate_recommendations(processed_dir, top_k)
-            rows.append({"Parameter": param_label, "Value": v, "NDCG": ndcg, "Recall": recall})
+            record_row(param_label, v, ndcg, recall)
             logger.info("%s = %s -> NDCG=%.4f, Recall=%.4f", param_label, v, ndcg, recall)
 
     # 4) ALS를 디폴트로 복구 후 GNN 관련 실험
@@ -183,7 +207,7 @@ def run_priority_sensitivity(
             run_gnn(cfg)
             run_reranker(cfg)
             ndcg, recall = evaluate_recommendations(processed_dir, top_k)
-            rows.append({"Parameter": param_label, "Value": v, "NDCG": ndcg, "Recall": recall})
+            record_row(param_label, v, ndcg, recall)
             logger.info("%s = %s -> NDCG=%.4f, Recall=%.4f", param_label, v, ndcg, recall)
         try:
             del _
@@ -191,6 +215,11 @@ def run_priority_sensitivity(
             pass
         _clear_gnn_memory()
 
+    if csv_file is not None:
+        csv_file.close()
+
+    if output_path and output_path.exists():
+        return pd.read_csv(output_path)
     return pd.DataFrame(rows)
 
 
@@ -250,16 +279,16 @@ def main() -> None:
 
     processed_dir = Path(args.processed_dir)
     data_dir = Path(args.data_dir)
+    out_path = Path(args.output)
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     df = run_priority_sensitivity(
         processed_dir=processed_dir,
         data_dir=data_dir,
         top_k=args.top_k,
+        output_path=out_path,
     )
 
-    out_path = Path(args.output)
-    df.to_csv(out_path, index=False)
     logger.info("결과 저장: %s", out_path.resolve())
 
     print_results_table(df)
