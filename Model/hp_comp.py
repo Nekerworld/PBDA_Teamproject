@@ -7,7 +7,7 @@ NDCG@K, Recall@K를 기록해 CSV 및 표로 출력합니다.
 실험 파라미터:
 - 기존: ALS factors, GNN embedding_dim, ALS weight, GNN layers
 - 제안: ALS regularization, ALS alpha, GNN learning_rate, GNN reg,
-        GNN num_negative, long_tail_bonus
+        GNN num_negative
 
 사용 예:
     python -m Model.hyperparameter_sensitivity
@@ -65,8 +65,6 @@ class SensitivityConfig:
     als_regularization: float = 0.03
     als_iterations: int = 256
     als_alpha: float = 1.5
-    als_long_tail_bonus: float = 0.35
-    als_long_tail_quantile: float = 0.5
     als_ensemble_alpha: float = 0.5
 
     # GNN
@@ -109,7 +107,6 @@ def get_parameter_grids() -> List[Tuple[str, str, List[Any]]]:
         ("GNN learning_rate", "gnn_learning_rate", [1e-4, 5e-4, 1e-3, 5e-3]),
         ("GNN reg", "gnn_reg", [1e-5, 1e-4, 1e-3]),
         ("GNN num_negative", "gnn_num_negative", [1, 3, 5]),
-        ("long_tail_bonus", "als_long_tail_bonus", [0.0, 0.2, 0.35, 0.5]),
     ]
 
 
@@ -177,8 +174,6 @@ def run_als(config: SensitivityConfig) -> None:
         iterations=config.als_iterations,
         alpha=config.als_alpha,
         top_k=config.top_k,
-        long_tail_bonus=config.als_long_tail_bonus,
-        long_tail_quantile=config.als_long_tail_quantile,
         ensemble_alpha=config.als_ensemble_alpha,
     )
     als.run()

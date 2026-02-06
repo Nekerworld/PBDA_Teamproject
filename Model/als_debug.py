@@ -81,10 +81,6 @@ MIN_TEST_POSITIVES = 2
 TOP_K = 50
 K_LIST = [10, 20, 50]
 
-# 롱테일: 비인기 아이템 가산점 (실험으로 선택)
-LONG_TAIL_BONUS = 0.35
-LONG_TAIL_QUANTILE = 0.5
-
 # ALS: alpha=confidence 스케일, factors/reg/iter 실험 반영
 ALS_FACTORS = 128
 ALS_REGULARIZATION = 0.03
@@ -258,14 +254,11 @@ def scores_to_recommendations_ensemble(
     model_als: AlternatingLeastSquares,
     model_bpr,
     top_k: int,
-    long_tail_bonus: float,
-    item_pop_by_id: Dict[int, int],
-    long_tail_item_ids: Set[int],
     ensemble_alpha: float,
 ) -> Tuple[Dict[int, List[int]], Dict[int, np.ndarray]]:
     """
     ALS + BPR 앙상블: 유저별로 점수 min-max 정규화 후 alpha*ALS + (1-alpha)*BPR 결합,
-    hold-out·롱테일 보너스 적용하여 Top-K 추천 생성.
+    hold-out 적용하여 Top-K 추천 생성.
     """
     n_items = model_als.item_factors.shape[0]
     user_train_items: Dict[int, Set[int]] = (
@@ -275,7 +268,6 @@ def scores_to_recommendations_ensemble(
     )
     recommendations: Dict[int, List[int]] = {}
     per_user_scores: Dict[int, np.ndarray] = {}
-    recommend_n = top_k * 4 if long_tail_bonus > 0 else top_k
 
     for user_id in eval_users:
         user_idx = user_id_to_idx[user_id]
@@ -299,20 +291,9 @@ def scores_to_recommendations_ensemble(
             if item_id in item_id_to_idx:
                 scores[item_id_to_idx[item_id]] = -np.inf
 
-        top_indices = np.argsort(-scores)[:recommend_n]
+        top_indices = np.argsort(-scores)[:top_k]
         cand_ids = [idx_to_item_id[i] for i in top_indices if scores[i] > -np.inf]
-        cand_scores = scores[top_indices[: len(cand_ids)]].tolist()
-
-        if long_tail_bonus > 0 and cand_ids:
-            pop_list = [item_pop_by_id.get(iid, 0) for iid in cand_ids]
-            new_scores = [
-                s + long_tail_bonus * (1.0 / (p + 1.0))
-                for s, p in zip(cand_scores, pop_list)
-            ]
-            sorted_pairs = sorted(zip(cand_ids, new_scores), key=lambda x: -x[1])
-            rec_list = [item_id for item_id, _ in sorted_pairs[:top_k]]
-        else:
-            rec_list = cand_ids[:top_k]
+        rec_list = cand_ids[:top_k]
 
         recommendations[user_id] = rec_list
 
@@ -329,13 +310,10 @@ def scores_to_recommendations(
     events_train: pd.DataFrame,
     model: AlternatingLeastSquares,
     top_k: int,
-    long_tail_bonus: float,
-    item_pop_by_id: Dict[int, int],
-    long_tail_item_ids: Set[int],
 ) -> Tuple[Dict[int, List[int]], Dict[int, np.ndarray]]:
     """
-    각 유저별 선호도 점수를 구한 뒤, hold-out 적용 및 (선택) 롱테일 보너스로
-    Top-K 추천 리스트 생성. 동시에 유저별 점수 벡터 반환.
+    각 유저별 선호도 점수를 구한 뒤, hold-out 적용하여 Top-K 추천 리스트 생성.
+    동시에 유저별 점수 벡터 반환.
     """
     n_items = model.item_factors.shape[0]
     user_train_items: Dict[int, Set[int]] = (
@@ -346,15 +324,12 @@ def scores_to_recommendations(
 
     recommendations: Dict[int, List[int]] = {}
     per_user_scores: Dict[int, np.ndarray] = {}
-    recommend_n = top_k * 4 if long_tail_bonus > 0 else top_k
 
     for user_id in eval_users:
         user_idx = user_id_to_idx[user_id]
-        # 모든 아이템에 대한 선호도 점수 (각 유저마다)
         scores = get_per_user_scores(model, user_idx, n_items).ravel()
         per_user_scores[user_id] = scores.copy()
 
-        # Hold-out: Train에서 본 아이템 중 Test positive가 아닌 것은 제외 (점수 -inf)
         train_items_u = user_train_items.get(user_id, set()) & set(
             item_id_to_idx.keys()
         )
@@ -364,21 +339,9 @@ def scores_to_recommendations(
             if item_id in item_id_to_idx:
                 scores[item_id_to_idx[item_id]] = -np.inf
 
-        # 상위 recommend_n개 후보
-        top_indices = np.argsort(-scores)[:recommend_n]
+        top_indices = np.argsort(-scores)[:top_k]
         cand_ids = [idx_to_item_id[i] for i in top_indices if scores[i] > -np.inf]
-        cand_scores = scores[top_indices[: len(cand_ids)]].tolist()
-
-        if long_tail_bonus > 0 and cand_ids:
-            pop_list = [item_pop_by_id.get(iid, 0) for iid in cand_ids]
-            new_scores = [
-                s + long_tail_bonus * (1.0 / (p + 1.0))
-                for s, p in zip(cand_scores, pop_list)
-            ]
-            sorted_pairs = sorted(zip(cand_ids, new_scores), key=lambda x: -x[1])
-            rec_list = [item_id for item_id, _ in sorted_pairs[:top_k]]
-        else:
-            rec_list = cand_ids[:top_k]
+        rec_list = cand_ids[:top_k]
 
         recommendations[user_id] = rec_list
 
@@ -444,11 +407,6 @@ def run_pipeline_return_metrics(verbose: bool = False) -> Dict[str, float]:
         item_pop_by_id,
     ) = build_user_item_matrix(events_train, WEIGHT_MAP, use_log_scale=USE_WEIGHT_LOG_SCALE)
     n_users, n_items = user_item_matrix.shape
-    item_pop_counts = events_train.groupby("itemid").size()
-    long_tail_threshold = np.percentile(item_pop_counts.values, LONG_TAIL_QUANTILE * 100)
-    long_tail_item_ids = set(
-        item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
-    )
     model_als = train_als(
         user_item_matrix,
         factors=ALS_FACTORS,
@@ -480,9 +438,6 @@ def run_pipeline_return_metrics(verbose: bool = False) -> Dict[str, float]:
         model_als,
         model_bpr,
         TOP_K,
-        LONG_TAIL_BONUS,
-        item_pop_by_id,
-        long_tail_item_ids,
         ENSEMBLE_ALPHA,
     )
     metrics = {}
@@ -541,15 +496,6 @@ def main() -> None:
     print(f"행렬: ({n_users:,} x {n_items:,}), nnz: {user_item_matrix.nnz:,}")
     print(f"Sparsity: {100 * (1 - user_item_matrix.nnz / (n_users * n_items)):.4f}%")
 
-    # 롱테일 정의
-    item_pop_counts = events_train.groupby("itemid").size()
-    long_tail_threshold = np.percentile(
-        item_pop_counts.values, LONG_TAIL_QUANTILE * 100
-    )
-    long_tail_item_ids = set(
-        item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
-    )
-
     print("\n" + "=" * 60)
     print("3. ALS 학습 (모든 사용자)")
     print("=" * 60)
@@ -591,7 +537,7 @@ def main() -> None:
         return
 
     print(f"평가 유저 수: {len(eval_users):,} (Train 존재 + Test positive ≥ {MIN_TEST_POSITIVES}개)")
-    print(f"앙상블: alpha={ENSEMBLE_ALPHA}*ALS + (1-{ENSEMBLE_ALPHA})*BPR, 롱테일 보너스={LONG_TAIL_BONUS}")
+    print(f"앙상블: alpha={ENSEMBLE_ALPHA}*ALS + (1-{ENSEMBLE_ALPHA})*BPR")
     recommendations, per_user_scores = scores_to_recommendations_ensemble(
         eval_users,
         user_id_to_idx,
@@ -603,9 +549,6 @@ def main() -> None:
         model_als,
         model_bpr,
         TOP_K,
-        LONG_TAIL_BONUS,
-        item_pop_by_id,
-        long_tail_item_ids,
         ENSEMBLE_ALPHA,
     )
     print(f"유저별 앙상블 점수 벡터: {len(per_user_scores):,} users x {n_items:,} items")

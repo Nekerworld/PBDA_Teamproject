@@ -59,8 +59,6 @@ def get_default_config(processed_dir: Path, data_dir: Path, top_k: int = 50) -> 
         als_regularization=0.03,
         als_iterations=256,
         als_alpha=1.5,
-        als_long_tail_bonus=0.35,
-        als_long_tail_quantile=0.5,
         als_ensemble_alpha=0.5,
         # GNNEmbeddingGenerator 기본값
         gnn_embedding_dim=8,
@@ -78,7 +76,7 @@ def get_default_config(processed_dir: Path, data_dir: Path, top_k: int = 50) -> 
 
 # ---------------------------------------------------------------------------
 # 우선순위 파라미터 그리드 (한 번에 하나만 변경)
-# 순서: als_weight → factors → embedding_dim → layers → alpha → regularization → learning_rate → long_tail_bonus
+# 순서: als_weight → factors → embedding_dim → layers → alpha → regularization → learning_rate
 # ---------------------------------------------------------------------------
 
 def get_priority_parameter_grids() -> List[Tuple[str, str, List[Any]]]:
@@ -94,7 +92,6 @@ def get_priority_parameter_grids() -> List[Tuple[str, str, List[Any]]]:
         ("ALS alpha", "als_alpha", [0.5, 1.0, 1.5, 2.0]),
         ("ALS regularization", "als_regularization", [0.01, 0.03, 0.1, 0.3]),
         ("GNN learning_rate", "gnn_learning_rate", [1e-4, 5e-4, 1e-3, 5e-3]),
-        ("long_tail_bonus", "als_long_tail_bonus", [0.0, 0.2, 0.35, 0.5]),
     ]
 
 
@@ -182,9 +179,9 @@ def run_priority_sensitivity(
             logger.info("%s = %s -> NDCG=%.4f, Recall=%.4f", param_label, v, ndcg, recall)
         break
 
-    # 3) ALS 관련 (factors, alpha, regularization, long_tail_bonus): ALS + ReRanker
+    # 3) ALS 관련 (factors, alpha, regularization): ALS + ReRanker
     for param_label, field_name, values in grids:
-        if field_name not in ("als_factors", "als_alpha", "als_regularization", "als_long_tail_bonus"):
+        if field_name not in ("als_factors", "als_alpha", "als_regularization"):
             continue
         for v in values:
             cfg = default_config.copy_with(**{field_name: v})

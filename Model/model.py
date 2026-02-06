@@ -78,8 +78,6 @@ EVENT_WEIGHT: Dict[str, float] = {"view": 1.0, "addtocart": 6.0, "transaction": 
 # ALS 전용 가중치·설정 (als_debug 실험 반영, NDCG/Recall 향상)
 ALS_WEIGHT_MAP: Dict[str, float] = {"view": 1.0, "addtocart": 15.0, "transaction": 32.0}
 USE_WEIGHT_LOG_SCALE = False
-LONG_TAIL_BONUS = 0.35
-LONG_TAIL_QUANTILE = 0.5
 ENSEMBLE_ALPHA = 0.5
 BPR_REGULARIZATION = 0.03
 
@@ -1030,7 +1028,6 @@ class ALSRecommender:
         top_k: 사용자당 추천할 아이템 수
         weight_map: 이벤트별 가중치 (None이면 ALS_WEIGHT_MAP 사용)
         use_weight_log_scale: 집계 가중치에 1+log(1+x) 적용 여부
-        long_tail_bonus: 비인기 아이템 가산점
         ensemble_alpha: ALS+BPR 앙상블 시 alpha*ALS + (1-alpha)*BPR
         min_user_events, min_item_events: Core 필터 (0이면 미적용)
     """
@@ -1044,8 +1041,6 @@ class ALSRecommender:
     recommend_batch_size: int = 256
     weight_map: Optional[Dict[str, float]] = None  # None이면 ALS_WEIGHT_MAP 사용
     use_weight_log_scale: bool = False
-    long_tail_bonus: float = 0.35
-    long_tail_quantile: float = 0.5
     ensemble_alpha: float = 0.5  # ALS+BPR 앙상블 시 alpha*ALS + (1-alpha)*BPR
     min_user_events: int = 0  # 0이면 Core 필터 미적용
     min_item_events: int = 0
@@ -1135,15 +1130,10 @@ class ALSRecommender:
             except Exception as e:
                 logger.warning("BPR 학습 건너뜀: %s", e)
 
-        item_pop_counts = events_train.groupby("itemid").size()
-        long_tail_threshold = float(np.percentile(item_pop_counts.values, self.long_tail_quantile * 100))
-        long_tail_item_ids = set(
-            item_pop_counts[item_pop_counts <= long_tail_threshold].index.astype(int).tolist()
-        )
         eval_users = [int(u) for u in unique_users if u in user_id_to_idx]
 
-        logger.info("Generating top-%d recommendations per user (ensemble=%s, long_tail=%.2f)…",
-                    self.top_k, model_bpr is not None, self.long_tail_bonus)
+        logger.info("Generating top-%d recommendations per user (ensemble=%s)…",
+                    self.top_k, model_bpr is not None)
         recommendations_dict, _ = als_debug.scores_to_recommendations_ensemble(
             eval_users,
             user_id_to_idx,
@@ -1155,9 +1145,6 @@ class ALSRecommender:
             model_als,
             model_bpr,
             self.top_k,
-            self.long_tail_bonus,
-            item_pop_by_id,
-            long_tail_item_ids,
             self.ensemble_alpha,
         )
 
@@ -1529,7 +1516,13 @@ class GNNEmbeddingGenerator:
         train_losses = []
         val_losses = []
         
-        # Early stopping 변수
+        # Early stopping 변수 (patience: 개선 없는 연속 에포크 수가 이 값에 도달하면 학습 종료)
+        patience_limit = int(self.early_stopping_patience) if self.early_stopping_patience is not None else None
+        if patience_limit is not None:
+            logger.info(
+                "Early stopping enabled: patience=%d (will stop after %d consecutive epochs with no val loss improvement, min_delta=%.2e)",
+                patience_limit, patience_limit, self.min_delta,
+            )
         best_val_loss = float("inf")
         patience_counter = 0
         best_epoch = 0
@@ -1571,15 +1564,15 @@ class GNNEmbeddingGenerator:
             avg_train_loss = epoch_loss / num_batches
             train_losses.append(avg_train_loss)
             
-            # Validation loss 계산
-            val_loss = self._compute_val_loss(model, val_interactions, graph_data, torch)
+            # Validation loss 계산 (고정 시드로 네가티브 샘플 생성 → 에포크 간 비교 가능)
+            val_loss = self._compute_val_loss(model, val_interactions, graph_data, torch, val_seed=self.seed + 99999)
             val_losses.append(val_loss)
             
             logger.info("Epoch %d/%d - Train Loss: %.6f, Val Loss: %.6f", 
                        epoch, self.epochs, avg_train_loss, val_loss)
             
-            # Early stopping 체크
-            if self.early_stopping_patience is not None:
+            # Early stopping 체크 (patience_limit 사용으로 전달값과 동일한 정수 비교 보장)
+            if patience_limit is not None:
                 if val_loss < best_val_loss - self.min_delta:
                     best_val_loss = val_loss
                     patience_counter = 0
@@ -1594,22 +1587,22 @@ class GNNEmbeddingGenerator:
                 else:
                     patience_counter += 1
                     logger.info("  No improvement for %d epoch(s) (patience: %d)", 
-                               patience_counter, self.early_stopping_patience)
+                               patience_counter, patience_limit)
                     
-                    if patience_counter >= self.early_stopping_patience:
+                    if patience_counter >= patience_limit:
                         logger.info("Early stopping triggered at epoch %d. Best epoch: %d (Val Loss: %.6f)",
                                    epoch, best_epoch, best_val_loss)
                         break
         
         # 최적 모델 복원
-        if self.early_stopping_patience is not None and best_model_state is not None:
+        if patience_limit is not None and best_model_state is not None:
             logger.info("Restoring best model from epoch %d (Val Loss: %.6f)", 
                        best_epoch, best_val_loss)
             model.load_state_dict(best_model_state["model"])
             optimizer.load_state_dict(best_model_state["optimizer"])
         
         # Loss 그래프 출력
-        self._plot_gnn_losses(train_losses, val_losses, best_epoch if self.early_stopping_patience else None)
+        self._plot_gnn_losses(train_losses, val_losses, best_epoch if patience_limit is not None else None)
 
         model.eval()
         with torch.no_grad():
@@ -1627,15 +1620,18 @@ class GNNEmbeddingGenerator:
         val_interactions: np.ndarray,
         graph_data: Dict[str, Any],
         torch_module: Any,
+        val_seed: Optional[int] = None,
     ) -> float:
         """
         Validation loss를 계산합니다.
+        val_seed가 주어지면 해당 시드로 네가티브 샘플을 고정하여 에포크 간 val_loss를 비교 가능하게 합니다.
         
         Args:
             model: GNN 모델
             val_interactions: validation 상호작용 배열
             graph_data: 그래프 구조 정보 딕셔너리
             torch_module: PyTorch 모듈
+            val_seed: 검증용 네가티브 샘플 시드 (None이면 매번 랜덤)
             
         Returns:
             Validation loss 값
@@ -1643,6 +1639,11 @@ class GNNEmbeddingGenerator:
         model.eval()
         total_loss = 0.0
         num_batches = max(int(np.ceil(len(val_interactions) / self.batch_size)), 1)
+        
+        # 검증 네가티브 샘플 시드 고정 → early stopping 판정 안정화
+        if val_seed is not None:
+            torch_module.manual_seed(val_seed)
+            np.random.seed(val_seed)
         
         with torch_module.no_grad():
             for batch_idx in range(num_batches):
@@ -1655,7 +1656,7 @@ class GNNEmbeddingGenerator:
                 user_indices = torch_module.from_numpy(batch[:, 0]).long().to(self.device)
                 pos_item_indices = torch_module.from_numpy(batch[:, 1]).long().to(self.device)
 
-                # 네가티브 샘플 생성
+                # 네가티브 샘플 생성 (val_seed 설정 시 동일 샘플로 에포크 간 비교 가능)
                 neg_shape = (len(batch), max(self.num_negative, 1))
                 neg_item_indices = torch_module.randint(0, graph_data["num_items"], neg_shape, device=self.device)
 
