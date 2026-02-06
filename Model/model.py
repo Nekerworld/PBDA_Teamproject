@@ -4338,21 +4338,32 @@ class BaselineComparator:
         results: Dict[str, Dict[str, Any]] = {}
 
         logger.info("=" * 80)
-        logger.info("시나리오 1: 전처리 -> ALS -> 평가")
+        logger.info("시나리오 1: 전처리 -> ALS only -> 평가")
         logger.info("=" * 80)
-        results["1. ALS"] = self._run_als_scenario()
+        results["1. ALS only"] = self._run_als_only_scenario()
 
         logger.info("\n" + "=" * 80)
-        logger.info("시나리오 2: 전처리 -> GNN -> 평가")
+        logger.info("시나리오 2: 전처리 -> BPR only -> 평가")
         logger.info("=" * 80)
-        results["2. GNN"] = self._run_gnn_scenario()
+        results["2. BPR only"] = self._run_bpr_only_scenario()
 
         logger.info("\n" + "=" * 80)
-        logger.info("시나리오 3: 전처리 -> ALS -> GNN -> 평가")
+        logger.info("시나리오 3: 전처리 -> ALS+BPR 앙상블 -> 평가")
         logger.info("=" * 80)
-        results["3. ALS+GNN"] = self._run_combined_scenario()
+        results["3. ALS+BPR"] = self._run_als_scenario()
+
+        logger.info("\n" + "=" * 80)
+        logger.info("시나리오 4: 전처리 -> GNN -> 평가")
+        logger.info("=" * 80)
+        results["4. GNN"] = self._run_gnn_scenario()
+
+        logger.info("\n" + "=" * 80)
+        logger.info("시나리오 5: 전처리 -> ALS -> GNN -> 평가")
+        logger.info("=" * 80)
+        results["5. ALS+GNN"] = self._run_combined_scenario()
 
         self._print_table(results)
+        self._print_result_table(results)
 
     def _load_positives(self) -> Tuple[Dict[int, set], np.ndarray]:
         events_test = pd.read_csv(self.processed_dir / "events_test.csv")
@@ -4598,10 +4609,219 @@ class BaselineComparator:
 
         self._diagnose_als()
 
+        t_tot = t_pre + t_als + t_eval
         return {
             "ndcg": ndcg,
             "recall": recall,
-            "times": {"전처리": t_pre, "ALS": t_als, "평가": t_eval, "총합": t_pre + t_als + t_eval},
+            "times": {
+                "전처리": t_pre,
+                "ALS": t_als,
+                "GNN": 0.0,
+                "ReRanker": 0.0,
+                "평가": t_eval,
+                "총합": t_tot,
+            },
+        }
+
+    def _run_als_only_scenario(self) -> Dict[str, Any]:
+        """
+        als_debug 기반: 전처리 -> ALS만 학습 -> 추천 -> 평가.
+        """
+        import sys
+        _model_dir = Path(__file__).resolve().parent
+        if str(_model_dir) not in sys.path:
+            sys.path.insert(0, str(_model_dir))
+        import als_debug
+
+        t0 = time.perf_counter()
+        als_pre = ALSPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        als_pre.run()
+        t_pre = time.perf_counter() - t0
+
+        t1 = time.perf_counter()
+        events_train = pd.read_csv(self.processed_dir / "als_events_train.csv")
+        events_test = pd.read_csv(self.processed_dir / "als_events_test.csv")
+        train_item_set = set(events_train["itemid"].dropna().astype(int).unique())
+        pos_events = events_test[
+            events_test["event"].isin(["addtocart", "transaction"])
+        ].dropna(subset=["visitorid", "itemid"])
+        pos_events = pos_events.assign(
+            visitorid=pos_events["visitorid"].astype(int),
+            itemid=pos_events["itemid"].astype(int),
+        )
+        positives = pos_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
+        positives_filtered = {uid: rel & train_item_set for uid, rel in positives.items() if rel & train_item_set}
+        eval_users = np.array([
+            u for u in positives
+            if len(positives_filtered.get(u, set())) >= self.MIN_TEST_POSITIVES_FOR_ALS
+        ])
+        (
+            user_item_matrix,
+            unique_users,
+            unique_items,
+            user_id_to_idx,
+            item_id_to_idx,
+            idx_to_item_id,
+            _,
+        ) = als_debug.build_user_item_matrix(
+            events_train, als_debug.WEIGHT_MAP, use_log_scale=als_debug.USE_WEIGHT_LOG_SCALE
+        )
+        model_als = als_debug.train_als(
+            user_item_matrix,
+            factors=als_debug.ALS_FACTORS,
+            regularization=als_debug.ALS_REGULARIZATION,
+            iterations=als_debug.ALS_ITERATIONS,
+            random_state=als_debug.RANDOM_STATE,
+            alpha=als_debug.ALS_ALPHA,
+        )
+        eval_users = [u for u in eval_users if u in user_id_to_idx]
+        if not eval_users:
+            t_als = time.perf_counter() - t1
+            t_eval = 0.0
+            ndcg, recall = 0.0, 0.0
+        else:
+            recommendations, _ = als_debug.scores_to_recommendations(
+                eval_users,
+                user_id_to_idx,
+                item_id_to_idx,
+                idx_to_item_id,
+                train_item_set,
+                positives_filtered,
+                events_train,
+                model_als,
+                self.top_k,
+            )
+            rows = []
+            for uid, rec_list in recommendations.items():
+                for r, item_id in enumerate(rec_list, start=1):
+                    rows.append({"visitorid": int(uid), "itemid": int(item_id), "rank": r})
+            rec_df = pd.DataFrame(rows)
+            t_als = time.perf_counter() - t1
+            t2 = time.perf_counter()
+            ndcg, recall = self._evaluate(rec_df, positives_filtered, np.array(eval_users), score_col="rank")
+            t_eval = time.perf_counter() - t2
+
+        t_tot = t_pre + t_als + t_eval
+        return {
+            "ndcg": ndcg,
+            "recall": recall,
+            "times": {
+                "전처리": t_pre,
+                "ALS": t_als,
+                "GNN": 0.0,
+                "ReRanker": 0.0,
+                "평가": t_eval,
+                "총합": t_tot,
+            },
+        }
+
+    def _run_bpr_only_scenario(self) -> Dict[str, Any]:
+        """
+        als_debug 기반: 전처리 -> BPR만 학습 -> 추천 -> 평가.
+        BPR 미지원 시 ndcg/recall 0, times는 전처리만 측정.
+        """
+        import sys
+        _model_dir = Path(__file__).resolve().parent
+        if str(_model_dir) not in sys.path:
+            sys.path.insert(0, str(_model_dir))
+        import als_debug
+
+        if not getattr(als_debug, "HAS_BPR", False):
+            t0 = time.perf_counter()
+            ALSPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir).run()
+            t_pre = time.perf_counter() - t0
+            return {
+                "ndcg": 0.0,
+                "recall": 0.0,
+                "times": {"전처리": t_pre, "ALS": 0.0, "GNN": 0.0, "ReRanker": 0.0, "평가": 0.0, "총합": t_pre},
+            }
+
+        t0 = time.perf_counter()
+        als_pre = ALSPreprocessor(data_dir=self.data_dir, processed_dir=self.processed_dir)
+        als_pre.run()
+        t_pre = time.perf_counter() - t0
+
+        t1 = time.perf_counter()
+        events_train = pd.read_csv(self.processed_dir / "als_events_train.csv")
+        events_test = pd.read_csv(self.processed_dir / "als_events_test.csv")
+        train_item_set = set(events_train["itemid"].dropna().astype(int).unique())
+        pos_events = events_test[
+            events_test["event"].isin(["addtocart", "transaction"])
+        ].dropna(subset=["visitorid", "itemid"])
+        pos_events = pos_events.assign(
+            visitorid=pos_events["visitorid"].astype(int),
+            itemid=pos_events["itemid"].astype(int),
+        )
+        positives = pos_events.groupby("visitorid")["itemid"].apply(lambda s: set(s.tolist())).to_dict()
+        positives_filtered = {uid: rel & train_item_set for uid, rel in positives.items() if rel & train_item_set}
+        eval_users = np.array([
+            u for u in positives
+            if len(positives_filtered.get(u, set())) >= self.MIN_TEST_POSITIVES_FOR_ALS
+        ])
+        (
+            user_item_matrix,
+            unique_users,
+            unique_items,
+            user_id_to_idx,
+            item_id_to_idx,
+            idx_to_item_id,
+            _,
+        ) = als_debug.build_user_item_matrix(
+            events_train, als_debug.WEIGHT_MAP, use_log_scale=als_debug.USE_WEIGHT_LOG_SCALE
+        )
+        model_bpr = als_debug.train_bpr(
+            user_item_matrix,
+            factors=als_debug.BPR_FACTORS,
+            regularization=als_debug.BPR_REGULARIZATION,
+            iterations=als_debug.BPR_ITERATIONS,
+            random_state=als_debug.RANDOM_STATE,
+        )
+        if model_bpr is None:
+            t_bpr = time.perf_counter() - t1
+            return {
+                "ndcg": 0.0,
+                "recall": 0.0,
+                "times": {"전처리": t_pre, "ALS": t_bpr, "GNN": 0.0, "ReRanker": 0.0, "평가": 0.0, "총합": t_pre + t_bpr},
+            }
+        eval_users = [u for u in eval_users if u in user_id_to_idx]
+        if not eval_users:
+            t_bpr = time.perf_counter() - t1
+            t_eval = 0.0
+            ndcg, recall = 0.0, 0.0
+        else:
+            recommendations, _ = als_debug.scores_to_recommendations(
+                eval_users,
+                user_id_to_idx,
+                item_id_to_idx,
+                idx_to_item_id,
+                train_item_set,
+                positives_filtered,
+                events_train,
+                model_bpr,  # type: ignore[arg-type]
+                self.top_k,
+            )
+            rows = []
+            for uid, rec_list in recommendations.items():
+                for r, item_id in enumerate(rec_list, start=1):
+                    rows.append({"visitorid": int(uid), "itemid": int(item_id), "rank": r})
+            rec_df = pd.DataFrame(rows)
+            t_bpr = time.perf_counter() - t1
+            t2 = time.perf_counter()
+            ndcg, recall = self._evaluate(rec_df, positives_filtered, np.array(eval_users), score_col="rank")
+            t_eval = time.perf_counter() - t2
+
+        t_tot = t_pre + t_bpr + t_eval
+        return {
+            "ndcg": ndcg,
+            "recall": recall,
+            "times": {
+                "전처리": t_pre,
+                "ALS": t_bpr,  # BPR 학습 시간을 ALS 컬럼에 표시
+                "GNN": 0.0,
+                "ReRanker": 0.0,
+                "평가": t_eval,
+                "총합": t_tot,
+            },
         }
 
     def _generate_gnn_recs(self, test_users: np.ndarray) -> pd.DataFrame:
@@ -4664,10 +4884,18 @@ class BaselineComparator:
         ndcg, recall = self._evaluate(gnn_rec, positives_gnn, eval_users if eval_users.size else test_users, score_col="score")
         t_eval = time.perf_counter() - t2
 
+        t_tot = t_pre + t_gnn + t_eval
         return {
             "ndcg": ndcg,
             "recall": recall,
-            "times": {"전처리": t_pre, "GNN": t_gnn, "평가": t_eval, "총합": t_pre + t_gnn + t_eval},
+            "times": {
+                "전처리": t_pre,
+                "ALS": 0.0,
+                "GNN": t_gnn,
+                "ReRanker": 0.0,
+                "평가": t_eval,
+                "총합": t_tot,
+            },
         }
 
     def _run_combined_scenario(self) -> Dict[str, Any]:
@@ -4730,13 +4958,11 @@ class BaselineComparator:
 
     def _print_table(self, results: Dict[str, Dict[str, Any]]) -> None:
         w = 12
-        blk = " " * w
-        header = f"{'':14} | {'NDCG':^{w}} | {'Recall':^{w}} | {'전처리(초)':^{w}} | {'ALS(초)':^{w}} | {'GNN(초)':^{w}} | {'ReRanker(초)':^{w}} | {'평가(초)':^{w}} | {'총합(초)':^{w}}"
         sep = "-" * 130
+        header = f"{'':14} | {'NDCG':^{w}} | {'Recall':^{w}} | {'전처리(초)':^{w}} | {'ALS(초)':^{w}} | {'GNN(초)':^{w}} | {'ReRanker(초)':^{w}} | {'평가(초)':^{w}} | {'총합(초)':^{w}}"
         print("\n" + sep)
         print(header)
         print(sep)
-
         for name, data in results.items():
             ndcg = data["ndcg"]
             recall = data["recall"]
@@ -4748,14 +4974,42 @@ class BaselineComparator:
             t_eval = t.get("평가", 0.0)
             t_tot = t.get("총합", 0.0)
             print(f"{name:14} | {ndcg:^{w}.4f} | {recall:^{w}.4f} | {t_pre:^{w}.2f} | {t_als:^{w}.2f} | {t_gnn:^{w}.2f} | {t_rerank:^{w}.2f} | {t_eval:^{w}.2f} | {t_tot:^{w}.2f}")
-
-            if "1. ALS" in name:
-                pass
-            elif "2. GNN" in name:
-                pass
-            elif "3. ALS+GNN" in name:
-                pass
             print(sep)
+        print()
+
+    def _print_result_table(self, results: Dict[str, Dict[str, Any]]) -> None:
+        """
+        결과 요약 테이블 출력: Model | NDCG@50 | Recall@50
+        - ALS: 시나리오 1 (ALS만)
+        - BPR: 시나리오 2 (BPR만)
+        - ALS+BPR: 시나리오 3 (als_debug 앙상블)
+        - GNN: 시나리오 4
+        - Hybrid ((ALS+BPR)+GNN): 시나리오 5
+        """
+        als_only = results.get("1. ALS only", {})
+        bpr_only = results.get("2. BPR only", {})
+        als_bpr = results.get("3. ALS+BPR", {})
+        gnn = results.get("4. GNN", {})
+        hybrid = results.get("5. ALS+GNN", {})
+        ndcg_als = als_only.get("ndcg", 0.0)
+        recall_als = als_only.get("recall", 0.0)
+        ndcg_bpr = bpr_only.get("ndcg", 0.0)
+        recall_bpr = bpr_only.get("recall", 0.0)
+        ndcg_als_bpr = als_bpr.get("ndcg", 0.0)
+        recall_als_bpr = als_bpr.get("recall", 0.0)
+        ndcg_gnn = gnn.get("ndcg", 0.0)
+        recall_gnn = gnn.get("recall", 0.0)
+        ndcg_hybrid = hybrid.get("ndcg", 0.0)
+        recall_hybrid = hybrid.get("recall", 0.0)
+        print("\n[결과 요약] Model | NDCG@50 | Recall@50")
+        print("-" * 60)
+        print("Model\tNDCG@50\tRecall@50")
+        print(f"ALS\t{ndcg_als:.4f}\t{recall_als:.4f}")
+        bpr_str = f"{ndcg_bpr:.4f}\t{recall_bpr:.4f}" if (ndcg_bpr or recall_bpr) else "\t"
+        print(f"BPR\t{bpr_str}")
+        print(f"ALS+BPR\t{ndcg_als_bpr:.4f}\t{recall_als_bpr:.4f}")
+        print(f"GNN\t{ndcg_gnn:.4f}\t{recall_gnn:.4f}")
+        print(f"Hybrid ((ALS + BPR) + GNN)\t{ndcg_hybrid:.4f}\t{recall_hybrid:.4f}")
         print()
 
 
