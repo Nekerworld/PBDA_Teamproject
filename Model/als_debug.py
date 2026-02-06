@@ -206,15 +206,23 @@ def train_als(
     random_state: int = RANDOM_STATE,
     alpha: float = ALS_ALPHA,
 ) -> AlternatingLeastSquares:
-    """모든 사용자에 대해 ALS 학습. alpha=positive 신호 confidence 스케일."""
+    """
+    모든 사용자에 대해 ALS 학습.
+    Hu et al. (2008) 신뢰도: c_ui = 1 + alpha * r_ui 로 변환 후 fit.
+    (입력 행렬 값은 r_ui, 비관측은 라이브러리에서 C=1로 처리)
+    신뢰도를 직접 넣으므로 모델 alpha=1로 두어 이중 스케일 방지.
+    """
+    # c_ui = 1 + alpha * r_ui (식 (3)); 관측된 (u,i)에만 적용
+    confidence_matrix = user_item_matrix.copy()
+    confidence_matrix.data = 1.0 + alpha * confidence_matrix.data.astype(np.float64)
     model = AlternatingLeastSquares(
         factors=factors,
         regularization=regularization,
         iterations=iterations,
         random_state=random_state,
-        alpha=alpha,
+        alpha=1.0,  # 신뢰도는 위에서 이미 1+alpha*r_ui 로 반영
     )
-    model.fit(user_item_matrix)
+    model.fit(confidence_matrix)
     return model
 
 
