@@ -4321,10 +4321,11 @@ class TestSetEvaluator:
 @dataclass
 class TopKExperiment:
     """
-    Top-K 실험: K=10부터 200까지 10씩 증가하며 NDCG@K, Recall@K 계산.
+    Top-K 실험: 기존 파이프라인(ReRanker 출력)을 유지하고 K 값만 바꿔가며 NDCG@K, Recall@K 계산.
 
-    final_recommendations.csv를 사용하여 각 K 구간에서의 추천 성능을 평가합니다.
-    ReRanker가 생성한 최종 추천 결과가 200개 이상이어야 K=200까지 평가 가능합니다.
+    - 동일한 final_recommendations.csv, events_test.csv 사용
+    - rank 기준으로 정렬된 리스트에서 상위 k개만 잘라 사용 (K=10, 20, ..., 200)
+    - 파이프라인/정답/평가 로직은 변경하지 않고 K 값만 변경
 
     Attributes:
         processed_dir: 전처리된 데이터가 저장된 디렉토리 경로
@@ -4337,7 +4338,7 @@ class TopKExperiment:
 
     processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
     recommendations_file: str = "final_recommendations.csv"
-    score_col: str = "final_score"
+    score_col: str = "rank"  # rank 기준으로 상위 k개 사용 (ReRanker 200 리스트에서 k개 자르기)
     k_min: int = 10
     k_max: int = 200
     k_step: int = 10
@@ -4379,17 +4380,18 @@ class TopKExperiment:
         use_col = self.score_col if self.score_col in recommendations.columns else "rank"
         ascending = use_col == "rank"
 
+        # 기존 파이프라인 유지: 정렬 1회 수행 후, K 값만 바꿔가며 head(k)로 상위 k개 사용
+        rec_sorted = recommendations.sort_values(
+            ["visitorid", use_col], ascending=[True, ascending]
+        )
+
         k_values = list(range(self.k_min, self.k_max + 1, self.k_step))
         results: List[Tuple[int, float, float, float]] = []
 
         t_total_start = time.perf_counter()
         for k in k_values:
             t_k_start = time.perf_counter()
-            rec_k = (
-                recommendations.sort_values(["visitorid", use_col], ascending=[True, ascending])
-                .groupby("visitorid")
-                .head(k)
-            )
+            rec_k = rec_sorted.groupby("visitorid").head(k)
             ndcg = _ndcg_at_k(rec_k, positives, k, use_col, ascending=ascending)
             recall = _recall_at_k(rec_k, positives, k, use_col, ascending=ascending)
             t_k_elapsed = time.perf_counter() - t_k_start
@@ -4428,17 +4430,17 @@ if __name__ == "__main__":
     추천 시스템 파이프라인 실행.
     TopKExperiment: K=10~200 구간에서 NDCG@K, Recall@K 실험 (10씩 증가).
     """
-    preprocessor = IsolationForestPreprocessor()
-    preprocessor.run()
+    # preprocessor = IsolationForestPreprocessor()
+    # preprocessor.run()
 
-    als_recommender = ALSRecommender()
-    als_recommender.run()
+    # als_recommender = ALSRecommender()
+    # als_recommender.run()
 
-    gnn_generator = GNNEmbeddingGenerator()
-    gnn_generator.run()
+    # gnn_generator = GNNEmbeddingGenerator()
+    # gnn_generator.run()
 
-    reranker = ReRanker()
-    reranker.run()
+    # reranker = ReRanker()
+    # reranker.run()
     
     # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
     # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
