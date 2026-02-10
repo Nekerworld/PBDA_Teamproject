@@ -3528,6 +3528,50 @@ class TestSetEvaluator:
             model_name="Final"
         )
 
+    def evaluate_final_at_k(self, k: int) -> Dict[str, Any]:
+        """
+        최종 추천만 평가 (TestSetEvaluator와 동일한 방식).
+        top_k를 k로 두고, rank 기준 상위 k개만 잘라 _evaluate_recommendations + NDCG/Recall 계산.
+        TopKExperiment에서 K=10~200 실험 시 각 K마다 호출용.
+        """
+        events_test_path = self.processed_dir / "events_test.csv"
+        final_rec_path = self.processed_dir / "final_recommendations.csv"
+        if not events_test_path.exists():
+            raise FileNotFoundError("events_test.csv가 없습니다.")
+        if not final_rec_path.exists():
+            raise FileNotFoundError("final_recommendations.csv가 없습니다. ReRanker를 먼저 실행하세요.")
+
+        events_test = pd.read_csv(events_test_path)
+        test_users = events_test["visitorid"].dropna().astype(int).unique()
+        positive_events = events_test[events_test["event"].isin(["addtocart", "transaction"])]
+        positives: Dict[int, set[int]] = (
+            positive_events.dropna(subset=["visitorid", "itemid"])
+            .assign(visitorid=lambda df: df["visitorid"].astype(int), itemid=lambda df: df["itemid"].astype(int))
+            .groupby("visitorid")["itemid"]
+            .apply(lambda items: set(items.tolist()))
+            .to_dict()
+        )
+
+        recommendations = pd.read_csv(final_rec_path)
+        recommendations["visitorid"] = recommendations["visitorid"].astype(int)
+        recommendations["itemid"] = recommendations["itemid"].astype(int)
+        test_recommendations = recommendations[recommendations["visitorid"].isin(test_users)]
+        test_recommendations = (
+            test_recommendations.sort_values(["visitorid", "rank"]).groupby("visitorid").head(k)
+        )
+
+        final_results = self._evaluate_recommendations(
+            test_recommendations, positives, events_test, "최종", score_col="final_score"
+        )
+        ndcg = _ndcg_at_k(test_recommendations, positives, k, "rank", ascending=True)
+        recall = _recall_at_k(test_recommendations, positives, k, "rank", ascending=True)
+        return {
+            "f1": final_results["f1"],
+            "ndcg": ndcg,
+            "recall": recall,
+            **final_results,
+        }
+
     def _generate_gnn_recommendations(self, test_users: np.ndarray) -> pd.DataFrame:
         """GNN 임베딩을 사용하여 테스트 사용자에 대한 추천 결과를 생성합니다."""
         logger.info("GNN 임베딩을 사용하여 추천 결과 생성 중...")
@@ -4317,10 +4361,66 @@ class TestSetEvaluator:
             except Exception as e:
                 logger.warning("Confusion matrix 생성 실패: %s", e)
 
+
+@dataclass
+class TopKExperiment:
+    """
+    K=10~200(10 단위)마다 TestSetEvaluator와 동일한 방식으로 최종 추천 평가.
+
+    - 각 K마다 TestSetEvaluator.evaluate_final_at_k(k) 호출 (rank 기준 상위 k개만 사용)
+    - NDCG@K, Recall@K 및 F1 등 동일 지표로 결과 수집
+    """
+
+    processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
+    k_min: int = 10
+    k_max: int = 200
+    k_step: int = 10
+
+    def run(self) -> None:
+        evaluator = TestSetEvaluator(
+            processed_dir=self.processed_dir,
+            top_k=50,  # evaluate_final_at_k(k)에서 k를 쓰므로 여기선 기본값만
+        )
+        k_values = list(range(self.k_min, self.k_max + 1, self.k_step))
+        results: List[Tuple[int, float, float, float, float]] = []
+        t_total_start = time.perf_counter()
+        for k in k_values:
+            t_k_start = time.perf_counter()
+            out = evaluator.evaluate_final_at_k(k)
+            t_k_elapsed = time.perf_counter() - t_k_start
+            results.append((k, out["ndcg"], out["recall"], out["f1"], t_k_elapsed))
+        t_total_elapsed = time.perf_counter() - t_total_start
+
+        self._print_table(results, t_total_elapsed)
+        self._save_results(results)
+
+    def _print_table(
+        self, results: List[Tuple[int, float, float, float, float]], total_sec: float = 0.0
+    ) -> None:
+        sep = "-" * 85
+        print("\n" + "=" * 85)
+        print("Top-K 실험 (각 K마다 TestSetEvaluator.evaluate_final_at_k) — K=10~200, step 10")
+        print("=" * 85)
+        print(f"{'K':>6} | {'NDCG@K':>10} | {'Recall@K':>10} | {'F1':>10} | {'시간(초)':>10}")
+        print(sep)
+        for row in results:
+            k, ndcg, recall, f1, t_sec = row
+            print(f"{k:>6} | {ndcg:>10.4f} | {recall:>10.4f} | {f1:>10.4f} | {t_sec:>10.4f}")
+        print(sep)
+        print(f"총 실행 시간: {total_sec:.2f}초")
+        print()
+
+    def _save_results(self, results: List[Tuple[int, float, float, float, float]]) -> None:
+        df = pd.DataFrame(results, columns=["K", "NDCG", "Recall", "F1", "Time_sec"])
+        output_path = self.processed_dir / "topk_experiment_results.csv"
+        df.to_csv(output_path, index=False)
+        logger.info("Top-K 실험 결과 저장: %s", output_path)
+
+
 if __name__ == "__main__":
     """
     추천 시스템 파이프라인 실행.
-    TopKExperiment: K=10~200 구간에서 NDCG@K, Recall@K 실험 (10씩 증가).
+    TopKExperiment: 200개 후보 중 K=10~200(10 단위)만 잘라 NDCG@K, Recall@K 계산.
     """
     # preprocessor = IsolationForestPreprocessor()
     # preprocessor.run()
@@ -4347,3 +4447,41 @@ if __name__ == "__main__":
     # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
     # comparator = RecommendationComparator(top_k=200)
     # comparator.run()
+
+    # # 200개 후보 중 k=10~200(10 단위)만 잘라 NDCG@K, Recall@K 실험
+    # topk = TopKExperiment(
+    #     processed_dir=Path("data/processed"),
+    #     k_min=10,
+    #     k_max=200,
+    #     k_step=10,
+    # )
+    # topk.run()
+    
+    results: list[tuple[int, float, float, float]] = []
+    for i in range(20):
+        k = (i + 1) * 10
+        evaluator = TestSetEvaluator(
+            evaluation_mode="score_based",
+            top_k=k,
+            score_percentile=50.0
+        )
+        t_start = time.perf_counter()
+        evaluator.run()
+        out = evaluator.evaluate_final_at_k(k)
+        t_elapsed = time.perf_counter() - t_start
+        results.append((k, out["ndcg"], out["recall"], t_elapsed))
+        print(f'\n\n{i+1}번째 실험 완료 ({i+1}/20)\n\n')
+
+    # 시간 + NDCG + Recall 표 출력
+    sep = "-" * 55
+    print("\n" + "=" * 55)
+    print("Top-K 실험 결과 (NDCG / Recall / 시간)")
+    print("=" * 55)
+    print(f"{'K':>6} | {'NDCG@K':>10} | {'Recall@K':>10} | {'시간(초)':>10}")
+    print(sep)
+    t_total = 0.0
+    for k, ndcg, recall, t_sec in results:
+        t_total += t_sec
+        print(f"{k:>6} | {ndcg:>10.4f} | {recall:>10.4f} | {t_sec:>10.4f}")
+    print(sep)
+    print(f"총 실행 시간: {t_total:.2f}초")
