@@ -1146,6 +1146,7 @@ class ALSRecommender:
             model_bpr,
             self.top_k,
             self.ensemble_alpha,
+            return_per_user_scores=False,
         )
 
         records = []
@@ -4419,55 +4420,52 @@ class TopKExperiment:
 
 if __name__ == "__main__":
     """
-    추천 시스템 파이프라인 실행.
-    TopKExperiment: 200개 후보 중 K=10~200(10 단위)만 잘라 NDCG@K, Recall@K 계산.
+    베이스라인 파이프라인 (ALS 전처리 + GNN 전처리):
+    1. ALSPreprocessor -> ALSRecommender
+    2. GNNPreprocessor -> GNNEmbeddingGenerator
+    3. ReRanker -> 최종 추천 (final_recommendations.csv)
+    아래 주석을 해제하면 단계별로 실행할 수 있고,
+    BaselineComparator.run()은 위 전체를 한 번에 실행 후 3시나리오 NDCG/Recall 표를 출력합니다.
     """
-    # preprocessor = IsolationForestPreprocessor()
-    # preprocessor.run()
+    # --- 베이스라인과 동일한 전처리·모델 (단계별 실행 시 주석 해제) ---
+    als_pre = ALSPreprocessor(data_dir=Path("data"), processed_dir=Path("data/processed"))
+    als_pre.run()
+    als_recommender = ALSRecommender(processed_dir=Path("data/processed"), top_k=50)
+    als_recommender.run()
 
-    # als_recommender = ALSRecommender()
-    # als_recommender.run()
+    gnn_pre = GNNPreprocessor(data_dir=Path("data"), processed_dir=Path("data/processed"))
+    gnn_pre.run()
+    gnn_generator = GNNEmbeddingGenerator(processed_dir=Path("data/processed"))
+    gnn_generator.run()
 
-    # gnn_generator = GNNEmbeddingGenerator()
-    # gnn_generator.run()
+    reranker = ReRanker(processed_dir=Path("data/processed"), top_k=200)
+    reranker.run()
 
-    # reranker = ReRanker()
-    # reranker.run()
+    # 최종 추천만 평가 (F1, 시각화 등)
+    evaluator = TestSetEvaluator(
+        processed_dir=Path("data/processed"),
+        top_k=50,
+        evaluation_mode="score_based",
+        score_percentile=50.0,
+    )
+    evaluator.run()
+
+    # 추천 결과 비교 (ALS vs GNN vs 최종)
+    comparator = RecommendationComparator(processed_dir=Path("data/processed"), top_k=200)
+    comparator.run()
     
-    # # 평가 모드 선택: "strict", "weighted", "partial", "score_based", "rank_based"
-    # # 자세한 설명은 TestSetEvaluator 클래스 참고 (클릭하고 F12 눌러서 바로 이동가능)
-    # evaluator = TestSetEvaluator(
-    #     evaluation_mode="score_based",
-    #     top_k=50,
-    #     score_percentile=50.0 # score-based 모드일 시 주석해제
-    #     # top_rank_ratio=0.5  # rank-based 모드일 시 주석해제
-    # )
-    # evaluator.run()
-    
-    # # 추천 결과 비교 분석 (ALS, GNN, 최종 추천 비교)
-    # comparator = RecommendationComparator(top_k=200)
-    # comparator.run()
-
-    # # 200개 후보 중 k=10~200(10 단위)만 잘라 NDCG@K, Recall@K 실험
-    # topk = TopKExperiment(
-    #     processed_dir=Path("data/processed"),
-    #     k_min=10,
-    #     k_max=200,
-    #     k_step=10,
-    # )
-    # topk.run()
-    
+    # Top-K 실험: ReRanker 결과는 그대로 두고 K=10~200만 잘라서 NDCG/Recall 측정
     results: list[tuple[int, float, float, float]] = []
+    topk_evaluator = TestSetEvaluator(
+        processed_dir=Path("data/processed"),
+        evaluation_mode="score_based",
+        top_k=200,
+        score_percentile=50.0,
+    )
     for i in range(20):
         k = (i + 1) * 10
-        evaluator = TestSetEvaluator(
-            evaluation_mode="score_based",
-            top_k=k,
-            score_percentile=50.0
-        )
         t_start = time.perf_counter()
-        evaluator.run()
-        out = evaluator.evaluate_final_at_k(k)
+        out = topk_evaluator.evaluate_final_at_k(k)
         t_elapsed = time.perf_counter() - t_start
         results.append((k, out["ndcg"], out["recall"], t_elapsed))
         print(f'\n\n{i+1}번째 실험 완료 ({i+1}/20)\n\n')

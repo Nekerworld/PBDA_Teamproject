@@ -263,10 +263,12 @@ def scores_to_recommendations_ensemble(
     model_bpr,
     top_k: int,
     ensemble_alpha: float,
+    return_per_user_scores: bool = False,
 ) -> Tuple[Dict[int, List[int]], Dict[int, np.ndarray]]:
     """
     ALS + BPR 앙상블: 유저별로 점수 min-max 정규화 후 alpha*ALS + (1-alpha)*BPR 결합,
     hold-out 적용하여 Top-K 추천 생성.
+    return_per_user_scores=False 이면 per_user_scores 미저장 (메모리 절약, 추천만 필요할 때).
     """
     n_items = model_als.item_factors.shape[0]
     user_train_items: Dict[int, Set[int]] = (
@@ -276,6 +278,7 @@ def scores_to_recommendations_ensemble(
     )
     recommendations: Dict[int, List[int]] = {}
     per_user_scores: Dict[int, np.ndarray] = {}
+    item_id_set = set(item_id_to_idx.keys())
 
     for user_id in eval_users:
         user_idx = user_id_to_idx[user_id]
@@ -290,9 +293,10 @@ def scores_to_recommendations_ensemble(
         else:
             scores = als_scores.copy()
 
-        per_user_scores[user_id] = scores.copy()
+        if return_per_user_scores:
+            per_user_scores[user_id] = scores.copy()
 
-        train_items_u = user_train_items.get(user_id, set()) & set(item_id_to_idx.keys())
+        train_items_u = user_train_items.get(user_id, set()) & item_id_set
         test_positives_u = positives_filtered.get(user_id, set())
         exclude = train_items_u - test_positives_u
         for item_id in exclude:
@@ -332,15 +336,14 @@ def scores_to_recommendations(
 
     recommendations: Dict[int, List[int]] = {}
     per_user_scores: Dict[int, np.ndarray] = {}
+    item_id_set = set(item_id_to_idx.keys())
 
     for user_id in eval_users:
         user_idx = user_id_to_idx[user_id]
         scores = get_per_user_scores(model, user_idx, n_items).ravel()
         per_user_scores[user_id] = scores.copy()
 
-        train_items_u = user_train_items.get(user_id, set()) & set(
-            item_id_to_idx.keys()
-        )
+        train_items_u = user_train_items.get(user_id, set()) & item_id_set
         test_positives_u = positives_filtered.get(user_id, set())
         exclude = train_items_u - test_positives_u
         for item_id in exclude:
@@ -558,6 +561,7 @@ def main() -> None:
         model_bpr,
         TOP_K,
         ENSEMBLE_ALPHA,
+        return_per_user_scores=True,
     )
     print(f"유저별 앙상블 점수 벡터: {len(per_user_scores):,} users x {n_items:,} items")
     print(f"추천 리스트: 유저당 Top-{TOP_K} 생성 완료")
