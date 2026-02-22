@@ -4427,19 +4427,19 @@ if __name__ == "__main__":
     아래 주석을 해제하면 단계별로 실행할 수 있고,
     BaselineComparator.run()은 위 전체를 한 번에 실행 후 3시나리오 NDCG/Recall 표를 출력합니다.
     """
-    # --- 베이스라인과 동일한 전처리·모델 (단계별 실행 시 주석 해제) ---
-    als_pre = ALSPreprocessor(data_dir=Path("data"), processed_dir=Path("data/processed"))
-    als_pre.run()
-    als_recommender = ALSRecommender(processed_dir=Path("data/processed"), top_k=50)
-    als_recommender.run()
+    # # --- 베이스라인과 동일한 전처리·모델 (단계별 실행 시 주석 해제) ---
+    # als_pre = ALSPreprocessor(data_dir=Path("data"), processed_dir=Path("data/processed"))
+    # als_pre.run()
+    # als_recommender = ALSRecommender(processed_dir=Path("data/processed"), top_k=50)
+    # als_recommender.run()
 
-    gnn_pre = GNNPreprocessor(data_dir=Path("data"), processed_dir=Path("data/processed"))
-    gnn_pre.run()
-    gnn_generator = GNNEmbeddingGenerator(processed_dir=Path("data/processed"))
-    gnn_generator.run()
+    # gnn_pre = GNNPreprocessor(data_dir=Path("data"), processed_dir=Path("data/processed"))
+    # gnn_pre.run()
+    # gnn_generator = GNNEmbeddingGenerator(processed_dir=Path("data/processed"))
+    # gnn_generator.run()
 
-    reranker = ReRanker(processed_dir=Path("data/processed"), top_k=200)
-    reranker.run()
+    # reranker = ReRanker(processed_dir=Path("data/processed"), top_k=200)
+    # reranker.run()
 
     # 최종 추천만 평가 (F1, 시각화 등)
     evaluator = TestSetEvaluator(
@@ -4449,37 +4449,3 @@ if __name__ == "__main__":
         score_percentile=50.0,
     )
     evaluator.run()
-
-    # 추천 결과 비교 (ALS vs GNN vs 최종)
-    comparator = RecommendationComparator(processed_dir=Path("data/processed"), top_k=200)
-    comparator.run()
-    
-    # Top-K 실험: ReRanker 결과는 그대로 두고 K=10~200만 잘라서 NDCG/Recall 측정
-    results: list[tuple[int, float, float, float]] = []
-    topk_evaluator = TestSetEvaluator(
-        processed_dir=Path("data/processed"),
-        evaluation_mode="score_based",
-        top_k=200,
-        score_percentile=50.0,
-    )
-    for i in range(20):
-        k = (i + 1) * 10
-        t_start = time.perf_counter()
-        out = topk_evaluator.evaluate_final_at_k(k)
-        t_elapsed = time.perf_counter() - t_start
-        results.append((k, out["ndcg"], out["recall"], t_elapsed))
-        print(f'\n\n{i+1}번째 실험 완료 ({i+1}/20)\n\n')
-
-    # 시간 + NDCG + Recall 표 출력
-    sep = "-" * 55
-    print("\n" + "=" * 55)
-    print("Top-K 실험 결과 (NDCG / Recall / 시간)")
-    print("=" * 55)
-    print(f"{'K':>6} | {'NDCG@K':>10} | {'Recall@K':>10} | {'시간(초)':>10}")
-    print(sep)
-    t_total = 0.0
-    for k, ndcg, recall, t_sec in results:
-        t_total += t_sec
-        print(f"{k:>6} | {ndcg:>10.4f} | {recall:>10.4f} | {t_sec:>10.4f}")
-    print(sep)
-    print(f"총 실행 시간: {t_total:.2f}초")
