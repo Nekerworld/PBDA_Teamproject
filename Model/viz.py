@@ -1,48 +1,53 @@
-# # ========== 베이스라인 모델 비교 실험 시각화 ==========
-# import matplotlib.pyplot as plt
-# import numpy as np
+# ========== 베이스라인 모델 비교 실험 시각화 ==========
+import matplotlib.pyplot as plt
+import numpy as np
 
-# # Ablation study 결과
-# models = ["ALS", "MF-BPR", "ALS + MF-BPR", "GNN", "Hybrid\n(ALS + MF-BPR)+GNN"]
-# ndcg_50 = [0.1810, 0.1478, 0.1994, 0.0949, 0.3710]
-# recall_50 = [0.2421, 0.2115, 0.2472, 0.2950, 0.7113]
+# 베이스라인 비교 결과 (NDCG, Recall, 총 시간)
+models = ["1. ALS only", "2. BPR only", "3. ALS+BPR", "4. GNN", "5. ALS+GNN"]
+ndcg_50 = [0.1810, 0.1478, 0.1994, 0.0949, 0.3710]
+recall_50 = [0.2421, 0.2115, 0.2472, 0.2950, 0.7113]
+total_sec = [97.04, 24.67, 1642.79, 912.74, 2705.54]
 
-# x = np.arange(len(models))
-# width = 0.35
+x = np.arange(len(models))
+width = 0.25
 
-# fig, ax = plt.subplots(figsize=(10, 6))
-# bars1 = ax.bar(x - width / 2, ndcg_50, width, label="NDCG@50", color="#2ecc71", edgecolor="black", linewidth=0.8)
-# bars2 = ax.bar(x + width / 2, recall_50, width, label="Recall@50", color="#3498db", edgecolor="black", linewidth=0.8)
+fig, ax1 = plt.subplots(figsize=(11, 6))
 
-# ax.set_xlabel("Model", fontsize=12, fontweight="bold")
-# ax.set_ylabel("Score", fontsize=12, fontweight="bold")
-# ax.set_title("Baseline Comparison: NDCG@50 and Recall@50 by Model", fontsize=14, fontweight="bold")
-# ax.set_xticks(x)
-# ax.set_xticklabels(models, fontsize=10)
-# ax.legend(loc="upper right", fontsize=10)
-# ax.set_ylim(0, 0.85)
-# ax.grid(axis="y", alpha=0.3, linestyle="--")
+# 왼쪽 Y축: NDCG, Recall 막대
+bars1 = ax1.bar(x - width, ndcg_50, width, label="NDCG@50", color="#2ecc71", edgecolor="black", linewidth=0.8)
+bars2 = ax1.bar(x, recall_50, width, label="Recall@50", color="#3498db", edgecolor="black", linewidth=0.8)
 
-# # 막대 위에 값 표시
-# def add_value_labels(bars):
-#     for bar in bars:
-#         height = bar.get_height()
-#         ax.annotate(
-#             f"{height:.3f}",
-#             xy=(bar.get_x() + bar.get_width() / 2, height),
-#             xytext=(0, 3),
-#             textcoords="offset points",
-#             ha="center",
-#             va="bottom",
-#             fontsize=8,
-#             fontweight="bold",
-#         )
+ax1.set_xlabel("Model", fontsize=12, fontweight="bold")
+ax1.set_ylabel("NDCG@50 / Recall@50", fontsize=12, fontweight="bold")
+ax1.set_xticks(x)
+ax1.set_xticklabels(models, fontsize=10)
+ax1.set_ylim(0, 0.85)
+ax1.grid(axis="y", alpha=0.3, linestyle="--")
 
-# add_value_labels(bars1)
-# add_value_labels(bars2)
+def add_value_labels(bars, ax):
+    for bar in bars:
+        h = bar.get_height()
+        ax.annotate(f"{h:.3f}", xy=(bar.get_x() + bar.get_width() / 2, h), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
+add_value_labels(bars1, ax1)
+add_value_labels(bars2, ax1)
 
-# plt.tight_layout()
-# plt.show()
+# 오른쪽 Y축: 총 시간(초) 히스토그램
+ax2 = ax1.twinx()
+bars_time = ax2.bar(x + width, total_sec, width, label="total(sec)", color="#9b59b6", alpha=0.7, edgecolor="black", linewidth=0.8)
+ax2.set_ylabel("total(sec)", fontsize=12, fontweight="bold")
+ax2.tick_params(axis="y")
+ax2.set_ylim(0, max(total_sec) * 1.12)
+for i, (xi, t) in enumerate(zip(x + width, total_sec)):
+    ax2.annotate(f"{t:.1f}", xy=(xi, t), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
+
+# 범례 (ax1 기준, 시간 막대 포함)
+lines1, labels1 = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=10)
+
+ax1.set_title("Baseline Comparison", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
 
 
 # # ========== 하이퍼파라미터 실험 시각화 ==========
@@ -124,29 +129,48 @@
 # plt.show()
 
 
-# ========== Top-K 실험 시각화 ==========
-import matplotlib.pyplot as plt
-import numpy as np
+# # ========== Top-K 실험 시각화 ==========
+# import matplotlib.pyplot as plt
+# import matplotlib.patches as mpatches
+# import numpy as np
 
-K_VALUES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]
-NDCG_AT_K = [0.3285, 0.3571, 0.3693, 0.3766, 0.3816, 0.3852, 0.3885, 0.3912, 0.3936, 0.3954, 0.3968, 0.3980, 0.3993, 0.4005, 0.4012, 0.4018, 0.4026, 0.4033, 0.4039, 0.4042]
-RECALL_AT_K = [0.5098, 0.6105, 0.6592, 0.6904, 0.7120, 0.7280, 0.7439, 0.7573, 0.7696, 0.7792, 0.7860, 0.7927, 0.8001, 0.8073, 0.8109, 0.8146, 0.8188, 0.8232, 0.8271, 0.8287]
+# K_VALUES = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200]
+# NDCG_AT_K = [0.3285, 0.3571, 0.3693, 0.3766, 0.3816, 0.3852, 0.3885, 0.3912, 0.3936, 0.3954, 0.3968, 0.3980, 0.3993, 0.4005, 0.4012, 0.4018, 0.4026, 0.4033, 0.4039, 0.4042]
+# RECALL_AT_K = [0.5098, 0.6105, 0.6592, 0.6904, 0.7120, 0.7280, 0.7439, 0.7573, 0.7696, 0.7792, 0.7860, 0.7927, 0.8001, 0.8073, 0.8109, 0.8146, 0.8188, 0.8232, 0.8271, 0.8287]
+# TIME_SEC = [14.0288, 14.9087, 15.7615, 16.5632, 17.3668, 18.1122, 19.1630, 19.7286, 20.5668, 21.1827, 22.1466, 22.7010, 23.6719, 24.1465, 25.6536, 26.2626, 26.8549, 27.7453, 28.2033, 29.1560]
 
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+# # 논문용 스타일 (선택)
+# plt.rcParams["font.size"] = 11
+# plt.rcParams["axes.labelsize"] = 12
+# plt.rcParams["axes.titlesize"] = 13
+# plt.rcParams["legend.fontsize"] = 10
 
-ax1.plot(K_VALUES, NDCG_AT_K, "o-", color="#2ecc71", linewidth=2, markersize=6, label="NDCG@K")
-ax1.set_ylabel("NDCG@K", fontsize=12, fontweight="bold")
-ax1.set_title("Top-K Experiment: NDCG@K and Recall@K", fontsize=14, fontweight="bold")
-ax1.legend(loc="lower right")
-ax1.grid(alpha=0.3, linestyle="--")
-ax1.set_ylim(0.3, 0.45)
+# fig, ax1 = plt.subplots(figsize=(7, 4.2))
+# ax1.set_xlabel("K", fontsize=12)
+# ax1.set_ylabel("NDCG@K / Recall@K", fontsize=12, color="#333")
+# ax1.set_ylim(0.28, 0.88)
+# ax1.tick_params(axis="y", labelcolor="#333")
+# ax1.grid(True, alpha=0.25, linestyle="-")
 
-ax2.plot(K_VALUES, RECALL_AT_K, "s-", color="#3498db", linewidth=2, markersize=6, label="Recall@K")
-ax2.set_xlabel("K", fontsize=12, fontweight="bold")
-ax2.set_ylabel("Recall@K", fontsize=12, fontweight="bold")
-ax2.legend(loc="lower right")
-ax2.grid(alpha=0.3, linestyle="--")
-ax2.set_ylim(0.5, 0.9)
+# # 라인: NDCG, Recall
+# l1, = ax1.plot(K_VALUES, NDCG_AT_K, "o-", color="#2171b5", linewidth=2, markersize=5, label="NDCG@K")
+# l2, = ax1.plot(K_VALUES, RECALL_AT_K, "s-", color="#238b45", linewidth=2, markersize=5, label="Recall@K")
 
-plt.tight_layout()
-plt.show()
+# # 오른쪽 Y축: 시간(막대)
+# ax2 = ax1.twinx()
+# bars = ax2.bar(K_VALUES, TIME_SEC, width=7, color="gray", alpha=0.35, edgecolor="gray", linewidth=0.8, label="Time (s)")
+# ax2.set_ylabel("Time (s)", fontsize=12)
+# ax2.tick_params(axis="y", labelcolor="#555")
+# ax2.set_ylim(0, max(TIME_SEC) * 1.12)
+
+# # 막대 위 값
+# for k, t in zip(K_VALUES, TIME_SEC):
+#     ax2.annotate(f"{t:.1f}", xy=(k, t), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=7, color="#333")
+
+# # 하나의 범례에 모두 (막대는 Patch로)
+# bar_patch = mpatches.Patch(facecolor="gray", alpha=0.35, edgecolor="gray", label="Time (s)")
+# ax1.legend(handles=[l1, l2, bar_patch], labels=["NDCG@K", "Recall@K", "Time (s)"], loc="upper left", framealpha=0.95)
+# fig.suptitle("Top-K experiment: NDCG, Recall and runtime", fontsize=13, fontweight="bold", y=1.02)
+# plt.tight_layout()
+# plt.title("Top-K Comparison")
+# plt.show()
