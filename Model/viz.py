@@ -1,132 +1,240 @@
-# ========== 베이스라인 모델 비교 실험 시각화 ==========
-import matplotlib.pyplot as plt
-import numpy as np
-
-# 베이스라인 비교 결과 (NDCG, Recall, 총 시간)
-models = ["1. ALS only", "2. BPR only", "3. ALS+BPR", "4. GNN", "5. ALS+GNN"]
-ndcg_50 = [0.1810, 0.1478, 0.1994, 0.0949, 0.3710]
-recall_50 = [0.2421, 0.2115, 0.2472, 0.2950, 0.7113]
-total_sec = [97.04, 24.67, 1642.79, 912.74, 2705.54]
-
-x = np.arange(len(models))
-width = 0.25
-
-fig, ax1 = plt.subplots(figsize=(11, 6))
-
-# 왼쪽 Y축: NDCG, Recall 막대
-bars1 = ax1.bar(x - width, ndcg_50, width, label="NDCG@50", color="#2ecc71", edgecolor="black", linewidth=0.8)
-bars2 = ax1.bar(x, recall_50, width, label="Recall@50", color="#3498db", edgecolor="black", linewidth=0.8)
-
-ax1.set_xlabel("Model", fontsize=12, fontweight="bold")
-ax1.set_ylabel("NDCG@50 / Recall@50", fontsize=12, fontweight="bold")
-ax1.set_xticks(x)
-ax1.set_xticklabels(models, fontsize=10)
-ax1.set_ylim(0, 0.85)
-ax1.grid(axis="y", alpha=0.3, linestyle="--")
-
-def add_value_labels(bars, ax):
-    for bar in bars:
-        h = bar.get_height()
-        ax.annotate(f"{h:.3f}", xy=(bar.get_x() + bar.get_width() / 2, h), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
-add_value_labels(bars1, ax1)
-add_value_labels(bars2, ax1)
-
-# 오른쪽 Y축: 총 시간(초) 히스토그램
-ax2 = ax1.twinx()
-bars_time = ax2.bar(x + width, total_sec, width, label="total(sec)", color="#9b59b6", alpha=0.7, edgecolor="black", linewidth=0.8)
-ax2.set_ylabel("total(sec)", fontsize=12, fontweight="bold")
-ax2.tick_params(axis="y")
-ax2.set_ylim(0, max(total_sec) * 1.12)
-for i, (xi, t) in enumerate(zip(x + width, total_sec)):
-    ax2.annotate(f"{t:.1f}", xy=(xi, t), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
-
-# 범례 (ax1 기준, 시간 막대 포함)
-lines1, labels1 = ax1.get_legend_handles_labels()
-lines2, labels2 = ax2.get_legend_handles_labels()
-ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=10)
-
-ax1.set_title("Baseline Comparison", fontsize=14, fontweight="bold")
-plt.tight_layout()
-plt.show()
-
-
-# # ========== 하이퍼파라미터 실험 시각화 ==========
+# # ========== 베이스라인 모델 비교 실험 시각화 ==========
 # import matplotlib.pyplot as plt
 # import numpy as np
 
-# # 데이터: (Parameter, Value, NDCG, Recall) — baseline (default) 제외
-# HP_DATA = [
-#     # ALS weight
-#     ("ALS weight", "0", 0.183638724, 0.278755828),
-#     ("ALS weight", "0.2", 0.365565189, 0.71090026),
-#     ("ALS weight", "0.4", 0.371008886, 0.71129513),
-#     ("ALS weight", "0.6", 0.392414027, 0.71217089),
-#     ("ALS weight", "0.8", 0.404795818, 0.712819349),
-#     ("ALS weight", "1", 0.398563437, 0.696654782),
-#     # ALS factors
-#     ("ALS factors", "16", 0.108699835, 0.263595295),
-#     ("ALS factors", "32", 0.191905906, 0.416876874),
-#     ("ALS factors", "64", 0.291574272, 0.578443588),
-#     ("ALS factors", "128", 0.371008886, 0.71129513),
-#     # ALS alpha
-#     ("ALS alpha", "0.5", 0.292690628, 0.609283993),
-#     ("ALS alpha", "1", 0.346290804, 0.674038057),
-#     ("ALS alpha", "1.5", 0.371008886, 0.71129513),
-#     ("ALS alpha", "2", 0.379746609, 0.73096977),
-#     # ALS regularization
-#     ("ALS regularization", "0.01", 0.37067412, 0.710900702),
-#     ("ALS regularization", "0.03", 0.371008886, 0.71129513),
-#     ("ALS regularization", "0.1", 0.37000126, 0.710994577),
-#     ("ALS regularization", "0.3", 0.369939694, 0.710710271),
-#     # GNN embedding_dim
-#     ("GNN embedding_dim", "8", 0.371008886, 0.71129513),
-#     ("GNN embedding_dim", "16", 0.370754488, 0.711232402),
-#     ("GNN embedding_dim", "32", 0.370177711, 0.711399827),
-#     ("GNN embedding_dim", "64", 0.369424138, 0.711406145),
-#     # GNN layers
-#     ("GNN layers", "1", 0.373563611, 0.709807989),
-#     ("GNN layers", "2", 0.371008886, 0.71129513),
-#     ("GNN layers", "3", 0.367962458, 0.710793584),
-#     # GNN learning_rate
-#     ("GNN learning_rate", "0.0001", 0.37140211, 0.711008845),
-#     ("GNN learning_rate", "0.0005", 0.369963777, 0.710571728),
-#     ("GNN learning_rate", "0.001", 0.371008886, 0.71129513),
-#     ("GNN learning_rate", "0.005", 0.369209145, 0.709052269),
-# ]
+# # 베이스라인 비교 결과 (NDCG, Recall, 총 시간)
+# models = ["1. ALS only", "2. BPR only", "3. ALS+BPR", "4. GNN", "5. ALS+GNN"]
+# ndcg_50 = [0.1810, 0.1478, 0.1994, 0.0949, 0.3710]
+# recall_50 = [0.2421, 0.2115, 0.2472, 0.2950, 0.7113]
+# total_sec = [97.04, 24.67, 1642.79, 912.74, 2705.54]
 
-# param_groups = {}
-# for param, val, ndcg, rec in HP_DATA:
-#     if param not in param_groups:
-#         param_groups[param] = {"values": [], "ndcg": [], "recall": []}
-#     param_groups[param]["values"].append(val)
-#     param_groups[param]["ndcg"].append(ndcg)
-#     param_groups[param]["recall"].append(rec)
+# x = np.arange(len(models))
+# width = 0.25
 
-# n_params = len(param_groups)
-# fig, axes = plt.subplots(2, 4, figsize=(16, 10))
-# axes = axes.flatten()
+# fig, ax1 = plt.subplots(figsize=(11, 6))
 
-# for idx, (param_name, data) in enumerate(param_groups.items()):
-#     ax = axes[idx]
-#     x = np.arange(len(data["values"]))
-#     width = 0.35
-#     bars1 = ax.bar(x - width / 2, data["ndcg"], width, label="NDCG@50", color="#2ecc71", edgecolor="black", linewidth=0.8)
-#     bars2 = ax.bar(x + width / 2, data["recall"], width, label="Recall@50", color="#3498db", edgecolor="black", linewidth=0.8)
-#     ax.set_title(param_name, fontsize=11, fontweight="bold")
-#     ax.set_xticks(x)
-#     ax.set_xticklabels(data["values"], fontsize=9)
-#     ax.set_ylabel("Score", fontsize=9)
-#     ax.legend(loc="upper right", fontsize=8)
-#     ax.grid(axis="y", alpha=0.3, linestyle="--")
-#     ax.set_ylim(0, 0.85)
+# # 왼쪽 Y축: NDCG, Recall 막대
+# bars1 = ax1.bar(x - width, ndcg_50, width, label="NDCG@50", color="#2ecc71", edgecolor="black", linewidth=0.8)
+# bars2 = ax1.bar(x, recall_50, width, label="Recall@50", color="#3498db", edgecolor="black", linewidth=0.8)
 
-# if n_params < len(axes):
-#     for j in range(n_params, len(axes)):
-#         axes[j].set_visible(False)
+# ax1.set_xlabel("Model", fontsize=12, fontweight="bold")
+# ax1.set_ylabel("NDCG@50 / Recall@50", fontsize=12, fontweight="bold")
+# ax1.set_xticks(x)
+# ax1.set_xticklabels(models, fontsize=10)
+# ax1.set_ylim(0, 0.85)
+# ax1.grid(axis="y", alpha=0.3, linestyle="--")
 
-# fig.suptitle("Hyperparameter Sensitivity: NDCG@50 and Recall@50", fontsize=14, fontweight="bold", y=1.02)
+# def add_value_labels(bars, ax):
+#     for bar in bars:
+#         h = bar.get_height()
+#         ax.annotate(f"{h:.3f}", xy=(bar.get_x() + bar.get_width() / 2, h), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
+# add_value_labels(bars1, ax1)
+# add_value_labels(bars2, ax1)
+
+# # 오른쪽 Y축: 총 시간(초) 히스토그램
+# ax2 = ax1.twinx()
+# bars_time = ax2.bar(x + width, total_sec, width, label="total(sec)", color="#9b59b6", alpha=0.7, edgecolor="black", linewidth=0.8)
+# ax2.set_ylabel("total(sec)", fontsize=12, fontweight="bold")
+# ax2.tick_params(axis="y")
+# ax2.set_ylim(0, max(total_sec) * 1.12)
+# for i, (xi, t) in enumerate(zip(x + width, total_sec)):
+#     ax2.annotate(f"{t:.1f}", xy=(xi, t), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
+
+# # 범례 (ax1 기준, 시간 막대 포함)
+# lines1, labels1 = ax1.get_legend_handles_labels()
+# lines2, labels2 = ax2.get_legend_handles_labels()
+# ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=10)
+
+# ax1.set_title("Baseline Comparison", fontsize=14, fontweight="bold")
 # plt.tight_layout()
 # plt.show()
+
+
+# ========== 하이퍼파라미터 실험 시각화 ==========
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 데이터: (Parameter, Value, NDCG, Recall) — baseline (default) 제외
+HP_DATA = [
+    # ALS weight
+    ("ALS weight", "0", 0.183638724, 0.278755828),
+    ("ALS weight", "0.2", 0.365565189, 0.71090026),
+    ("ALS weight", "0.4", 0.371008886, 0.71129513),
+    ("ALS weight", "0.6", 0.392414027, 0.71217089),
+    ("ALS weight", "0.8", 0.404795818, 0.712819349),
+    ("ALS weight", "1", 0.398563437, 0.696654782),
+    # ALS factors
+    ("ALS factors", "16", 0.108699835, 0.263595295),
+    ("ALS factors", "32", 0.191905906, 0.416876874),
+    ("ALS factors", "64", 0.291574272, 0.578443588),
+    ("ALS factors", "128", 0.371008886, 0.71129513),
+    # ALS alpha
+    ("ALS alpha", "0.5", 0.292690628, 0.609283993),
+    ("ALS alpha", "1", 0.346290804, 0.674038057),
+    ("ALS alpha", "1.5", 0.371008886, 0.71129513),
+    ("ALS alpha", "2", 0.379746609, 0.73096977),
+    # ALS regularization
+    ("ALS regularization", "0.01", 0.37067412, 0.710900702),
+    ("ALS regularization", "0.03", 0.371008886, 0.71129513),
+    ("ALS regularization", "0.1", 0.37000126, 0.710994577),
+    ("ALS regularization", "0.3", 0.369939694, 0.710710271),
+    # GNN embedding_dim
+    ("GNN embedding_dim", "8", 0.371008886, 0.71129513),
+    ("GNN embedding_dim", "16", 0.370754488, 0.711232402),
+    ("GNN embedding_dim", "32", 0.370177711, 0.711399827),
+    ("GNN embedding_dim", "64", 0.369424138, 0.711406145),
+    # GNN layers
+    ("GNN layers", "1", 0.373563611, 0.709807989),
+    ("GNN layers", "2", 0.371008886, 0.71129513),
+    ("GNN layers", "3", 0.367962458, 0.710793584),
+    # GNN learning_rate
+    ("GNN learning_rate", "0.0001", 0.37140211, 0.711008845),
+    ("GNN learning_rate", "0.0005", 0.369963777, 0.710571728),
+    ("GNN learning_rate", "0.001", 0.371008886, 0.71129513),
+    ("GNN learning_rate", "0.005", 0.369209145, 0.709052269),
+]
+
+# ALS+BPR 앙상블 비율 (ensemble_alpha) 스윕 — NDCG/Recall@10·20, 시간(초)
+ENSEMBLE_ALPHA_DATA = [
+    (0.0, 0.4361, 0.4966, 0.4718, 0.5922, 175.1737),
+    (0.1, 0.5855, 0.5971, 0.6146, 0.6888, 173.0712),
+    (0.2, 0.6258, 0.6160, 0.6405, 0.6807, 174.8930),
+    (0.3, 0.6398, 0.5848, 0.6622, 0.6951, 173.4744),
+    (0.4, 0.6699, 0.6044, 0.6849, 0.7108, 178.7940),
+    (0.5, 0.6674, 0.5925, 0.6727, 0.6975, 173.4557),
+    (0.6, 0.6625, 0.5642, 0.6797, 0.7056, 161.7568),
+    (0.7, 0.6548, 0.5680, 0.6692, 0.7014, 104.6045),
+    (0.8, 0.6356, 0.5281, 0.6510, 0.6783, 104.1773),
+    (0.9, 0.6226, 0.5194, 0.6373, 0.6695, 104.1892),
+    (1.0, 0.5841, 0.4910, 0.6107, 0.6548, 104.4499),
+]
+
+param_groups = {}
+for param, val, ndcg, rec in HP_DATA:
+    if param not in param_groups:
+        param_groups[param] = {"values": [], "ndcg": [], "recall": []}
+    param_groups[param]["values"].append(val)
+    param_groups[param]["ndcg"].append(ndcg)
+    param_groups[param]["recall"].append(rec)
+
+# 2×4: 상위 7개는 기존 HP, 8번째는 ALS+BPR ensemble α (α는 0.2 간격만 사용)
+HP_PANEL_ORDER = [
+    "ALS weight",
+    "ALS factors",
+    "ALS alpha",
+    "ALS regularization",
+    "GNN embedding_dim",
+    "GNN layers",
+    "GNN learning_rate",
+]
+
+ENSEMBLE_ALPHA_STEP = 0.2
+_allowed_alpha = {round(i * ENSEMBLE_ALPHA_STEP, 1) for i in range(int(1 / ENSEMBLE_ALPHA_STEP) + 1)}
+ensemble_alpha_rows = [row for row in ENSEMBLE_ALPHA_DATA if row[0] in _allowed_alpha]
+
+
+def _padded_ylim(values, pad_ratio: float = 0.12) -> tuple:
+    """같은 지표 내 미세한 차이가 보이도록 데이터 범위에 맞춰 Y축을 줌(여백 포함)."""
+    lo, hi = float(min(values)), float(max(values))
+    span = hi - lo
+    if span <= 0:
+        return lo - 0.01, hi + 0.01
+    pad = max(span * pad_ratio, span * 0.05)
+    return lo - pad, hi + pad
+
+
+def _plot_ndcg_recall_twin(
+    ax,
+    x,
+    ndcg,
+    recall,
+    *,
+    ndcg_label: str,
+    recall_label: str,
+    title: str,
+    xticklabels,
+    width: float = 0.35,
+    xlabel: str | None = None,
+) -> None:
+    """NDCG(왼쪽 Y축)·Recall(오른쪽 Y축) 분리 스케일 — 두 지표 스케일이 달라도 각각 차이가 드러나게 함."""
+    c_ndcg, c_rec = "#2ecc71", "#3498db"
+    ax.bar(
+        x - width / 2,
+        ndcg,
+        width,
+        label=ndcg_label,
+        color=c_ndcg,
+        edgecolor="black",
+        linewidth=0.8,
+        zorder=2,
+    )
+    ax2 = ax.twinx()
+    ax2.bar(
+        x + width / 2,
+        recall,
+        width,
+        label=recall_label,
+        color=c_rec,
+        edgecolor="black",
+        linewidth=0.8,
+        zorder=2,
+    )
+    ax.set_ylim(_padded_ylim(ndcg))
+    ax2.set_ylim(_padded_ylim(recall))
+    ax.set_ylabel(ndcg_label, fontsize=9, color=c_ndcg, fontweight="bold")
+    ax.tick_params(axis="y", labelcolor=c_ndcg)
+    ax2.set_ylabel(recall_label, fontsize=9, color=c_rec, fontweight="bold")
+    ax2.tick_params(axis="y", labelcolor=c_rec)
+    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(xticklabels, fontsize=9)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel, fontsize=9)
+    ax.grid(axis="y", alpha=0.3, linestyle="--", zorder=0)
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
+
+
+fig, axes = plt.subplots(2, 4, figsize=(16, 10))
+axes = axes.flatten()
+
+width = 0.35
+for idx, param_name in enumerate(HP_PANEL_ORDER):
+    data = param_groups[param_name]
+    x = np.arange(len(data["values"]))
+    _plot_ndcg_recall_twin(
+        axes[idx],
+        x,
+        data["ndcg"],
+        data["recall"],
+        ndcg_label="NDCG@50",
+        recall_label="Recall@50",
+        title=param_name,
+        xticklabels=data["values"],
+        width=width,
+    )
+
+# 8번째: ensemble α (0.2 간격)
+ax_e = axes[7]
+xa = np.arange(len(ensemble_alpha_rows))
+ndcg10_e = [row[1] for row in ensemble_alpha_rows]
+rec10_e = [row[2] for row in ensemble_alpha_rows]
+alpha_labels = [f"{row[0]:.1f}" for row in ensemble_alpha_rows]
+_plot_ndcg_recall_twin(
+    ax_e,
+    xa,
+    ndcg10_e,
+    rec10_e,
+    ndcg_label="NDCG@10",
+    recall_label="Recall@10",
+    title=r"Ensemble $\alpha$ (ALS+BPR)",
+    xticklabels=alpha_labels,
+    width=width,
+    xlabel=r"$\alpha$",
+)
+plt.tight_layout()
+plt.show()
 
 
 # # ========== Top-K 실험 시각화 ==========
