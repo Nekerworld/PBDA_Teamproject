@@ -4418,6 +4418,92 @@ class TopKExperiment:
         logger.info("Top-K 실험 결과 저장: %s", output_path)
 
 
+@dataclass
+class EnsembleAlphaExperiment:
+    """
+    ALS+BPR 결합 비율(alpha)을 0.0~1.0 구간에서 스윕하여 지표를 비교합니다.
+
+    - alpha = 1.0: ALS만 사용
+    - alpha = 0.0: BPR만 사용
+    - 각 alpha마다 als_debug.run_pipeline_return_metrics()를 호출하여 NDCG/Recall 수집
+    """
+
+    processed_dir: Path = field(default_factory=lambda: Path("data/processed"))
+    alpha_min: float = 0.0
+    alpha_max: float = 1.0
+    alpha_step: float = 0.1
+
+    def run(self) -> None:
+        import sys
+
+        model_dir = Path(__file__).resolve().parent
+        if str(model_dir) not in sys.path:
+            sys.path.insert(0, str(model_dir))
+        import als_debug
+
+        original_alpha = als_debug.ENSEMBLE_ALPHA
+        alpha_values = np.round(
+            np.arange(self.alpha_min, self.alpha_max + self.alpha_step / 2.0, self.alpha_step),
+            1,
+        ).tolist()
+
+        results: List[Tuple[float, float, float, float, float, float]] = []
+        t_total_start = time.perf_counter()
+        try:
+            for alpha in alpha_values:
+                t_alpha_start = time.perf_counter()
+                als_debug.ENSEMBLE_ALPHA = float(alpha)
+                metrics = als_debug.run_pipeline_return_metrics(verbose=False)
+                t_alpha_elapsed = time.perf_counter() - t_alpha_start
+                results.append(
+                    (
+                        float(alpha),
+                        float(metrics.get("ndcg_10", 0.0)),
+                        float(metrics.get("recall_10", 0.0)),
+                        float(metrics.get("ndcg_20", 0.0)),
+                        float(metrics.get("recall_20", 0.0)),
+                        t_alpha_elapsed,
+                    )
+                )
+        finally:
+            als_debug.ENSEMBLE_ALPHA = original_alpha
+
+        t_total_elapsed = time.perf_counter() - t_total_start
+        self._print_table(results, t_total_elapsed)
+        self._save_results(results)
+
+    def _print_table(
+        self, results: List[Tuple[float, float, float, float, float, float]], total_sec: float = 0.0
+    ) -> None:
+        sep = "-" * 100
+        print("\n" + "=" * 100)
+        print("Ensemble alpha 실험 (ALS+BPR 결합 비율) — alpha=0.0~1.0, step 0.1")
+        print("=" * 100)
+        print(
+            f"{'alpha':>8} | {'NDCG@10':>10} | {'Recall@10':>10} | "
+            f"{'NDCG@20':>10} | {'Recall@20':>10} | {'시간(초)':>10}"
+        )
+        print(sep)
+        for row in results:
+            alpha, ndcg10, recall10, ndcg20, recall20, t_sec = row
+            print(
+                f"{alpha:>8.1f} | {ndcg10:>10.4f} | {recall10:>10.4f} | "
+                f"{ndcg20:>10.4f} | {recall20:>10.4f} | {t_sec:>10.4f}"
+            )
+        print(sep)
+        print(f"총 실행 시간: {total_sec:.2f}초")
+        print()
+
+    def _save_results(self, results: List[Tuple[float, float, float, float, float, float]]) -> None:
+        df = pd.DataFrame(
+            results,
+            columns=["alpha", "NDCG@10", "Recall@10", "NDCG@20", "Recall@20", "Time_sec"],
+        )
+        output_path = self.processed_dir / "ensemble_alpha_experiment_results.csv"
+        df.to_csv(output_path, index=False)
+        logger.info("Ensemble alpha 실험 결과 저장: %s", output_path)
+
+
 if __name__ == "__main__":
     """
     베이스라인 파이프라인 (ALS 전처리 + GNN 전처리):
@@ -4442,10 +4528,13 @@ if __name__ == "__main__":
     # reranker.run()
 
     # 최종 추천만 평가 (F1, 시각화 등)
-    evaluator = TestSetEvaluator(
-        processed_dir=Path("data/processed"),
-        top_k=50,
-        evaluation_mode="score_based",
-        score_percentile=50.0,
-    )
-    evaluator.run()
+    # evaluator = TestSetEvaluator(
+    #     processed_dir=Path("data/processed"),
+    #     top_k=50,
+    #     evaluation_mode="score_based",
+    #     score_percentile=50.0,
+    # )
+    # evaluator.run()
+    
+    alpha = EnsembleAlphaExperiment()
+    alpha.run()
