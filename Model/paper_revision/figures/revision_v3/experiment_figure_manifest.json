@@ -1,0 +1,21 @@
+{
+  "experiment_reference_id": "81d0e1bf5ff655548013a4eadd14a1df91ae0aa1c637a4e1f67dac6651fb55b2",
+  "figures": [
+    "filter_comparison.png",
+    "filter_comparison.pdf",
+    "confidence_intervals.png",
+    "confidence_intervals.pdf",
+    "run_overview.png",
+    "run_overview.pdf",
+    "gamma_validation.png",
+    "gamma_validation.pdf"
+  ],
+  "dpi": 600,
+  "sources": {
+    "experiment_metrics.csv": "e1a472ddb70f547a05a618acf5ade0eb5f4b80b0b56315a74b114c40c87382a0",
+    "candidate_comparison.csv": "e49d96530f0b3ee7dc4e8e84848f8e1003127208234f32c32a835e854d8d55de",
+    "seed_summary.csv": "275cc2e66bfb30e42f4b8c98c75074f8294604ae18f6d1b7aa52ad6170c9edf1",
+    "confidence_intervals.csv": "33baeeb55e4958d6e8bab574794aa8dcd43c28e3868beed1fe0b1b1f3b4013b1",
+    "paired_differences.csv": "fc68da018db8bb861db74281bbfffc5d1bb00d536318309e82c7e40f9d4cecae"
+  }
+}
