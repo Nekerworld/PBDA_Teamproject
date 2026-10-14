@@ -142,7 +142,7 @@ def prepare_conditions(data_dir, output):
     inner, val, val_cutoff = chronological_split(train)
     hashes = {name: sha256(data_dir / name) for name in (
         'events.csv', 'item_properties_part1.csv', 'item_properties_part2.csv', 'category_tree.csv')}
-    summaries, original_hashes, reference_hashes = [], [], []
+    summaries, original_hashes, reference_hashes, stage_summaries = [], [], [], []
     for name, (use_if, mode) in CONDITIONS.items():
         print('Preparing condition', name, flush=True)
         pre = UnifiedPreprocessor(data_dir, output / name, use_if=use_if, core_mode=mode)
@@ -150,6 +150,16 @@ def prepare_conditions(data_dir, output):
         manifest = pre._write_partition(train, test, props, categories, cutoff, output / name, 'test', len(events))
         manifest = pre.finalize_outer(manifest, output / name, events, clean, invalid)
         stats = pd.read_csv(output / name / 'dataset_statistics.csv').set_index('stage')
+        stage_stats = stats.reset_index()
+        stage_stats.insert(0, 'condition', name)
+        raw_valid_events = int(stats.loc['raw_valid', 'events'])
+        outer_train_events = int(stats.loc['train_before_filter', 'events'])
+        stage_stats['events_percent_of_raw_valid'] = 100 * stage_stats.events / raw_valid_events
+        stage_stats['events_percent_of_outer_train'] = np.where(
+            stage_stats.stage.str.startswith('train_'),
+            100 * stage_stats.events / outer_train_events, np.nan)
+        stage_summaries.append(stage_stats)
+        primary_stats = stats.loc['train_final']
         summaries.append({
             'condition': name, 'reference_id': manifest['reference_id'],
             'original_truth_id': manifest['original_truth_id'],
@@ -158,6 +168,12 @@ def prepare_conditions(data_dir, output):
             'mean_original_truth_retention': manifest['mean_original_truth_retention'],
             'mean_reference_truth_retention': manifest['mean_reference_truth_retention'],
             'test_positive_event_coverage': manifest['test_positive_coverage'],
+            'if_removed_events': manifest['if_removed_events'],
+            'if_removed_event_percent_of_outer_train': manifest['if_event_percent_of_prefilter_train'],
+            'if_removed_event_percent_of_raw_input': manifest['if_event_percent_of_raw_input'],
+            'train_final_unique_user_item_pairs': int(primary_stats['unique_user_item_pairs']),
+            'train_final_sparsity_percent': float(primary_stats['sparsity_percent']),
+            'train_final_event_retention_percent': 100 * int(primary_stats['events']) / outer_train_events,
             'warnings': ' | '.join(manifest.get('data_quality_warnings', [])),
             **{column: int(stats.loc['train_final', column]) for column in
                ['events', 'users', 'items', 'addtocart_events', 'transaction_events']}})
@@ -169,11 +185,14 @@ def prepare_conditions(data_dir, output):
     if len(set(original_hashes)) != 1 or len(set(reference_hashes)) != 1:
         raise ValueError('Fixed original or reference event files differ across conditions')
     frame.to_csv(output / 'filter_comparison.csv', index=False)
+    stage_frame = pd.concat(stage_summaries, ignore_index=True)
+    stage_frame.to_csv(output / 'filter_stage_statistics.csv', index=False)
     dump_json(output / 'condition_manifest.json', {
         'input_hashes': hashes, 'conditions': list(CONDITIONS), 'primary': 'no_if_events',
         'selection_basis': LOCKED['primary_reason'],
         'files': {name: sha256(output / name / 'manifest.json') for name in CONDITIONS},
         'filter_comparison_hash': sha256(output / 'filter_comparison.csv'),
+        'filter_stage_statistics_hash': sha256(output / 'filter_stage_statistics.csv'),
         'original_events_hash': original_hashes[0], 'reference_events_hash': reference_hashes[0]})
     return frame
 

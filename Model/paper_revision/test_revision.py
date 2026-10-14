@@ -489,5 +489,12 @@ def test_plan_and_gamma_cannot_use_the_outer_test(tmp_path):
              for name in ['ALS', 'BPR', 'ALS_BPR', 'GNN', 'Hybrid']]
     assert all(values == users[0] for values in users)
     figures = generate_experiment_figures(root, root/'experiment_figures', dpi=72)
+    baseline = pd.read_csv(figures/'baseline_metrics.csv')
+    assert baseline.model.tolist() == ['ALS', 'BPR', 'ALS+BPR', 'GNN', 'Hybrid']
+    assert baseline.seeds.tolist() == [1, 1, 1, 1, 1]
+    filter_table = pd.read_csv(figures/'filter_stage_statistics.csv')
+    assert {'events', 'users', 'items', 'sparsity_percent'} <= set(filter_table.columns)
+    assert set(filter_table.condition) == {'no_if_events', 'if_events', 'no_if_neighbors'}
+    assert (figures/'baseline_comparison.pdf').exists()
     assert (figures/'gamma_validation.pdf').exists()
     assert (figures/'filter_comparison.pdf').exists()

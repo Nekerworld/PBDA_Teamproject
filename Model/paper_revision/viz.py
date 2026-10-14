@@ -199,6 +199,9 @@ def generate_experiment_figures(root, output_dir=None, dpi=600):
     comparison_path = root / 'datasets' / 'filter_comparison.csv'
     if sha256(comparison_path) != condition_manifest['filter_comparison_hash']:
         raise ValueError('Filter comparison does not match the sealed condition manifest')
+    stage_stats_path = root / 'datasets' / 'filter_stage_statistics.csv'
+    if sha256(stage_stats_path) != condition_manifest['filter_stage_statistics_hash']:
+        raise ValueError('Filter stage statistics do not match the sealed condition manifest')
     comparison = pd.read_csv(comparison_path)
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
     fields = [('transaction_events', 'Training purchases'), ('fixed_evaluation_users', 'Fixed reference users'),
@@ -210,6 +213,44 @@ def generate_experiment_figures(root, output_dir=None, dpi=600):
         ax.tick_params(axis='x', labelrotation=20, labelsize=8)
     fig.suptitle('Predeclared filter conditions on one fixed reference')
     save(fig, 'filter_comparison')
+
+    stage_stats = pd.read_csv(stage_stats_path)
+    required_stats = {'condition', 'stage', 'events', 'users', 'items',
+                      'unique_user_item_pairs', 'sparsity_percent'}
+    if not required_stats <= set(stage_stats.columns):
+        raise ValueError('Filter-stage table is missing dataset size or sparsity fields')
+    final_stats = stage_stats.loc[stage_stats.stage == 'train_final']
+    if set(final_stats.condition) != set(comparison.condition):
+        raise ValueError('Filter-stage table does not cover the compared conditions')
+    stage_stats.to_csv(output / 'filter_stage_statistics.csv', index=False)
+    comparison.to_csv(output / 'filter_comparison.csv', index=False)
+
+    metrics = pd.read_csv(root / 'experiment_metrics.csv')
+    primary = metrics.loc[(metrics.condition == 'no_if_events') & (metrics.ablation == 'main')
+                          & (metrics.scope == 'original') & (metrics.k == 50)].copy()
+    if set(primary.model) != set(MODEL_ORDER) or primary.duplicated(['model', 'seed']).any():
+        raise ValueError('Primary comparison must contain one K=50 original-truth result per model and seed')
+    if primary.groupby('model').seed.nunique().nunique() != 1:
+        raise ValueError('Primary comparison models must have results for the same number of seeds')
+    baseline = primary.groupby('model').agg(
+        ndcg_mean=('ndcg', 'mean'), ndcg_std=('ndcg', 'std'),
+        recall_mean=('recall', 'mean'), recall_std=('recall', 'std'),
+        users=('users_evaluated', 'first'), seeds=('seed', 'nunique')).reindex(MODEL_ORDER).reset_index()
+    baseline[['ndcg_std', 'recall_std']] = baseline[['ndcg_std', 'recall_std']].fillna(0)
+    baseline.to_csv(output / 'baseline_metrics.csv', index=False)
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6))
+    for ax, metric, title in zip(axes, ['ndcg', 'recall'], ['NDCG@50', 'Recall@50']):
+        bars = ax.bar(MODEL_ORDER, baseline[f'{metric}_mean'], color=COLORS,
+                      yerr=baseline[f'{metric}_std'], capsize=3,
+                      error_kw={'elinewidth': 0.8})
+        ax.bar_label(bars, fmt='%.4f', padding=3, fontsize=7)
+        ax.set_ylabel(title)
+        ax.tick_params(axis='x', labelsize=8)
+        ax.set_ylim(0, max(.01, float((baseline[f'{metric}_mean'] + baseline[f'{metric}_std']).max()) * 1.2))
+        ax.grid(axis='y', alpha=.2)
+        ax.set_axisbelow(True)
+    fig.suptitle(f"Unified 80:20 test; {int(baseline.users.iloc[0]):,} fixed users; mean ± SD over {int(baseline.seeds.iloc[0])} seeds")
+    save(fig, 'baseline_comparison')
 
     intervals = pd.read_csv(root / 'confidence_intervals.csv')
     primary = intervals.loc[(intervals.condition == 'no_if_events') & (intervals.ablation == 'main') & (intervals.metric == 'ndcg')]
@@ -223,7 +264,6 @@ def generate_experiment_figures(root, output_dir=None, dpi=600):
     ax.set_title(f"Primary condition, {int(primary.seeds.iloc[0])} seed(s), {int(primary.users.iloc[0]):,} users")
     save(fig, 'confidence_intervals')
 
-    metrics = pd.read_csv(root / 'experiment_metrics.csv')
     hybrid = metrics.loc[metrics.model == 'Hybrid']
     fig, ax = plt.subplots(figsize=(8, 3.6))
     labels = hybrid.condition + '\n' + hybrid.ablation + '\nseed ' + hybrid.seed.astype(str)
@@ -250,7 +290,9 @@ def generate_experiment_figures(root, output_dir=None, dpi=600):
     save(fig, 'gamma_validation')
     dump_json(output / 'experiment_figure_manifest.json', {
         'experiment_reference_id': manifest['reference_id'], 'figures': generated, 'dpi': dpi,
-        'sources': {name: sha256(root / name) for name in manifest['files']}})
+        'sources': {**{name: sha256(root / name) for name in manifest['files']},
+                    'filter_comparison.csv': sha256(comparison_path),
+                    'filter_stage_statistics.csv': sha256(stage_stats_path)}})
     print(f'Created {len(generated)} experiment-figure files in {output.resolve()}')
     return output
 
