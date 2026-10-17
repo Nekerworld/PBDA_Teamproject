@@ -1,0 +1,898 @@
+[
+  {
+    "epoch": 1,
+    "loss": 0.7212012465068458,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 2,
+    "loss": 0.7110008189691541,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 3,
+    "loss": 0.7025970478667233,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 4,
+    "loss": 0.6947923817990656,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 5,
+    "loss": 0.6873892464580511,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 6,
+    "loss": 0.6802042347465098,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 7,
+    "loss": 0.6727770395169425,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 8,
+    "loss": 0.665503543713446,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 9,
+    "loss": 0.6579232849530231,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 10,
+    "loss": 0.6504080356975498,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 11,
+    "loss": 0.6424652569955739,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 12,
+    "loss": 0.6341202382339639,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 13,
+    "loss": 0.625366443071626,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 14,
+    "loss": 0.6164679838831518,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 15,
+    "loss": 0.6069484849424842,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 16,
+    "loss": 0.597381657188719,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 17,
+    "loss": 0.5872396628226197,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 18,
+    "loss": 0.5766836252061254,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 19,
+    "loss": 0.5658826202622534,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 20,
+    "loss": 0.5550046336528146,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 21,
+    "loss": 0.5439260837578259,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 22,
+    "loss": 0.5326554446688071,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 23,
+    "loss": 0.5218286306465741,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 24,
+    "loss": 0.5107670212711721,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 25,
+    "loss": 0.4996336867171306,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 26,
+    "loss": 0.4885772127512732,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 27,
+    "loss": 0.4779785785002968,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 28,
+    "loss": 0.46722841541854987,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 29,
+    "loss": 0.45682022244868387,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 30,
+    "loss": 0.44701948068132097,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 31,
+    "loss": 0.4371359803235079,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 32,
+    "loss": 0.42766652930644244,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 33,
+    "loss": 0.41827617989177,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 34,
+    "loss": 0.40963105055267013,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 35,
+    "loss": 0.4011709497037214,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 36,
+    "loss": 0.3932254988428322,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 37,
+    "loss": 0.3850132310714069,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 38,
+    "loss": 0.37773714334946323,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 39,
+    "loss": 0.3705778633529368,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 40,
+    "loss": 0.3634829808647967,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 41,
+    "loss": 0.3570796400162093,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 42,
+    "loss": 0.35085684378240484,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 43,
+    "loss": 0.3448870434818111,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 44,
+    "loss": 0.3392861383742411,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 45,
+    "loss": 0.33396981567897216,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 46,
+    "loss": 0.32863057747229246,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 47,
+    "loss": 0.32374973818994013,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 48,
+    "loss": 0.31923048427527384,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 49,
+    "loss": 0.31462942742368605,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 50,
+    "loss": 0.310413616280181,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 51,
+    "loss": 0.30660744952504254,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 52,
+    "loss": 0.3025546593481813,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 53,
+    "loss": 0.2987494201881347,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 54,
+    "loss": 0.2954172244176672,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 55,
+    "loss": 0.29230194588449787,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 56,
+    "loss": 0.2889601643641289,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 57,
+    "loss": 0.28598923158397344,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 58,
+    "loss": 0.283132200320783,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 59,
+    "loss": 0.28030976297306115,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 60,
+    "loss": 0.2779195966985978,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 61,
+    "loss": 0.27536283924176097,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 62,
+    "loss": 0.2729023007791426,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 63,
+    "loss": 0.27059586096370014,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 64,
+    "loss": 0.2683401513821473,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 65,
+    "loss": 0.26627078329007947,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 66,
+    "loss": 0.26463347859409414,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 67,
+    "loss": 0.2626017220246848,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 68,
+    "loss": 0.260684462042515,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 69,
+    "loss": 0.2588604771722995,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 70,
+    "loss": 0.25735075378512334,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 71,
+    "loss": 0.2557193476797468,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 72,
+    "loss": 0.25430063850117013,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 73,
+    "loss": 0.25269281822092565,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 74,
+    "loss": 0.2512090495536409,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 75,
+    "loss": 0.24985376085955965,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 76,
+    "loss": 0.24853158305880182,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 77,
+    "loss": 0.247375393221518,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 78,
+    "loss": 0.24607225833435104,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 79,
+    "loss": 0.24508660180366626,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 80,
+    "loss": 0.24381968060797327,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 81,
+    "loss": 0.24288494388039875,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 82,
+    "loss": 0.24168289212201494,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 83,
+    "loss": 0.24070908799323573,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 84,
+    "loss": 0.23961554970299725,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 85,
+    "loss": 0.2390524522195099,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 86,
+    "loss": 0.23788089880195612,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 87,
+    "loss": 0.2370796502629264,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 88,
+    "loss": 0.23626453826941665,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 89,
+    "loss": 0.23519970703724608,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 90,
+    "loss": 0.23447626855742787,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 91,
+    "loss": 0.2337623885357005,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 92,
+    "loss": 0.23317463295579577,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 93,
+    "loss": 0.23255819254979526,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 94,
+    "loss": 0.23183297600614386,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 95,
+    "loss": 0.23100232988236005,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 96,
+    "loss": 0.23027821976898363,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 97,
+    "loss": 0.22971962061627768,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 98,
+    "loss": 0.22923409032585196,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 99,
+    "loss": 0.2285649384050288,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 100,
+    "loss": 0.22778061085136395,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 101,
+    "loss": 0.227256751376791,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 102,
+    "loss": 0.22684626580109185,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 103,
+    "loss": 0.22615063681506295,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 104,
+    "loss": 0.2256158783740505,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 105,
+    "loss": 0.22517125194053592,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 106,
+    "loss": 0.22456311071119697,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 107,
+    "loss": 0.22419544129609342,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 108,
+    "loss": 0.223657489316667,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 109,
+    "loss": 0.2232698919450156,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 110,
+    "loss": 0.22282387879905807,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 111,
+    "loss": 0.22246156186399801,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 112,
+    "loss": 0.22186638024469957,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 113,
+    "loss": 0.2214970241076164,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 114,
+    "loss": 0.2211717926866807,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 115,
+    "loss": 0.22060858495870017,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 116,
+    "loss": 0.22031848022749764,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 117,
+    "loss": 0.21983801259373092,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 118,
+    "loss": 0.2195078675845529,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 119,
+    "loss": 0.2190541160644842,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 120,
+    "loss": 0.21866082933739844,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 121,
+    "loss": 0.21841203599376618,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 122,
+    "loss": 0.21810188509436026,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 123,
+    "loss": 0.21775918478689846,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 124,
+    "loss": 0.21722042736049596,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 125,
+    "loss": 0.21716218023127307,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 126,
+    "loss": 0.21677217917548267,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 127,
+    "loss": 0.2163842487389975,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  },
+  {
+    "epoch": 128,
+    "loss": 0.21619961668429127,
+    "pairs": 562419,
+    "saturated_pairs_skipped": 0,
+    "negative_mode": "popularity"
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "protocol_id": "2b13c5bae5fa0e604104b59db000afb5bb1747e355bb04e1ee002e50ef736385",
+  "stage": "als",
+  "manifest_hash": "97e771e111c1cddb58f528a63c4dcf382cd946386239f796a36776a83e0cc4cd",
+  "source_hashes": {
+    "als_debug.py": "b283abefc708a8286c49b78060df3c1585311256b25546d01d5f417855765ea5",
+    "audit_revision.py": "e093c91bff075baa54d25b29378aa8b98f9b5dea40dddd092e8f72a53a2d66b3",
+    "data_protocol.py": "ae5764729063de48e75c4658ae7a3c6adab290ea6eac90dbced807f173784b85",
+    "experiments.py": "49f42fb982926146a1f339f98ef927230c948bfefbf7e857986f5ff3e8b09553",
+    "export_legacy_gnn_split.py": "bcdbb9a9be66abe377e2a45530466fa2ee164ef7f54b7617f677fa1fb72151b2",
+    "fast_fusion.py": "2857ca24ca43e73cefe3db91228639cf3e337059e98244365b0d7faf8c67e031",
+    "improve_hybrid.py": "a69aab9989aced5a2cf24390cc365b82ffc46cdbeaab72096e9a196365e6d3be",
+    "learning.py": "8cedda256fe2e46c0cd12c908498a026fc7f74fc57f0715c241dcc576255612c",
+    "model.py": "15d32e694ebc80444c7c3899df910a2e9fb0d33d22e6bd47a36ec32ec05c9cc4",
+    "past_code.py": "c010ff0010bb6668d39441ca267e7d1bc02ce5f83d83ca984272a2fc758c8a12",
+    "ranking_evaluation.py": "7483dc0557f70013fe28956bdd1fdba396d533535660b2874fd8e60454b8be5b",
+    "recommendation_scoring.py": "c465110368319c9fcfc2141b7e10293a44b0fde47c744ccd5b2fdfeadc655ca3",
+    "robust_hybrid.py": "9259177666943037e97c11e99e1d1435b4e942afe29655c0f96b2027b7a7f6ca",
+    "viz.py": "ac795fb0fc19922307bd8b8d930ac295d61122bc9deafc30897c091e5a6504f8"
+  },
+  "files": {
+    "bpr_training_history.json": "76726a2fe849f460a7b481edfbc9fc0a8bd6a288cce9dc35303e2d0b2ca1ad66",
+    "als_user_factors.npy": "9a1b8dee5eb59de1f574f98819e281ab69152e900a75c71de8fa8768f06090f5",
+    "als_item_factors.npy": "f476fa3b180574ee2ded05723d0c4570e9468578cb8c1a8209f975ab651af018",
+    "bpr_user_factors.npy": "827e98179cbc665be31189bc5a0eddcb7c72f2a316fb29004e2d1301ad52f056",
+    "bpr_item_factors.npy": "f91b3281f2cb7b61ecdd451ad82cb121bbd4467223e9baec9a89785d22ea5912",
+    "als_user_mapping.csv": "af6e72bcdc9ed1d49f8b08f8c5226fcb0385c2c92f4322ce789ab0fda73109d7",
+    "als_item_mapping.csv": "49f15d009794c1093f16898f4418187ef2ddaf13479e90c1d612ad037ce3d84a",
+    "als_recommendations.csv": "1fc40081b4c2043c10302e6901447f4ca4306f295606f8c95c1c49b9c9622668",
+    "bpr_recommendations.csv": "701ec8f447ae8dff7e3b2c6fed876ee1af6d5600b87b31596ad14f1c50cd3dd5",
+    "als_bpr_recommendations.csv": "93c99236564fed9f4841d3537ee476c1441118d2238b492a2ef07e211834b14b"
+  },
+  "top_k": 50,
+  "bpr_used": true,
+  "bpr_implementation": "torch weighted pairwise loss; implicit BPR is not used",
+  "als_device": "cpu",
+  "als_use_gpu": false,
+  "als_threads": 8,
+  "als_confidence": "1 + alpha * behavior weight",
+  "behavior_weights": {
+    "view": 1.0,
+    "addtocart": 6.0,
+    "transaction": 12.0
+  },
+  "time_decay": true,
+  "negative_mode": "popularity",
+  "config": {
+    "processed_dir": "results\\hybrid_joint_8020_v5\\validation_seed_44\\mf",
+    "factors": 128,
+    "regularization": 0.02,
+    "bpr_regularization": 0.03,
+    "iterations": 256,
+    "alpha": 2.0,
+    "top_k": 50,
+    "random_state": 44,
+    "weight_map": null,
+    "use_weight_log_scale": false,
+    "ensemble_alpha": 0.5,
+    "behavior_weighted": true,
+    "bpr_epochs": 128,
+    "device": "cuda",
+    "als_threads": 8,
+    "time_decay": true,
+    "half_life_days": 7.0,
+    "negative_mode": "popularity"
+  },
+  "ensemble_alpha": 0.5,
+  "training_seconds": {
+    "ALS": 65.40137179999874,
+    "BPR": 35.200369400001364,
+    "ALS+BPR": 100.6017412000001
+  },
+  "recommendation_seconds": {
+    "ALS": 1.6936323999107117,
+    "BPR": 1.6902480998760439,
+    "ALS+BPR": 2.045697799891059
+  }
+}

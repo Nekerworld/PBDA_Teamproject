@@ -1,0 +1,21 @@
+{
+  "benchmark.log": "294b57a4811704ade0f78a2ca146ad3ff04f8ce6e60b1df412f80d67d2d358f6",
+  "evidence.json": "90e662a7c8da8e0cf67c27f571124f7285a2938dc7570d1a307d127ffbe7b6fa",
+  "evidence_collection.log": "86b2eb2119fecd9101961bf2e0f2fe49a7d1338a29f4813768854271ecea5940",
+  "fast_validation_parity.json": "24929053b16607e011a8ef87fc1c5d2470b12764432e31b52b5c7434e7f0578c",
+  "figures.log": "b2e4790de4764072257d28162cfe146a88ae8cdf024bcc9285806118b1918bdc",
+  "if_diagnosis.json": "061941e9d05e971307fba08950adcf1698b92d648632d9105e33824f7e259fc5",
+  "if_diagnosis.log": "95301c21a540d0f2aad74495cc9326505fc46f71afe977fff58fc57c82b24e5c",
+  "if_feature_ablation.csv": "7419734b25d0d22ac5b568e6aea83c9d180ce2d590be46675c71884eb96ae5ab",
+  "if_feature_groups.csv": "32cd7b2cea4bf1d00f2f9f40e9875940c17f8bd47cc42d5ee09aa7fee7a215fb",
+  "legacy_9010_integrity.json": "6fe7cb639674aaa9cc7a191ace1a21f1963790079c0bcde8b44a097e5612a747",
+  "MEETING_NOTES_KO.md": "b9edb5916bc4702993d0460a811dbdca775776a35a7279c0b6e53b5ebb33fb26",
+  "postprocess_ready.json": "11c085f03be00d8bf707377e2bf7961538f862a6225fa7e794612713bc80c035",
+  "professor_briefing_ko.md": "ef9b7cd5417593986ad32ac1ab9b667bbcab17fda3ffc78accd0f6a9e9ae8604",
+  "professor_briefing_ko.pdf": "706e34e1ec0ee3c5f687461e4bd228c5095ac65ecffdcb4e9fa5c6d548815b1b",
+  "README_KO.md": "3b32c76f1cd5c3d64ad8b936ae3638863bf89554bdb7545defc6c18431f86524",
+  "render.log": "acdd36f67587a8d5f750df33d1234681f88fbe754c6e2e7a52f915b1da988bd3",
+  "report_generation.log": "255e2d89a83a0a5c85f8e4d317d978c8a9e9ec29a032d6cd3fe2da7616e11ed0",
+  "verification.json": "a9fcef1dced671be920135ba558b0bdf9ead4b748136e0a3735bb7a9cb4ef203",
+  "verification.log": "bf2c314e9ff7809f989e06420480335a134892ba5556075716cb12c0712f0209"
+}

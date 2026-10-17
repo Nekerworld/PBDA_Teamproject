@@ -1,0 +1,76 @@
+{
+  "protocol_id": "3452f819281eb927210d804bcc26f52cdde3bebe832599235637c6a8193cb91b",
+  "stage": "als",
+  "manifest_hash": "55c8e7544d4130ad7cdb178d579d4397ae5f1dfa9a4c40eda1b4d8ecbdcee16e",
+  "source_hashes": {
+    "als_debug.py": "b283abefc708a8286c49b78060df3c1585311256b25546d01d5f417855765ea5",
+    "audit_revision.py": "e093c91bff075baa54d25b29378aa8b98f9b5dea40dddd092e8f72a53a2d66b3",
+    "data_protocol.py": "ae5764729063de48e75c4658ae7a3c6adab290ea6eac90dbced807f173784b85",
+    "experiments.py": "49f42fb982926146a1f339f98ef927230c948bfefbf7e857986f5ff3e8b09553",
+    "export_legacy_gnn_split.py": "bcdbb9a9be66abe377e2a45530466fa2ee164ef7f54b7617f677fa1fb72151b2",
+    "improve_hybrid.py": "a69aab9989aced5a2cf24390cc365b82ffc46cdbeaab72096e9a196365e6d3be",
+    "learning.py": "8cedda256fe2e46c0cd12c908498a026fc7f74fc57f0715c241dcc576255612c",
+    "model.py": "15d32e694ebc80444c7c3899df910a2e9fb0d33d22e6bd47a36ec32ec05c9cc4",
+    "past_code.py": "c010ff0010bb6668d39441ca267e7d1bc02ce5f83d83ca984272a2fc758c8a12",
+    "ranking_evaluation.py": "7483dc0557f70013fe28956bdd1fdba396d533535660b2874fd8e60454b8be5b",
+    "recommendation_scoring.py": "c465110368319c9fcfc2141b7e10293a44b0fde47c744ccd5b2fdfeadc655ca3",
+    "viz.py": "ac795fb0fc19922307bd8b8d930ac295d61122bc9deafc30897c091e5a6504f8"
+  },
+  "files": {
+    "bpr_training_history.json": "2605cc14d141139fb0112f3d4cfba39a974a5c9fe7fc8c5714baad6e13da2824",
+    "als_user_factors.npy": "6694f8b0c60e8b8bd88ddf21508856f529e7b89f63e4e6461d9f3a8dbe38fad0",
+    "als_item_factors.npy": "2bd16d34a37023575193786d3abd6be514349565f1329817d9846b6d85e8202f",
+    "bpr_user_factors.npy": "4b5d0f5b946ce5648166aa838c5ddc85f8af82b55aeba692cec51cf3ef2cd614",
+    "bpr_item_factors.npy": "cd689ad83fa035f61c30c9c2e434da5058a54e9c5fb743d93c2cb7a47ccfe517",
+    "als_user_mapping.csv": "ad8cb4a6f232f5203b4205f122326c3dd76b7895e83a924989b4cdfadb7e0a30",
+    "als_item_mapping.csv": "1bb63543ff35d86e5b42edea88a1efc76b36b35171c2ad762c44852ec166a4c5",
+    "als_recommendations.csv": "36d2aea24036615b32fe7bdbdfd576f9fe2bb6a72ebaa92e7dfcccf10ae91216",
+    "bpr_recommendations.csv": "536e2a6e3c7503d1624f3b6fd84cb68257e7b703eb702abc446dcd0adc28c6d1",
+    "als_bpr_recommendations.csv": "90895daf57fe8789ee69ee48c85ada4bac52f29b4e931d8a6dc00ac7e4f44d26"
+  },
+  "top_k": 50,
+  "bpr_used": true,
+  "bpr_implementation": "torch weighted pairwise loss; implicit BPR is not used",
+  "als_device": "cpu",
+  "als_use_gpu": false,
+  "als_threads": 8,
+  "als_confidence": "1 + alpha * behavior weight",
+  "behavior_weights": {
+    "view": 1.0,
+    "addtocart": 6.0,
+    "transaction": 12.0
+  },
+  "time_decay": true,
+  "negative_mode": "popularity",
+  "config": {
+    "processed_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v3\\runs\\seed_44",
+    "factors": 128,
+    "regularization": 0.02,
+    "bpr_regularization": 0.03,
+    "iterations": 256,
+    "alpha": 2.0,
+    "top_k": 50,
+    "random_state": 44,
+    "weight_map": null,
+    "use_weight_log_scale": false,
+    "ensemble_alpha": 0.5,
+    "behavior_weighted": true,
+    "bpr_epochs": 128,
+    "device": "cuda",
+    "als_threads": 8,
+    "time_decay": true,
+    "half_life_days": 7.0,
+    "negative_mode": "popularity"
+  },
+  "ensemble_alpha": 0.5,
+  "training_seconds": {
+    "ALS": 80.8761474999992,
+    "BPR": 44.93522329999905,
+    "ALS+BPR": 125.81137079999826
+  },
+  "recommendation_seconds": {
+    "ALS": 2.031481599980907,
+    "BPR": 2.034136500049499,
+    "ALS+BPR": 2.4851583000163373
+  }
+}

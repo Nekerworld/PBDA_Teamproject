@@ -1,0 +1,63 @@
+{
+  "hybrid": [
+    {
+      "name": "l3_uniform",
+      "checkpoint": "baseline",
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 190,
+        "hybrid_epochs": 190,
+        "seconds": 1061.4454773000034,
+        "directory": "results\\hybrid_joint_8020_v5\\validation_seed_42\\l3_uniform"
+      },
+      "config": {
+        "alpha": 0.5,
+        "strategy": "balanced_union",
+        "fusion": "minmax",
+        "candidate_k": 20000,
+        "omega": 0.3,
+        "gamma": 1.1,
+        "ndcg": 0.1384941824198861,
+        "recall": 0.20445228887434333,
+        "joint_lift": 0.044631362700018995,
+        "average_lift": 0.05986750826617693
+      }
+    }
+  ],
+  "gnn": [
+    {
+      "name": "l3_uniform",
+      "checkpoint": "baseline",
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 190,
+        "hybrid_epochs": 190,
+        "seconds": 1061.4454773000034,
+        "directory": "results\\hybrid_joint_8020_v5\\validation_seed_42\\l3_uniform"
+      },
+      "config": {
+        "alpha": 0.75,
+        "candidate_k": 5000,
+        "strategy": "balanced_union",
+        "fusion": "minmax",
+        "omega": 0.2,
+        "gamma": 1.1,
+        "ndcg": 0.1361782364577015,
+        "recall": 0.203771623776458,
+        "joint_lift": 0.03253302780918932,
+        "average_lift": 0.041192695513969424
+      },
+      "metrics": {
+        "ndcg": 0.12658395508893225,
+        "recall": 0.19481052783501962
+      }
+    }
+  ],
+  "scope": "three-seed validation means; original 42-selected epochs fixed"
+}

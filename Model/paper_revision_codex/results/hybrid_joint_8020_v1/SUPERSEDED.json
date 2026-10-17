@@ -1,0 +1,6 @@
+{
+  "reused_trial": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v1\\trials\\l2_uniform",
+  "utc": "2026-10-16T15:09:42.8378472Z",
+  "new_output": "hybrid_joint_8020_v2",
+  "reason": "Completed first validation GNN reused; correct quota-preserving MF union and compare against strongest MF metric envelope"
+}

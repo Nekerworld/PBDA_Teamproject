@@ -1,0 +1,10 @@
+# Final Hybrid experiment; Python 3.11 (64 bit).
+# Direct dependencies pinned to the measured v5 runtime.
+# For NVIDIA CUDA 12.8, install requirements-cu128.txt instead.
+numpy==2.4.6
+pandas==3.0.6
+scipy==1.17.1
+scikit-learn==1.9.1
+matplotlib==3.11.2
+implicit==0.7.3
+torch==2.11.0

@@ -1,0 +1,358 @@
+{
+  "hybrid": [
+    {
+      "name": "l2_uniform",
+      "checkpoint": "baseline",
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 125,
+        "hybrid_epochs": 120,
+        "seconds": 816.0127678000026,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v1\\trials\\l2_uniform"
+      },
+      "config": {
+        "alpha": 0.5,
+        "candidate_k": 5000,
+        "strategy": "blend",
+        "fusion": "rrf",
+        "omega": 0.3,
+        "gamma": 1.5,
+        "ndcg": 0.1371112013328677,
+        "recall": 0.2036784527945038,
+        "joint_lift": 0.05288793852095175,
+        "average_lift": 0.0549664501188043
+      }
+    },
+    {
+      "name": "l2_uniform",
+      "checkpoint": "hybrid",
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 125,
+        "hybrid_epochs": 120,
+        "seconds": 816.0127678000026,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v1\\trials\\l2_uniform"
+      },
+      "config": {
+        "alpha": 0.5,
+        "candidate_k": 5000,
+        "strategy": "blend",
+        "fusion": "rrf",
+        "omega": 0.4,
+        "gamma": 1.5,
+        "ndcg": 0.137453364411594,
+        "recall": 0.2030019820972706,
+        "joint_lift": 0.04939101565990511,
+        "average_lift": 0.054536924540848686
+      }
+    },
+    {
+      "name": "l3_uniform",
+      "checkpoint": "baseline",
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 190,
+        "hybrid_epochs": 90,
+        "seconds": 1061.4454773000034,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_uniform"
+      },
+      "config": {
+        "alpha": 0.75,
+        "candidate_k": 5000,
+        "strategy": "balanced_union",
+        "fusion": "minmax",
+        "omega": 0.2,
+        "gamma": 1.1,
+        "ndcg": 0.1361782364577015,
+        "recall": 0.203771623776458,
+        "joint_lift": 0.03253302780918932,
+        "average_lift": 0.041192695513969424
+      }
+    },
+    {
+      "name": "l3_uniform",
+      "checkpoint": "hybrid",
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 190,
+        "hybrid_epochs": 90,
+        "seconds": 1061.4454773000034,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_uniform"
+      },
+      "config": {
+        "alpha": 0.5,
+        "candidate_k": 5000,
+        "strategy": "blend",
+        "fusion": "minmax",
+        "omega": 0.3,
+        "gamma": 1.25,
+        "ndcg": 0.1358996091361966,
+        "recall": 0.202416786984162,
+        "joint_lift": 0.025667922111885177,
+        "average_lift": 0.03668611806510125
+      }
+    },
+    {
+      "name": "l2_mf_mixed",
+      "checkpoint": "baseline",
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 135,
+        "hybrid_epochs": 130,
+        "seconds": 869.0895535000018,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l2_mf_mixed"
+      },
+      "config": {
+        "alpha": 0.5,
+        "candidate_k": 5000,
+        "strategy": "balanced_union",
+        "fusion": "rrf",
+        "omega": 0.4,
+        "gamma": 1.5,
+        "ndcg": 0.1378197196346886,
+        "recall": 0.2041963007471702,
+        "joint_lift": 0.03468491230754989,
+        "average_lift": 0.04859606216432777
+      }
+    },
+    {
+      "name": "l2_mf_mixed",
+      "checkpoint": "hybrid",
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 135,
+        "hybrid_epochs": 130,
+        "seconds": 869.0895535000018,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l2_mf_mixed"
+      },
+      "config": {
+        "alpha": 0.25,
+        "candidate_k": 5000,
+        "strategy": "balanced_union",
+        "fusion": "minmax",
+        "omega": 0.4,
+        "gamma": 1.0,
+        "ndcg": 0.1379051215580704,
+        "recall": 0.204346272700224,
+        "joint_lift": 0.03544483653990027,
+        "average_lift": 0.049305223032880985
+      }
+    },
+    {
+      "name": "l3_mf_mixed",
+      "checkpoint": "baseline",
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 200,
+        "hybrid_epochs": 155,
+        "seconds": 1123.0592980000001,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_mf_mixed"
+      },
+      "config": {
+        "alpha": 0.25,
+        "candidate_k": 5000,
+        "strategy": "balanced_union",
+        "fusion": "minmax",
+        "omega": 0.3,
+        "gamma": 1.1,
+        "ndcg": 0.14058482808076606,
+        "recall": 0.20325268534857752,
+        "joint_lift": 0.029903510233308506,
+        "average_lift": 0.05686402330474327
+      }
+    },
+    {
+      "name": "l3_mf_mixed",
+      "checkpoint": "hybrid",
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 200,
+        "hybrid_epochs": 155,
+        "seconds": 1123.0592980000001,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_mf_mixed"
+      },
+      "config": {
+        "alpha": 0.5,
+        "candidate_k": 5000,
+        "strategy": "balanced_union",
+        "fusion": "minmax",
+        "omega": 0.4,
+        "gamma": 1.0,
+        "ndcg": 0.13655509184448994,
+        "recall": 0.20454773588317174,
+        "joint_lift": 0.03646567244642118,
+        "average_lift": 0.044611682108108064
+      }
+    }
+  ],
+  "gnn": [
+    {
+      "name": "l2_uniform",
+      "checkpoint": "baseline",
+      "metrics": {
+        "ndcg": 0.1297117968475031,
+        "recall": 0.1934474176621511
+      },
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 125,
+        "hybrid_epochs": 120,
+        "seconds": 816.0127678000026,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v1\\trials\\l2_uniform"
+      }
+    },
+    {
+      "name": "l2_uniform",
+      "checkpoint": "hybrid",
+      "metrics": {
+        "ndcg": 0.12970145941832084,
+        "recall": 0.1916964395390453
+      },
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 125,
+        "hybrid_epochs": 120,
+        "seconds": 816.0127678000026,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v1\\trials\\l2_uniform"
+      }
+    },
+    {
+      "name": "l3_uniform",
+      "checkpoint": "baseline",
+      "metrics": {
+        "ndcg": 0.1285192949632615,
+        "recall": 0.19735119196023887
+      },
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 190,
+        "hybrid_epochs": 90,
+        "seconds": 1061.4454773000034,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_uniform"
+      }
+    },
+    {
+      "name": "l3_uniform",
+      "checkpoint": "hybrid",
+      "metrics": {
+        "ndcg": 0.11368626438606684,
+        "recall": 0.18671934370004004
+      },
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "uniform"
+        },
+        "baseline_epochs": 190,
+        "hybrid_epochs": 90,
+        "seconds": 1061.4454773000034,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_uniform"
+      }
+    },
+    {
+      "name": "l2_mf_mixed",
+      "checkpoint": "baseline",
+      "metrics": {
+        "ndcg": 0.12634580131447137,
+        "recall": 0.1914174056564862
+      },
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 135,
+        "hybrid_epochs": 130,
+        "seconds": 869.0895535000018,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l2_mf_mixed"
+      }
+    },
+    {
+      "name": "l2_mf_mixed",
+      "checkpoint": "hybrid",
+      "metrics": {
+        "ndcg": 0.12524669433734234,
+        "recall": 0.19099086768241974
+      },
+      "trial": {
+        "variant": {
+          "layers": 2,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 135,
+        "hybrid_epochs": 130,
+        "seconds": 869.0895535000018,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l2_mf_mixed"
+      }
+    },
+    {
+      "name": "l3_mf_mixed",
+      "checkpoint": "baseline",
+      "metrics": {
+        "ndcg": 0.12743215041793257,
+        "recall": 0.19501822384235976
+      },
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 200,
+        "hybrid_epochs": 155,
+        "seconds": 1123.0592980000001,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_mf_mixed"
+      }
+    },
+    {
+      "name": "l3_mf_mixed",
+      "checkpoint": "hybrid",
+      "metrics": {
+        "ndcg": 0.12186604816499598,
+        "recall": 0.19055611434222744
+      },
+      "trial": {
+        "variant": {
+          "layers": 3,
+          "negative_mode": "mf_mixed"
+        },
+        "baseline_epochs": 200,
+        "hybrid_epochs": 155,
+        "seconds": 1123.0592980000001,
+        "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_mf_mixed"
+      }
+    }
+  ]
+}

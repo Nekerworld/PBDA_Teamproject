@@ -41,3 +41,64 @@ ENV/
 Thumbs.db
 
 *.csv
+# Trained models, checkpoints, embeddings and serialized estimators
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.h5
+*.hdf5
+*.keras
+*.tflite
+*.pb
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.joblib
+*.model
+*.weights
+*.weights.*
+checkpoint
+checkpoints/
+.ipynb_checkpoints/
+
+# Generated datasets and binary experiment output
+*.parquet
+*.arrow
+*.feather
+*.hdf
+*.mmap
+
+# Training logs and experiment trackers
+*.log
+events.out.tfevents.*
+wandb/
+mlruns/
+
+# Local Python environments and caches
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Generated test and report-rendering artifacts
+/Model/paper_revision_codex/test_artifacts/
+/Model/paper_revision_codex/professor_materials/qa/
+
+# Packaged datasets and delivery bundles
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+
+# Local secrets
+.env
+.env.*
+!.env.example

@@ -1,0 +1,17 @@
+{
+  "epoch": 90,
+  "alpha": 0.5,
+  "candidate_k": 2000,
+  "strategy": "blend",
+  "fusion": "minmax",
+  "omega": 0.2,
+  "gamma": 1.0,
+  "ndcg": 0.13263369008836062,
+  "recall": 0.19558163932058623,
+  "joint_lift": 0.04317315042971215,
+  "average_lift": 0.045318170037680794,
+  "reference": {
+    "ndcg": 0.12714446305843388,
+    "recall": 0.18671934370004004
+  }
+}

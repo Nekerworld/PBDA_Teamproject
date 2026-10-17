@@ -1,0 +1,48 @@
+{
+  "verified": true,
+  "archive_sha256": "9ac5f3197cd4eb8bd57f5fdc82c553efe9c8dfd55270d8f414a04628c0c2f31c",
+  "archive_members": 547,
+  "pdf_sha256": "706e34e1ec0ee3c5f687461e4bd228c5095ac65ecffdcb4e9fa5c6d548815b1b",
+  "visually_reviewed_pages": 7,
+  "visually_reviewed_figures": 9,
+  "regression_tests_passed": 46,
+  "portable_replays": {
+    "hybrid_joint_8020_v3": {
+      "verified": true,
+      "users": 854,
+      "metric_pairs_replayed": 90,
+      "success": false,
+      "checks": [
+        "80:20 no-IF plan and nondegenerate MF+GNN weights",
+        "Seed 42: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+        "Seed 43: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+        "Seed 44: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+        "Success flag independently recomputed from all three seeds",
+        "Six model records match the sealed fixed epochs; effective protocol records matching artifact reuse and inherited static metadata"
+      ],
+      "effective_training_protocol_hash": "58a927088e4f974632d6c15d1f4805c57a83603dbe63adde46160f30fcef7f62",
+      "experiment": "C:\\Users\\chris\\Documents\\Codex\\2026-10-16\\c-ys-tuk-s4e2-pbda-teamproject\\work\\zip_replay_verified_v5\\results\\hybrid_joint_8020_v3",
+      "selection_hash": "18aeae282b0111f07097211eb03c0ba0ca22750337d122a8eab1ba337cf66188",
+      "result_hash": "2054ee9a3a0e0e1b5057f1895e7d3d3b2e609edc2e911276f99bac6ca615d03d"
+    },
+    "hybrid_joint_8020_v5": {
+      "verified": true,
+      "users": 854,
+      "metric_pairs_replayed": 90,
+      "success": true,
+      "checks": [
+        "80:20 no-IF plan and nondegenerate MF+GNN weights",
+        "Seed 42: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+        "Seed 43: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+        "Seed 44: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+        "Success flag independently recomputed from all three seeds",
+        "All nine ALS/BPR/standalone-GNN recommendation files exactly match the prior baselines",
+        "Six model records match the sealed fixed epochs; effective protocol records matching artifact reuse and inherited static metadata"
+      ],
+      "effective_training_protocol_hash": "8d65d7f7c0e6a4f78a168118b8fd47aa768ae07c54e46cf7ab143ff05eae31b2",
+      "experiment": "C:\\Users\\chris\\Documents\\Codex\\2026-10-16\\c-ys-tuk-s4e2-pbda-teamproject\\work\\zip_replay_verified_v5\\results\\hybrid_joint_8020_v5",
+      "selection_hash": "31d247a1c1746fbac4dc88ae68305ca3b94e7f21daa8350e88297b5e05bc5759",
+      "result_hash": "92eeebf47128b54f89de58a86a17a91baa610b67810216d79c194c821a96be2b"
+    }
+  }
+}

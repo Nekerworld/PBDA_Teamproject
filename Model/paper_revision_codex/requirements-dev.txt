@@ -1,0 +1,2 @@
+# Install after requirements-cu128.txt for GPU experiment regression tests.
+pytest==9.1.1

@@ -1,0 +1,18 @@
+{
+  "python": "3.11.13 | packaged by conda-forge | (main, Jun  4 2025, 14:39:58) [MSC v.1943 64 bit (AMD64)]",
+  "executable": "C:\\Users\\chris\\Documents\\Codex\\2026-10-14\\c-ys-tuk-s4e2-pbda-teamproject\\work\\revision-env\\Scripts\\python.exe",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.9.1",
+    "torch": "2.11.0+cu128",
+    "implicit": "0.7.3",
+    "matplotlib": "3.11.2",
+    "pytest": "9.1.1"
+  },
+  "cuda_build": "12.8",
+  "gpu": "NVIDIA GeForce RTX 3090 Ti",
+  "gpu_memory_bytes": 25756565504
+}

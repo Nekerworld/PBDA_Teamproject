@@ -1,0 +1,1044 @@
+--- before/data_protocol.py
++++ after/data_protocol.py
+@@ -5,6 +5,7 @@
+ """
+ from dataclasses import asdict, dataclass
+ from pathlib import Path
++import os
+ import hashlib
+ import json
+ import platform
+@@ -16,7 +17,7 @@
+ from sklearn.ensemble import IsolationForest
+ 
+ # Model/paper_revision/*.py → project root is parents[2]
+-ROOT = Path(__file__).resolve().parents[2]
++ROOT = Path(os.environ.get('PBDA_PROJECT_ROOT', Path(__file__).resolve().parents[2]))
+ DEFAULT_DATA = ROOT / "data"
+ DEFAULT_PROCESSED = Path(__file__).resolve().parent / "results" / "processed_revision"
+ VERSION = "chronological-fixed-reference-v3"
+--- before/experiments.py
++++ after/experiments.py
+@@ -341,7 +341,8 @@
+     for uid in truth:
+         if uid not in factor.users:
+             continue
+-        component, _, retrieval = factor.scores(uid)
++        _, _, retrieval = factor.scores(uid)
++        component = retrieval
+         candidate = top_indices(retrieval, factor.item_ids, min(candidate_k, len(factor.item_ids)))
+         candidate_shares.append(float(available[candidate].mean()))
+         graph_scores = graph.scores(uid, candidate)
+@@ -400,7 +401,8 @@
+     for uid in truth:
+         if uid not in factor.users:
+             continue
+-        component, _, retrieval = factor.scores(uid)
++        _, _, retrieval = factor.scores(uid)
++        component = retrieval
+         cache[uid] = (component, retrieval, graph.scores(uid))
+     rows = []
+     for candidate_k in candidate_grid:
+--- /dev/null
++++ after/fast_fusion.py
+@@ -0,0 +1,38 @@
++"""Numerically equivalent cached validation scoring, deterministic boundary ties."""
++import numpy as np
++from recommendation_scoring import top_indices,minmax,ranks_from_scores
++from improve_hybrid import candidate_indices
++
++
++def fast_top_indices(scores,ids,k):
++    scores=np.asarray(scores)
++    if k<1 or not np.isfinite(scores).all():raise ValueError('Positive K and finite scores are required')
++    if len(scores)<=k:return top_indices(scores,ids,k)
++    boundary=np.partition(scores,len(scores)-k)[len(scores)-k]
++    pool=np.flatnonzero(scores>=boundary)
++    # Include every boundary tie, then use the authoritative item-ID tie rule.
++    return pool[top_indices(scores[pool],np.asarray(ids)[pool],k)]
++
++
++def cached_grid(cache,grid,seed,name,callback=None):
++    rows=[];last=None;prepared={};values={}
++    for n,cfg in enumerate(grid):
++        key=(cfg['alpha'],cfg['strategy'],cfg['candidate_k'])
++        if key!=last:
++            prepared={u:candidate_indices(cache,u,cfg['alpha'],cfg['candidate_k'],cfg['strategy']) for u in cache.active}
++            values={}
++            for uid,idx in prepared.items():
++                mf=cache.mf(uid,cfg['alpha'])[idx];gnn=cache.gnn[uid][idx]
++                values[uid]=(minmax(mf),minmax(gnn),ranks_from_scores(mf),ranks_from_scores(gnn))
++            last=key
++            if callback is not None:callback(n,len(grid))
++        rankings={};weight=cfg['omega'];gamma=cfg['gamma']
++        for uid,idx in prepared.items():
++            mf,gnn,mr,gr=values[uid]
++            if cfg['fusion']=='minmax':scores=weight*mf+(1-weight)*gnn
++            elif cfg['fusion']=='rrf':scores=weight/(60+mr)+(1-weight)/(60+gr)
++            else:raise ValueError('Unknown fusion')
++            scores=scores*np.where(cache.available[idx],gamma,1.)
++            rankings[uid]=idx[fast_top_indices(scores,cache.ids[idx],50)]
++        rows.append({'seed':seed,'name':name,**cfg,**cache.metrics(rankings)})
++    return rows
+--- /dev/null
++++ after/improve_hybrid.py
+@@ -0,0 +1,445 @@
++"""Real-data 80:20 Hybrid experiment. Selection reads inner validation only.
++
++The outer test is evaluated only after selection.json has been sealed. Earlier
++project test results were already inspected; this is a corrected re-evaluation,
++not a claim that the historical test was never observed by the researchers.
++"""
++import os
++for name in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS','NUMEXPR_NUM_THREADS'):
++    os.environ[name]='1'
++import argparse
++import hashlib
++import json
++from pathlib import Path
++import shutil
++import time
++import numpy as np
++import pandas as pd
++import torch
++from data_protocol import require_protocol,require_artifacts,positive_sets,dump_json,sha256
++from experiments import clone_protocol,write_dataset_statistics_tables,paired_bootstrap
++from model import ALSRecommender,GNNEmbeddingGenerator
++from recommendation_scoring import FactorScorer,GNNScorer,minmax,top_indices,hybrid_scores
++
++KS=(10,20,30,40,50)
++MF_KWARGS=dict(factors=128,regularization=.02,iterations=256,alpha=2.,top_k=50,
++    bpr_epochs=128,device='cuda',als_threads=8,time_decay=True,half_life_days=7.,
++    negative_mode='popularity',ensemble_alpha=.5)
++
++
++def link_mf(source,dest):
++    meta=require_artifacts(source,'als')
++    for name in [*meta['files'],'als_artifacts.json']:
++        target=Path(dest)/name
++        if not target.exists(): os.link(Path(source)/name,target)
++
++
++def progress(root,stage,**extra):
++    payload={'stage':stage,'utc':pd.Timestamp.now(tz='UTC').isoformat(),'process_id':os.getpid(),**extra}
++    dump_json(root/'progress.json',payload)
++    print(json.dumps(payload,ensure_ascii=False),flush=True)
++
++
++class ScoreCache:
++    def __init__(self,directory,gnn_directory=None):
++        self.directory=Path(directory)
++        protocol=require_protocol(self.directory)
++        if protocol['role'] not in ('validation','test'):
++            raise ValueError('Unknown evaluation role')
++        self.truth=positive_sets(pd.read_csv(self.directory/'events_test_original.csv'))
++        self.users=sorted(self.truth)
++        self.factor=FactorScorer(directory,.5)
++        self.ids=self.factor.item_ids
++        self.active=[uid for uid in self.users if uid in self.factor.users]
++        self.als={};self.bpr={};self.gnn={}
++        for uid in self.active:
++            a,b,_=self.factor.scores(uid)
++            self.als[uid]=minmax(a).astype(np.float32)
++            self.bpr[uid]=minmax(b).astype(np.float32)
++        features=pd.read_csv(self.directory/'feature_train_inliers.csv').set_index('itemid')
++        self.available=features.reindex(self.ids).has_available.eq(1).to_numpy()
++        self.positive_indices={uid:set(np.flatnonzero(np.isin(self.ids,list(self.truth[uid])))) for uid in self.active}
++        if gnn_directory is not None:self.load_gnn(gnn_directory)
++
++    def load_gnn(self,directory):
++        require_artifacts(directory,'gnn')
++        scorer=GNNScorer(directory,self.ids)
++        self.gnn={uid:scorer.scores(uid).astype(np.float32) for uid in self.active}
++
++    def mf(self,uid,alpha):
++        return alpha*self.als[uid]+(1-alpha)*self.bpr[uid]
++
++    def ranking(self,scores,k=50):
++        return {uid:top_indices(values,self.ids,k) for uid,values in scores.items()}
++
++    def details(self,rankings,k=50):
++        rows=[]
++        discounts=1/np.log2(np.arange(k)+2)
++        for uid in self.users:
++            ranked=np.asarray(rankings.get(uid,[]),dtype=np.int64)[:k]
++            relevant=self.truth[uid]
++            hit=np.isin(self.ids[ranked],list(relevant))
++            hits=int(hit.sum())
++            idcg=float(discounts[:min(k,len(relevant))].sum())
++            rows.append({'visitorid':uid,'ndcg':float((hit*discounts[:len(hit)]).sum()/idcg),
++                'recall':hits/len(relevant),'precision':hits/k,'hit_rate':float(hits>0),
++                'recommendations':len(ranked)})
++        return pd.DataFrame(rows)
++
++    def metrics(self,rankings,k=50):
++        # Hot search path: all missing cohort members remain zeros.
++        ndcg=recall=0.
++        discounts=1/np.log2(np.arange(k)+2)
++        for uid,ranked in rankings.items():
++            relevant=self.positive_indices[uid]
++            hit=np.fromiter((int(i) in relevant for i in ranked[:k]),dtype=bool)
++            ndcg+=float((hit*discounts[:len(hit)]).sum()/discounts[:min(k,len(self.truth[uid]))].sum())
++            recall+=int(hit.sum())/len(self.truth[uid])
++        return {'ndcg':ndcg/len(self.users),'recall':recall/len(self.users)}
++
++
++def joint_score(metrics,reference):
++    return min(metrics[name]/max(reference[name],1e-12)-1 for name in ('ndcg','recall'))
++
++
++def select_row(rows,reference):
++    for row in rows:
++        row['joint_lift']=joint_score(row,reference)
++        row['average_lift']=np.mean([row[n]/max(reference[n],1e-12)-1 for n in ('ndcg','recall')])
++    return max(rows,key=lambda r:(r['joint_lift'],r['average_lift'],-r.get('candidate_k',0),
++        -abs(r.get('gamma',1)-1),-r.get('omega',0)))
++
++
++def baseline_search(cache):
++    rows=[]
++    for alpha in np.round(np.arange(0,1.01,.1),1):
++        ranking=cache.ranking({u:cache.mf(u,alpha) for u in cache.active})
++        rows.append({'alpha':float(alpha),**cache.metrics(ranking)})
++    reference={n:max(r[n] for r in rows) for n in ('ndcg','recall')}
++    best=select_row(rows,reference)
++    return best,rows
++
++
++def candidate_indices(cache,uid,alpha,count,strategy):
++    if strategy=='blend': return top_indices(cache.mf(uid,alpha),cache.ids,count)
++    half=(count+1)//2
++    a=top_indices(cache.als[uid],cache.ids,half)
++    b=top_indices(cache.bpr[uid],cache.ids,count//2)
++    union=np.union1d(a,b)
++    if len(union)<count:
++        fill=top_indices(cache.mf(uid,alpha),cache.ids,count)
++        # Fill only missing slots: adding the whole blended Top-C and then
++        # taking its Top-C again silently collapses this strategy into blend.
++        missing=np.setdiff1d(fill,union,assume_unique=True)
++        missing=missing[top_indices(cache.mf(uid,alpha)[missing],cache.ids[missing],min(count-len(union),len(missing)))]
++        union=np.r_[union,missing]
++    order=top_indices(cache.mf(uid,alpha)[union],cache.ids[union],min(count,len(union)))
++    return union[order]
++
++
++def config_ranking(cache,config,prepared=None,legacy_als=False):
++    rankings={}
++    for uid in cache.active:
++        idx=prepared[uid] if prepared is not None else candidate_indices(cache,uid,config['alpha'],config['candidate_k'],config['strategy'])
++        mf=cache.als[uid] if legacy_als else cache.mf(uid,config['alpha'])
++        scores=hybrid_scores(mf[idx],cache.gnn[uid][idx],cache.available[idx],
++            config['omega'],config['gamma'],config['fusion'])
++        rankings[uid]=idx[top_indices(scores,cache.ids[idx],50)]
++    return rankings
++
++
++def fusion_search(cache,alpha,reference,coarse=False):
++    rows=[]
++    alphas=sorted(set([round(float(alpha),2),.25,.5,.75]))
++    depths=[500,1000,2000] if coarse else [500,1000,2000,5000]
++    weights=[.2,.5,.8] if coarse else [.1,.3,.5,.7,.9]
++    for strategy in ['blend','balanced_union']:
++        for mix in alphas:
++            for count in depths:
++                prepared={u:candidate_indices(cache,u,mix,count,strategy) for u in cache.active}
++                for fusion in ['minmax','rrf']:
++                    for omega in weights:
++                        cfg=dict(alpha=mix,candidate_k=count,strategy=strategy,fusion=fusion,omega=omega,gamma=1.)
++                        rows.append({**cfg,**cache.metrics(config_ranking(cache,cfg,prepared))})
++    first=select_row(rows,reference)
++    finalists=sorted(rows,key=lambda r:r['joint_lift'],reverse=True)[:8]
++    for item in finalists:
++        prepared={u:candidate_indices(cache,u,item['alpha'],item['candidate_k'],item['strategy']) for u in cache.active}
++        for omega in sorted(set([item['omega'],max(.1,round(item['omega']-.1,2)),min(.9,round(item['omega']+.1,2))])):
++            for gamma in [1.,1.1,1.25,1.5,2.]:
++                cfg={k:item[k] for k in ('alpha','candidate_k','strategy','fusion')}
++                cfg.update(omega=omega,gamma=gamma)
++                rows.append({**cfg,**cache.metrics(config_ranking(cache,cfg,prepared))})
++    best=select_row(rows,reference)
++    return best,rows
++
++
++class CheckpointObserver:
++    def __init__(self,cache,alpha,directory):
++        self.cache=cache;self.alpha=alpha;self.directory=Path(directory);self.best=-np.inf
++        self.prepared={u:candidate_indices(cache,u,alpha,2000,'blend') for u in cache.active}
++        mf=cache.metrics(cache.ranking({u:cache.mf(u,alpha) for u in cache.active}))
++        self.mf_reference=mf
++
++    def __call__(self,model,graph,epoch):
++        with torch.no_grad():vectors=model(0.).detach().cpu().numpy()
++        item=vectors[graph['offsets']['item']:graph['offsets']['item']+graph['num_items']]
++        self.cache.gnn={u:item@vectors[graph['user_map'][u]] for u in self.cache.active}
++        base=self.cache.metrics(self.cache.ranking(self.cache.gnn))
++        reference={n:max(base[n],self.mf_reference[n]) for n in ('ndcg','recall')}
++        rows=[]
++        for omega in [.2,.5,.8]:
++            cfg=dict(alpha=self.alpha,candidate_k=2000,strategy='blend',fusion='minmax',omega=omega,gamma=1.)
++            rows.append({**cfg,**self.cache.metrics(config_ranking(self.cache,cfg,self.prepared))})
++        best=select_row(rows,reference)
++        if best['joint_lift']>self.best:
++            self.best=best['joint_lift']
++            torch.save({k:v.detach().cpu() for k,v in model.state_dict().items() if k!='adjacency'},self.directory/'hybrid_best_state.pt')
++            dump_json(self.directory/'hybrid_checkpoint.json',{'epoch':epoch,**best,'reference':reference})
++        print('VALIDATION',epoch,'GNN',base,'Hybrid',best['ndcg'],best['recall'],'joint',best['joint_lift'],flush=True)
++        return {'validation_original_recall':base['recall'],'hybrid_joint_lift':best['joint_lift'],
++                'hybrid_ndcg':best['ndcg'],'hybrid_recall':best['recall']}
++
++
++def gnn_kwargs(seed,variant,epochs=200):
++    return dict(seed=seed,device='cuda',embedding_dim=64,layers=variant['layers'],epochs=epochs,
++        batch_size=8192,learning_rate=.001,reg=.0001,early_stopping_patience=30,min_epochs=5,
++        graph_mode='bipartite',loss_mode='infonce',n_negatives=32,temperature=.2,
++        edge_dropout=.1,propagation='unweighted',time_decay=True,half_life_days=7.,
++        negative_mode=variant['negative_mode'])
++
++
++def train_trial(root,source,mf_dir,cache,alpha,name,variant,seed=42):
++    directory=root/'trials'/name
++    if not directory.exists():clone_protocol(source,directory)
++    link_mf(mf_dir,directory)
++    if (directory/'trial_complete.json').exists():return json.loads((directory/'trial_complete.json').read_text())
++    start=time.perf_counter()
++    generator=GNNEmbeddingGenerator(processed_dir=directory,**gnn_kwargs(seed,variant))
++    graph=generator._prepare_graph_structures(generator._load_inputs())
++    observer=CheckpointObserver(cache,alpha,directory)
++    generator._checkpoint_observer=observer
++    model,chosen,history=generator._fit_graph(graph,generator.epochs,torch,cache.truth)
++    generator._publish(model,graph,history,chosen,start,{'mode':'inner_validation_only'})
++    torch.save({k:v.detach().cpu() for k,v in model.state_dict().items() if k!='adjacency'},directory/'baseline_best_state.pt')
++    alternative=directory/'hybrid_checkpoint'
++    if not alternative.exists():clone_protocol(source,alternative)
++    link_mf(mf_dir,alternative)
++    model.load_state_dict(torch.load(directory/'hybrid_best_state.pt',map_location='cpu',weights_only=True),strict=False)
++    selected=json.loads((directory/'hybrid_checkpoint.json').read_text())
++    generator.processed_dir=alternative
++    generator._publish(model,graph,history,selected['epoch'],start,{'mode':'inner_hybrid_joint_selection'})
++    result={'variant':variant,'baseline_epochs':chosen,'hybrid_epochs':selected['epoch'],
++        'seconds':time.perf_counter()-start,'directory':str(directory)}
++    dump_json(directory/'trial_complete.json',result)
++    del model,graph;torch.cuda.empty_cache()
++    return result
++
++
++def final_rankings(cache,alpha,config):
++    models={'ALS':cache.ranking(cache.als),'BPR':cache.ranking(cache.bpr),
++            'ALS+BPR':cache.ranking({u:cache.mf(u,alpha) for u in cache.active}),
++            'GNN':cache.ranking(cache.gnn),'Hybrid':config_ranking(cache,config)}
++    return models
++
++
++def link_tree(source,dest):
++    source,dest=Path(source),Path(dest)
++    dest.mkdir(parents=True,exist_ok=True)
++    for child in source.iterdir():
++        target=dest/child.name
++        if child.is_dir():link_tree(child,target)
++        elif not target.exists():os.link(child,target)
++
++
++def run(root,source,max_hours=24,reuse_root=None,reuse_validation_metrics=False):
++    root=Path(root);source=Path(source)
++    root.mkdir(parents=True,exist_ok=True)
++    torch.set_num_threads(1)
++    started=time.time()
++    frozen={'test_size':.2,'use_if':False,'core':3,'seeds':[42,43,44],
++        'objective':'min relative lift of original NDCG@50 and Recall@50 against strongest baselines',
++        'source':str(source),'source_manifest_hash':sha256(source/'manifest.json'),
++        'max_hours':max_hours,'historical_test_seen':True,
++        'reuse_root':str(reuse_root) if reuse_root is not None else None,
++        'reuse_validation_metrics':bool(reuse_validation_metrics),
++        'search_extension':'global joint re-selection and boundary candidates 10000/20000',
++        'code':{p.name:sha256(p) for p in Path(__file__).parent.glob('*.py')},
++        'torch':torch.__version__,'gpu':torch.cuda.get_device_name(0)}
++    plan=root/'experiment_plan.json'
++    if plan.exists():
++        previous=json.loads(plan.read_text())
++        if previous!=frozen:raise ValueError('Plan/source changed; choose a new result directory')
++    else:dump_json(plan,frozen)
++    if reuse_validation_metrics:
++        if reuse_root is None:raise ValueError('Metric reuse requires an explicit parent experiment')
++        parent=json.loads((Path(reuse_root)/'experiment_plan.json').read_text(encoding='utf-8'))
++        # Only the orchestration/search driver changes. The numerical training,
++        # data protocol and scorer implementations must remain identical.
++        for name in ['model.py','learning.py','data_protocol.py','recommendation_scoring.py','ranking_evaluation.py','als_debug.py']:
++            if parent['code'][name]!=frozen['code'][name]:raise ValueError('Numerical source changed: '+name)
++        if parent['source_manifest_hash']!=frozen['source_manifest_hash']:raise ValueError('Data source changed')
++    proto=require_protocol(source)
++    if proto['use_if'] or abs(proto['config']['test_size']-.2)>1e-9:
++        raise ValueError('Requires no-IF common 80:20 prepared source')
++    datasets=root/'datasets'/'no_if_events'
++    if not datasets.exists():clone_protocol(source,datasets)
++    write_dataset_statistics_tables(root/'datasets',root,'no_if_events')
++    val_source=datasets/'validation'
++    mf_dir=root/'validation_mf'
++    if not mf_dir.exists():clone_protocol(val_source,mf_dir)
++    if reuse_root is not None and not (mf_dir/'als_artifacts.json').exists():
++        link_mf(Path(reuse_root)/'validation_mf',mf_dir)
++    progress(root,'validation_mf')
++    if not (mf_dir/'als_artifacts.json').exists():ALSRecommender(mf_dir,random_state=42,**MF_KWARGS).run()
++    cache=ScoreCache(mf_dir)
++    alpha,alpha_rows=baseline_search(cache)
++    pd.DataFrame(alpha_rows).to_csv(root/'validation_mf_alpha.csv',index=False)
++    variants=[{'layers':2,'negative_mode':'uniform'},{'layers':3,'negative_mode':'uniform'},
++              {'layers':2,'negative_mode':'mf_mixed'},{'layers':3,'negative_mode':'mf_mixed'}]
++    selections=[];baseline_candidates=[]
++    for index,variant in enumerate(variants):
++        name=f'l{variant["layers"]}_{variant["negative_mode"]}'
++        if index and time.time()-started>max(0,max_hours-8)*3600:break
++        if reuse_root is not None and not (root/'trials'/name).exists() and (Path(reuse_root)/'trials'/name/'trial_complete.json').exists():
++            link_tree(Path(reuse_root)/'trials'/name,root/'trials'/name)
++        progress(root,'validation_gnn',variant=name,index=index+1)
++        trial=train_trial(root,val_source,mf_dir,cache,alpha['alpha'],name,variant)
++        for checkpoint in ['baseline','hybrid']:
++            directory=Path(trial['directory']) if checkpoint=='baseline' else Path(trial['directory'])/'hybrid_checkpoint'
++            cache.load_gnn(directory)
++            gm=cache.metrics(cache.ranking(cache.gnn))
++            baseline_candidates.append({'name':name,'checkpoint':checkpoint,'metrics':gm,'trial':trial})
++            reference={n:max(max(a[n] for a in alpha_rows),gm[n],max(c['metrics'][n] for c in baseline_candidates)) for n in ('ndcg','recall')}
++            progress(root,'fusion_search',variant=name,checkpoint=checkpoint)
++            parent_csv=Path(reuse_root)/f'validation_fusion_{name}_{checkpoint}.csv' if reuse_root is not None else None
++            if reuse_validation_metrics and parent_csv.is_file():
++                rows=pd.read_csv(parent_csv).to_dict('records')
++                best=select_row(rows,reference)
++            else:
++                best,rows=fusion_search(cache,alpha['alpha'],reference)
++            pd.DataFrame(rows).to_csv(root/f'validation_fusion_{name}_{checkpoint}.csv',index=False)
++            selections.append({'name':name,'checkpoint':checkpoint,'trial':trial,'config':best})
++        dump_json(root/'validation_candidates.json',{'hybrid':selections,'gnn':baseline_candidates})
++    reference={n:max(max(a[n] for a in alpha_rows),max(c['metrics'][n] for c in baseline_candidates)) for n in ('ndcg','recall')}
++    # Compare all saved settings under one final reference rather than keeping
++    # a local winner chosen before later baselines were available.
++    for entry in selections:
++        path=root/f'validation_fusion_{entry["name"]}_{entry["checkpoint"]}.csv'
++        rows=pd.read_csv(path).to_dict('records')
++        entry['config']=select_row(rows,reference)
++        pd.DataFrame(rows).to_csv(path,index=False)
++    boundary=sorted(selections,key=lambda x:joint_score(x['config'],reference),reverse=True)[:3]
++    for entry in boundary:
++        directory=Path(entry['trial']['directory'])
++        if entry['checkpoint']=='hybrid':directory=directory/'hybrid_checkpoint'
++        cache.load_gnn(directory)
++        base=entry['config']
++        path=root/f'validation_fusion_{entry["name"]}_{entry["checkpoint"]}.csv'
++        rows=pd.read_csv(path).to_dict('records')
++        progress(root,'candidate_boundary_extension',variant=entry['name'],checkpoint=entry['checkpoint'])
++        for depth in [10000,20000]:
++            prepared={u:candidate_indices(cache,u,base['alpha'],depth,base['strategy']) for u in cache.active}
++            for omega in sorted(set([base['omega'],max(.1,round(base['omega']-.1,2)),min(.9,round(base['omega']+.1,2))])):
++                for gamma in [1.,1.1,1.25,1.5,2.]:
++                    cfg={k:base[k] for k in ['alpha','strategy','fusion']}
++                    cfg.update(candidate_k=depth,omega=omega,gamma=gamma)
++                    rows.append({**cfg,**cache.metrics(config_ranking(cache,cfg,prepared))})
++        entry['config']=select_row(rows,reference)
++        pd.DataFrame(rows).to_csv(path,index=False)
++    winner=max(selections,key=lambda x:(joint_score(x['config'],reference),x['config']['ndcg']+x['config']['recall']))
++    gnn_winner=max(baseline_candidates,key=lambda x:(joint_score(x['metrics'],reference),x['metrics']['ndcg']+x['metrics']['recall']))
++    selection={'mf_alpha':alpha['alpha'],'hybrid':winner,'gnn':gnn_winner,
++        'validation_reference':reference,'validation_joint_lift':joint_score(winner['config'],reference),
++        'locked_utc':pd.Timestamp.now(tz='UTC').isoformat(),'outer_test_used_for_selection':False}
++    dump_json(root/'selection.json',selection)
++    selection_hash=sha256(root/'selection.json')
++    del cache;torch.cuda.empty_cache()
++    metric_rows=[];detail_rows=[];timings=[]
++    for seed in [42,43,44]:
++        progress(root,'final_refit',seed=seed,selection_hash=selection_hash)
++        out=root/'runs'/f'seed_{seed}'
++        if not out.exists():clone_protocol(datasets,out)
++        if reuse_root is not None and not (out/'als_artifacts.json').exists() and (Path(reuse_root)/'runs'/f'seed_{seed}'/'als_artifacts.json').exists():
++            link_mf(Path(reuse_root)/'runs'/f'seed_{seed}',out)
++        t=time.perf_counter()
++        if not (out/'als_artifacts.json').exists():ALSRecommender(out,random_state=seed,**MF_KWARGS).run()
++        cache=ScoreCache(out)
++        models={};gnn_seconds={}
++        for label,entry in [('GNN',gnn_winner),('Hybrid',winner)]:
++            tr=entry['trial'];epochs=tr['baseline_epochs'] if entry['checkpoint']=='baseline' else tr['hybrid_epochs']
++            directory=out/label.lower()
++            if reuse_root is not None and not directory.exists():
++                previous=Path(reuse_root)/'selection.json'
++                if previous.exists():
++                    previous=json.loads(previous.read_text(encoding='utf-8'))
++                    old=previous['gnn' if label=='GNN' else 'hybrid']
++                    old_tr=old['trial'];old_epochs=old_tr['baseline_epochs'] if old['checkpoint']=='baseline' else old_tr['hybrid_epochs']
++                    old_directory=Path(reuse_root)/'runs'/f'seed_{seed}'/label.lower()
++                    if old_tr['variant']==tr['variant'] and old_epochs==epochs and (old_directory/'gnn_artifacts.json').exists():
++                        link_tree(old_directory,directory)
++            if not directory.exists():clone_protocol(datasets,directory)
++            link_mf(out,directory)
++            if not (directory/'gnn_artifacts.json').exists():
++                kwargs=gnn_kwargs(seed,tr['variant'],epochs)
++                kwargs['early_stopping_patience']=None
++                generator=GNNEmbeddingGenerator(processed_dir=directory,**kwargs)
++                generator.run()
++                del generator;torch.cuda.empty_cache()
++            cache.load_gnn(directory)
++            gnn_seconds[label]=require_artifacts(directory,'gnn')['training_seconds']
++            if label=='GNN':models['GNN']=cache.ranking(cache.gnn)
++            else:models['Hybrid']=config_ranking(cache,winner['config'])
++        models.update({'ALS':cache.ranking(cache.als),'BPR':cache.ranking(cache.bpr),
++            'ALS+BPR':cache.ranking({u:cache.mf(u,alpha['alpha']) for u in cache.active})})
++        # An explicit implementation ablation, using exactly the same candidate set.
++        models['Hybrid_ALS_only']=config_ranking(cache,winner['config'],legacy_als=True)
++        for label,rankings in models.items():
++            records=[(u,int(cache.ids[i]),rank) for u,items in rankings.items() for rank,i in enumerate(items,1)]
++            pd.DataFrame(records,columns=['visitorid','itemid','rank']).to_csv(out/f'recommendations_{label.replace("+","_")}.csv',index=False)
++            for k in KS:
++                details=cache.details(rankings,k)
++                details.to_csv(out/f'metrics_{label.replace("+","_")}_k{k}.csv',index=False)
++                metric_rows.append({'seed':seed,'model':label,'k':k,'users':len(details),
++                    'missing_users':int((details.recommendations==0).sum()),
++                    **{n:float(details[n].mean()) for n in ('ndcg','recall','precision','hit_rate')}})
++                if k==50:
++                    details['model']=label;details['seed']=seed;detail_rows.append(details)
++        timings.append({'seed':seed,'seconds_total':time.perf_counter()-t,**gnn_seconds})
++        dump_json(out/'complete.json',{'selection_hash':selection_hash,'seed':seed,
++            'files':{p.name:sha256(p) for p in out.glob('metrics_*.csv')}})
++        pd.DataFrame(metric_rows).to_csv(root/'experiment_metrics.csv',index=False)
++        pd.DataFrame(timings).to_csv(root/'timing.csv',index=False)
++        del cache;torch.cuda.empty_cache()
++    metrics=pd.DataFrame(metric_rows)
++    summary=metrics.groupby(['model','k'])[['ndcg','recall','precision','hit_rate']].agg(['mean','std']).reset_index()
++    summary.columns=['_'.join(c).strip('_') for c in summary.columns]
++    summary.to_csv(root/'model_summary.csv',index=False)
++    detail=pd.concat(detail_rows)
++    paired=[]
++    for model in ['ALS','BPR','ALS+BPR','GNN']:
++        for metric in ['ndcg','recall']:
++            a=detail.loc[detail.model=='Hybrid'].groupby('visitorid')[metric].mean().sort_index()
++            b=detail.loc[detail.model==model].groupby('visitorid')[metric].mean().reindex(a.index)
++            mean,lo,hi=paired_bootstrap(a,b)
++            paired.append({'comparison':'Hybrid - '+model,'metric':metric,'difference':mean,'ci_low':lo,'ci_high':hi})
++    pd.DataFrame(paired).to_csv(root/'paired_differences.csv',index=False)
++    primary=summary.loc[summary.k==50].set_index('model')
++    competitors=['ALS','BPR','ALS+BPR','GNN']
++    success=all(primary.loc['Hybrid',n+'_mean']>primary.loc[competitors,n+'_mean'].max() for n in ['ndcg','recall'])
++    dump_json(root/'result.json',{'success':bool(success),'criterion':'3-seed mean original NDCG@50 AND Recall@50 above every baseline',
++        'selection_hash':selection_hash,'seconds_total':time.time()-started,
++        'primary':primary.reset_index().to_dict('records'),'paired':paired})
++    progress(root,'completed',success=bool(success),seconds=time.time()-started)
++    print(primary.to_string(),flush=True)
++
++
++if __name__=='__main__':
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--output-dir',type=Path,default=Path(__file__).parent/'results/hybrid_joint_8020_v3')
++    parser.add_argument('--source-dir',type=Path,required=True)
++    parser.add_argument('--max-hours',type=float,default=24.)
++    parser.add_argument('--reuse-root',type=Path,help='Reuse immutable matching model artifacts; rescore validation under this source version')
++    parser.add_argument('--reuse-validation-metrics',action='store_true',help='Reuse parent validation CSVs only when numerical modules and data hashes match')
++    args=parser.parse_args()
++    run(args.output_dir,args.source_dir,args.max_hours,args.reuse_root,args.reuse_validation_metrics)
+--- before/learning.py
++++ after/learning.py
+@@ -174,6 +174,53 @@
+     neg_reg = negatives.square().mean(dim=1).sum(dim=-1)
+     penalty = regularization * (user.square().sum(-1) + positive.square().sum(-1) + neg_reg).mean()
+     return ranking + penalty
++
++
++class MFMixedNegativeSampler:
++    """A fixed train-only hard pool plus uniform draws; never reads held-out labels.
++
++    For each training user, 64 unobserved items are drawn and ranked by frozen
++    ALS+BPR factors. The top 16 form a hard pool. Half of later draws use this
++    pool, half remain uniform. IDs are explicitly aligned to graph vocabulary.
++    """
++    def __init__(self, pairs, n_items, directory, user_ids, item_ids, seed=42):
++        from pathlib import Path
++        root=Path(directory)
++        self.base=NegativeSampler(pairs,n_items)
++        self.n_items=n_items
++        self.users=np.asarray(user_ids,dtype=np.int64)
++        items=np.asarray(item_ids,dtype=np.int64)
++        uids=pd.read_csv(root/'als_user_mapping.csv').visitorid.to_numpy()
++        iids=pd.read_csv(root/'als_item_mapping.csv').itemid.to_numpy()
++        uorder=pd.Index(uids).get_indexer(self.users)
++        iorder=pd.Index(iids).get_indexer(items)
++        if (uorder<0).any() or (iorder<0).any():
++            raise ValueError('MF mining vocabulary differs from graph vocabulary')
++        au=np.load(root/'als_user_factors.npy')[uorder]
++        ai=np.load(root/'als_item_factors.npy')[iorder]
++        bu=np.load(root/'bpr_user_factors.npy')[uorder]
++        bi=np.load(root/'bpr_item_factors.npy')[iorder]
++        self.pool=np.full((len(user_ids),16),-1,dtype=np.int32)
++        rng=np.random.default_rng(seed+1701)
++        for start in range(0,len(user_ids),512):
++            users=np.arange(start,min(start+512,len(user_ids)))
++            draws=self.base.sample(np.repeat(users,64),rng).reshape(-1,64)
++            safe=np.maximum(draws,0)
++            als=np.einsum('bd,bnd->bn',au[users],ai[safe])
++            bpr=np.einsum('bd,bnd->bn',bu[users],bi[safe])
++            def norm(x):
++                return (x-x.min(axis=1,keepdims=True))/np.maximum(np.ptp(x,axis=1,keepdims=True),1e-12)
++            scores=.5*norm(als)+.5*norm(bpr)
++            scores[draws<0]=-np.inf
++            chosen=np.argsort(-scores,axis=1,kind='stable')[:,:16]
++            self.pool[users]=np.take_along_axis(draws,chosen,axis=1)
++
++    def sample(self,users,rng):
++        users=np.asarray(users,dtype=np.int64)
++        uniform=self.base.sample(users,rng)
++        hard=self.pool[users,rng.integers(16,size=len(users))]
++        choose=(rng.random(len(users))<.5)&(hard>=0)
++        return np.where(choose,hard,uniform)
+ 
+ 
+ def sample_negatives_matrix(sampler, users, rng, n_neg):
+--- before/model.py
++++ after/model.py
+@@ -308,7 +308,11 @@
+         optimizer=torch.optim.Adam(model.parameters(),lr=self.learning_rate)
+         interactions=graph['interactions']
+         popularity=np.bincount(interactions[:,1], minlength=graph['num_items']).astype(np.float64)
+-        sampler=NegativeSampler(interactions,graph['num_items'], mode=self.negative_mode, item_popularity=popularity)
++        if self.negative_mode == 'mf_mixed':
++            sampler=learning.MFMixedNegativeSampler(interactions,graph['num_items'],
++                self.processed_dir, graph['user_ids'], graph['item_ids'], seed=self.seed)
++        else:
++            sampler=NegativeSampler(interactions,graph['num_items'], mode=self.negative_mode, item_popularity=popularity)
+         best_score=-np.inf; best_epoch=0; best_state=None; history=[]
+         item_offset = graph['offsets']['item']
+         n_neg = self.n_negatives if self.loss_mode == 'infonce' else 1
+@@ -347,6 +351,9 @@
+                 model.eval()
+                 score=self._validation_score(model,graph,validation)
+                 row['validation_original_ndcg']=score
++                observer = getattr(self, '_checkpoint_observer', None)
++                if observer is not None:
++                    row.update(observer(model, graph, epoch))
+                 eligible = epoch >= min_epochs
+                 if eligible and score>best_score+self.min_delta:
+                     best_score=score; best_epoch=epoch
+@@ -646,6 +653,7 @@
+     fusion: str = 'minmax'
+     rerank_m: Optional[int] = None
+     rrf_k: int = 60
++    mf_score_source: str = 'ensemble'
+ 
+     def run(self):
+         out = self.processed_dir = Path(self.processed_dir)
+@@ -671,7 +679,10 @@
+             candidate_ids = factors.item_ids[candidates]
+             start = time.perf_counter()
+             graph_scores = gnn.scores(uid, candidates)
+-            scores = hybrid_rerank_scores(als[candidates], graph_scores, available[candidates],
++            if self.mf_score_source not in {'ensemble', 'als'}:
++                raise ValueError('mf_score_source must be ensemble or als')
++            mf_scores = retrieval if self.mf_score_source == 'ensemble' else als
++            scores = hybrid_rerank_scores(mf_scores[candidates], graph_scores, available[candidates],
+                                           self.als_weight, self.inventory_gamma, self.fusion,
+                                           self.rrf_k, self.rerank_m)
+             append_ranking(records, uid, candidate_ids, scores, self.top_k)
+@@ -684,7 +695,7 @@
+         stamp_artifacts(out, 'rerank', ['final_recommendations.csv', 'hybrid_candidates.csv'],
+             top_k=self.top_k, candidate_k=self.als_candidate_k, als_weight=self.als_weight,
+             inventory_gamma=self.inventory_gamma, fusion=self.fusion, rerank_m=self.rerank_m,
+-            retrieval='ALS+BPR', inventory_before_sort=True,
++            retrieval='ALS+BPR', mf_score_source=self.mf_score_source, inventory_before_sort=True,
+             retrieval_seconds=retrieval_seconds, rerank_seconds=rerank_seconds)
+ 
+ 
+--- /dev/null
++++ after/robust_hybrid.py
+@@ -0,0 +1,230 @@
++"""Three-seed validation selection after the disclosed unsuccessful v3 trial.
++
++The prior outer test was observed. No outer labels enter this new selector;
++this is an adaptive research revision, not a pristine once-only holdout claim.
++"""
++import os
++for key in ('OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS'):os.environ[key]='1'
++import argparse,json,time
++from pathlib import Path
++import numpy as np
++import pandas as pd
++import torch
++from data_protocol import require_protocol,require_artifacts,dump_json,sha256
++from experiments import clone_protocol,write_dataset_statistics_tables,paired_bootstrap
++from model import ALSRecommender,GNNEmbeddingGenerator
++from improve_hybrid import (ScoreCache,MF_KWARGS,KS,link_mf,link_tree,gnn_kwargs,
++    progress,candidate_indices,config_ranking,joint_score)
++from fast_fusion import cached_grid
++
++
++def robust_select(rows,reference):
++    """Each setting must have all three validation seeds, no test observations."""
++    frame=pd.DataFrame(rows)
++    keys=['name','alpha','strategy','fusion','candidate_k','omega','gamma']
++    grouped=frame.groupby(keys,dropna=False).agg(ndcg=('ndcg','mean'),recall=('recall','mean'),
++        seed_count=('seed','nunique'),ndcg_std=('ndcg','std'),recall_std=('recall','std')).reset_index()
++    if not grouped.seed_count.eq(3).all():raise ValueError('Incomplete validation seed coverage')
++    grouped['joint_lift']=grouped.apply(lambda r:joint_score(r,reference),axis=1)
++    grouped['average_lift']=((grouped.ndcg/reference['ndcg']-1)+(grouped.recall/reference['recall']-1))/2
++    grouped['gamma_distance']=(grouped.gamma-1).abs()
++    ordered=grouped.sort_values(['joint_lift','average_lift','candidate_k','gamma_distance','omega'],
++        ascending=[False,False,True,True,True],kind='stable')
++    return ordered.iloc[0].to_dict(),grouped
++
++
++def configuration_grid():
++    # Fixed before executing the additional validation seeds, recorded in plan.
++    return [dict(alpha=a,strategy=s,candidate_k=c,fusion=f,omega=w,gamma=g)
++        for a in [.25,.5] for s in ['blend','balanced_union'] for c in [5000,10000,20000]
++        for f in ['minmax','rrf'] for w in [.1,.2,.3,.4,.5,.7]
++        for g in [1.,1.1,1.25,1.5]]
++
++
++def run(root,parent,max_hours,reuse_validation=None):
++    root,parent=Path(root),Path(parent);root.mkdir(parents=True,exist_ok=True)
++    torch.set_num_threads(1);start=time.time()
++    pplan=json.loads((parent/'experiment_plan.json').read_text(encoding='utf-8'))
++    old=json.loads((parent/'selection.json').read_text(encoding='utf-8'))
++    trials=json.loads((parent/'validation_candidates.json').read_text(encoding='utf-8'))['hybrid']
++    specifications=[('l2_uniform','baseline'),('l3_uniform','baseline'),('l2_mf_mixed','hybrid')]
++    entries={name:next(t for t in trials if t['name']==name and t['checkpoint']==checkpoint)
++        for name,checkpoint in specifications}
++    grid=configuration_grid()
++    frozen={'test_size':.2,'use_if':False,'core':3,'seeds':[42,43,44],
++        'validation_seeds':[42,43,44],'historical_test_seen':True,'prior_test_result_observed':str(parent/'result.json'),
++        'prior_test_success':False,'parent':str(parent),'max_hours':max_hours,
++        'reuse_validation':str(reuse_validation) if reuse_validation is not None else None,
++        'evaluation_optimization':'cached normalization/ranks and exact boundary-tie partial Top-K; verified against 576 real original settings',
++        'source':pplan['source'],'source_manifest_hash':pplan['source_manifest_hash'],
++        'method':'three-seed mean validation min relative NDCG/Recall lift; fixed v3 standalone GNN comparator',
++        'configurations_per_backbone':len(grid),'grid':grid,'backbones':specifications,
++        'code':{p.name:sha256(p) for p in Path(__file__).parent.glob('*.py')},
++        'torch':torch.__version__,'gpu':torch.cuda.get_device_name(0)}
++    for name in ['model.py','learning.py','data_protocol.py','recommendation_scoring.py','ranking_evaluation.py','als_debug.py']:
++        if frozen['code'][name]!=pplan['code'][name]:raise ValueError('Numerical training source changed: '+name)
++    plan=root/'experiment_plan.json'
++    if plan.exists():
++        if json.loads(plan.read_text(encoding='utf-8'))!=frozen:raise ValueError('Changed plan; choose new directory')
++    else:dump_json(plan,frozen)
++    source=Path(pplan['source']);require_protocol(source)
++    if reuse_validation is not None:
++        reuse_validation=Path(reuse_validation)
++        prior=json.loads((reuse_validation/'experiment_plan.json').read_text(encoding='utf-8'))
++        assert prior['source_manifest_hash']==frozen['source_manifest_hash']
++        assert prior['grid']==frozen['grid'],'Validation grid changed'
++        assert prior['validation_seeds']==frozen['validation_seeds'],'Validation seed scope changed'
++        for key in ['model.py','learning.py','data_protocol.py','recommendation_scoring.py','ranking_evaluation.py','als_debug.py']:
++            assert prior['code'][key]==frozen['code'][key],key
++        for seed in [42,43,44]:
++            for name,stamp in [('mf','als_artifacts.json'),*[(name,'gnn_artifacts.json') for name,_ in specifications]]:
++                previous=reuse_validation/f'validation_seed_{seed}'/name
++                destination=root/f'validation_seed_{seed}'/name
++                if (previous/stamp).exists() and not destination.exists():link_tree(previous,destination)
++            for name,_ in specifications:
++                previous=reuse_validation/f'robust_validation_{name}_s{seed}.csv'
++                target=root/previous.name
++                if previous.exists() and not target.exists():
++                    rows=pd.read_csv(previous)
++                    if len(rows)==len(grid):rows.to_csv(target,index=False)
++    datasets=root/'datasets/no_if_events'
++    if not datasets.exists():clone_protocol(source,datasets)
++    write_dataset_statistics_tables(root/'datasets',root,'no_if_events')
++    alpha_rows=[];base_rows=[];all_rows=[]
++    for seed in [42,43,44]:
++        mf=root/f'validation_seed_{seed}'/'mf'
++        if not mf.exists():clone_protocol(datasets/'validation',mf)
++        if seed==42 and not (mf/'als_artifacts.json').exists():link_mf(parent/'validation_mf',mf)
++        progress(root,'robust_validation_mf',seed=seed)
++        if not (mf/'als_artifacts.json').exists():ALSRecommender(mf,random_state=seed,**MF_KWARGS).run()
++        if seed==42 and not (root/'validation_mf').exists():link_tree(mf,root/'validation_mf')
++        cache=ScoreCache(mf)
++        for alpha in np.round(np.arange(0,1.01,.1),1):
++            met=cache.metrics(cache.ranking({u:cache.mf(u,float(alpha)) for u in cache.active}))
++            alpha_rows.append({'seed':seed,'alpha':float(alpha),**met})
++        for name,checkpoint in specifications:
++            if time.time()-start>max_hours*3600:raise RuntimeError('Time allocation exhausted; existing artifacts preserved')
++            entry=entries[name];trial=entry['trial'];epochs=trial['baseline_epochs'] if checkpoint=='baseline' else trial['hybrid_epochs']
++            directory=root/f'validation_seed_{seed}'/name
++            if seed==42 and not directory.exists():
++                prior=Path(trial['directory'])
++                if checkpoint=='hybrid':prior=prior/'hybrid_checkpoint'
++                link_tree(prior,directory)
++            if not directory.exists():clone_protocol(datasets/'validation',directory)
++            link_mf(mf,directory)
++            progress(root,'robust_validation_gnn',seed=seed,variant=name,epochs=epochs)
++            if not (directory/'gnn_artifacts.json').exists():
++                kw=gnn_kwargs(seed,trial['variant'],epochs);kw['early_stopping_patience']=None
++                generator=GNNEmbeddingGenerator(processed_dir=directory,**kw);generator.run()
++                del generator;torch.cuda.empty_cache()
++            cache.load_gnn(directory)
++            base_rows.append({'seed':seed,'name':name,**cache.metrics(cache.ranking(cache.gnn))})
++            saved=root/f'robust_validation_{name}_s{seed}.csv'
++            if saved.exists():rows=pd.read_csv(saved).to_dict('records')
++            else:
++                def tick(n,total):progress(root,'robust_validation_fusion',seed=seed,variant=name,configuration=n,total=total)
++                rows=cached_grid(cache,grid,seed,name,tick)
++                pd.DataFrame(rows).to_csv(saved,index=False)
++            all_rows.extend(rows)
++            # Match the schema consumed by diagnostics/reporting with seed42.
++            if seed==42:
++                tr={**trial,'directory':str(directory)}
++                entries[name]={**entry,'checkpoint':'baseline','trial':{**tr,'baseline_epochs':epochs,'hybrid_epochs':epochs}}
++                target=root/'trials'/name
++                if not target.exists():link_tree(directory,target)
++        del cache;torch.cuda.empty_cache()
++        pd.DataFrame(alpha_rows).to_csv(root/'validation_mf_alpha_per_seed.csv',index=False)
++        pd.DataFrame(base_rows).to_csv(root/'validation_gnn_per_seed.csv',index=False)
++    alpha_mean=pd.DataFrame(alpha_rows).groupby('alpha')[['ndcg','recall']].mean().reset_index()
++    alpha_ref={n:float(alpha_mean[n].max()) for n in ['ndcg','recall']}
++    alpha_mean['joint_lift']=alpha_mean.apply(lambda r:joint_score(r,alpha_ref),axis=1)
++    mf_alpha=float(alpha_mean.sort_values(['joint_lift','alpha'],ascending=[False,True]).iloc[0].alpha)
++    alpha_mean.to_csv(root/'validation_mf_alpha.csv',index=False)
++    gnn_mean=pd.DataFrame(base_rows).groupby('name')[['ndcg','recall']].mean()
++    reference={n:max(alpha_ref[n],float(gnn_mean[n].max())) for n in ['ndcg','recall']}
++    best,aggregate=robust_select(all_rows,reference)
++    aggregate.to_csv(root/'robust_validation_aggregate.csv',index=False)
++    winner=entries[best['name']]
++    cfg={key:best[key] for key in ['alpha','strategy','fusion','candidate_k','omega','gamma']}
++    cfg['candidate_k']=int(cfg['candidate_k']);cfg.update({n:float(best[n]) for n in ['ndcg','recall','joint_lift','average_lift']})
++    winner={**winner,'config':cfg}
++    # Existing strongest standalone architecture/checkpoint stays unchanged.
++    gnn_winner=entries['l3_uniform']
++    gnn_winner={**gnn_winner,'metrics':gnn_mean.loc['l3_uniform'].to_dict()}
++    selection={'mf_alpha':mf_alpha,'hybrid':winner,'gnn':gnn_winner,
++        'validation_reference':reference,'validation_joint_lift':float(best['joint_lift']),
++        'validation_seeds':[42,43,44],'locked_utc':pd.Timestamp.now(tz='UTC').isoformat(),
++        'outer_test_used_for_selection':False,'prior_test_observed':True}
++    dump_json(root/'selection.json',selection);selection_hash=sha256(root/'selection.json')
++    # Existing plot schema: keep mean rows, clearly label their three-seed scope.
++    for name,entry in entries.items():
++        rows=aggregate.loc[aggregate.name==name].copy();rows.to_csv(root/f'validation_fusion_{name}_baseline.csv',index=False)
++    dump_json(root/'validation_candidates.json',{'hybrid':[winner],'gnn':[gnn_winner],
++        'scope':'three-seed validation means; original 42-selected epochs fixed'})
++    metric_rows=[];detail_rows=[];timings=[]
++    for seed in [42,43,44]:
++        progress(root,'final_refit',seed=seed,selection_hash=selection_hash)
++        out=root/'runs'/f'seed_{seed}'
++        if not out.exists():clone_protocol(datasets,out)
++        if not (out/'als_artifacts.json').exists():link_mf(parent/'runs'/f'seed_{seed}',out)
++        t=time.perf_counter();cache=ScoreCache(out);models={};seconds={}
++        for label,entry in [('GNN',gnn_winner),('Hybrid',winner)]:
++            trial=entry['trial'];epochs=trial['baseline_epochs'];directory=out/label.lower()
++            prior_entry=old['gnn' if label=='GNN' else 'hybrid'];pt=prior_entry['trial']
++            pe=pt['baseline_epochs'] if prior_entry['checkpoint']=='baseline' else pt['hybrid_epochs']
++            prior_dir=parent/'runs'/f'seed_{seed}'/label.lower()
++            if not directory.exists() and pt['variant']==trial['variant'] and pe==epochs:link_tree(prior_dir,directory)
++            # If the Hybrid uses the same GNN architecture/epoch as the baseline,
++            # reuse that identical numerical model rather than training twice.
++            if label=='Hybrid' and not directory.exists() and trial['variant']==gnn_winner['trial']['variant'] and epochs==gnn_winner['trial']['baseline_epochs']:
++                link_tree(out/'gnn',directory)
++            if not directory.exists():clone_protocol(datasets,directory)
++            link_mf(out,directory)
++            if not (directory/'gnn_artifacts.json').exists():
++                kw=gnn_kwargs(seed,trial['variant'],epochs);kw['early_stopping_patience']=None
++                generator=GNNEmbeddingGenerator(processed_dir=directory,**kw);generator.run()
++                del generator;torch.cuda.empty_cache()
++            cache.load_gnn(directory);seconds[label]=require_artifacts(directory,'gnn')['training_seconds']
++            models[label]=cache.ranking(cache.gnn) if label=='GNN' else config_ranking(cache,cfg)
++        models.update({'ALS':cache.ranking(cache.als),'BPR':cache.ranking(cache.bpr),
++            'ALS+BPR':cache.ranking({u:cache.mf(u,mf_alpha) for u in cache.active}),
++            'Hybrid_ALS_only':config_ranking(cache,cfg,legacy_als=True)})
++        for label,rankings in models.items():
++            records=[(u,int(cache.ids[i]),rank) for u,items in rankings.items() for rank,i in enumerate(items,1)]
++            pd.DataFrame(records,columns=['visitorid','itemid','rank']).to_csv(out/f'recommendations_{label.replace("+","_")}.csv',index=False)
++            for k in KS:
++                details=cache.details(rankings,k);details.to_csv(out/f'metrics_{label.replace("+","_")}_k{k}.csv',index=False)
++                metric_rows.append({'seed':seed,'model':label,'k':k,'users':len(details),
++                    'missing_users':int((details.recommendations==0).sum()),
++                    **{n:float(details[n].mean()) for n in ['ndcg','recall','precision','hit_rate']}})
++                if k==50:details['model']=label;details['seed']=seed;detail_rows.append(details)
++        timings.append({'seed':seed,'seconds_total':time.perf_counter()-t,**seconds})
++        dump_json(out/'complete.json',{'selection_hash':selection_hash,'seed':seed,
++            'files':{p.name:sha256(p) for p in out.glob('metrics_*.csv')}})
++        pd.DataFrame(metric_rows).to_csv(root/'experiment_metrics.csv',index=False)
++        pd.DataFrame(timings).to_csv(root/'timing.csv',index=False)
++        del cache;torch.cuda.empty_cache()
++    metrics=pd.DataFrame(metric_rows)
++    summary=metrics.groupby(['model','k'])[['ndcg','recall','precision','hit_rate']].agg(['mean','std']).reset_index()
++    summary.columns=['_'.join(c).strip('_') for c in summary.columns];summary.to_csv(root/'model_summary.csv',index=False)
++    detail=pd.concat(detail_rows);paired=[]
++    for model in ['ALS','BPR','ALS+BPR','GNN']:
++        for metric in ['ndcg','recall']:
++            a=detail.loc[detail.model=='Hybrid'].groupby('visitorid')[metric].mean().sort_index()
++            b=detail.loc[detail.model==model].groupby('visitorid')[metric].mean().reindex(a.index)
++            mean,lo,hi=paired_bootstrap(a,b)
++            paired.append({'comparison':'Hybrid - '+model,'metric':metric,'difference':mean,'ci_low':lo,'ci_high':hi})
++    pd.DataFrame(paired).to_csv(root/'paired_differences.csv',index=False)
++    primary=summary.loc[summary.k==50].set_index('model')
++    success=all(primary.loc['Hybrid',n+'_mean']>primary.loc[['ALS','BPR','ALS+BPR','GNN'],n+'_mean'].max() for n in ['ndcg','recall'])
++    dump_json(root/'result.json',{'success':bool(success),'criterion':'3-seed mean original NDCG@50 AND Recall@50 above every baseline',
++        'selection_hash':selection_hash,'seconds_total':time.time()-start,
++        'primary':primary.reset_index().to_dict('records'),'paired':paired})
++    progress(root,'completed',success=bool(success),seconds=time.time()-start);print(primary.to_string(),flush=True)
++
++
++if __name__=='__main__':
++    p=argparse.ArgumentParser();p.add_argument('--output-dir',type=Path,required=True)
++    p.add_argument('--parent',type=Path,required=True);p.add_argument('--max-hours',type=float,default=9)
++    p.add_argument('--reuse-validation',type=Path)
++    a=p.parse_args();run(a.output_dir,a.parent,a.max_hours,a.reuse_validation)
+--- /dev/null
++++ after/test_fast_fusion.py
+@@ -0,0 +1,26 @@
++import numpy as np
++import pytest
++from fast_fusion import fast_top_indices,cached_grid
++from recommendation_scoring import top_indices
++from test_hybrid_improvement import toy_cache
++from improve_hybrid import config_ranking
++
++
++@pytest.mark.parametrize('size,k',[(0,3),(4,2),(50,50),(20000,50)])
++def test_partial_topk_matches_full_sort_with_boundary_ties(size,k):
++    rng=np.random.default_rng(5);scores=rng.integers(0,20,size=size).astype(float)
++    ids=rng.permutation(np.arange(size)*13+99)
++    assert np.array_equal(fast_top_indices(scores,ids,k),top_indices(scores,ids,k))
++
++
++def test_cached_grid_matches_original_with_mf_and_gnn_ties():
++    cache=toy_cache()
++    cache.gnn={u:np.array([.5,.5,.1,.1]) for u in cache.active}
++    cache.available=np.array([True,False,True,False])
++    grid=[dict(alpha=.5,strategy=s,candidate_k=4,fusion=f,omega=w,gamma=g)
++        for s in ['blend','balanced_union'] for f in ['minmax','rrf'] for w in [.1,.5,.9] for g in [1.,1.5]]
++    actual=cached_grid(cache,grid,42,'toy')
++    for cfg,row in zip(grid,actual):
++        expected=cache.metrics(config_ranking(cache,cfg))
++        assert row['ndcg']==pytest.approx(expected['ndcg'],abs=1e-14)
++        assert row['recall']==pytest.approx(expected['recall'],abs=1e-14)
+--- /dev/null
++++ after/test_hybrid_improvement.py
+@@ -0,0 +1,95 @@
++"""Checks that the improvement cannot win through labels, cohorts or lost BPR."""
++import json
++from pathlib import Path
++import numpy as np
++import pandas as pd
++import pytest
++from recommendation_scoring import hybrid_scores,top_indices
++from ranking_evaluation import ranking_metrics
++from improve_hybrid import ScoreCache,joint_score,select_row,candidate_indices
++from learning import MFMixedNegativeSampler
++
++
++def toy_cache():
++    cache=ScoreCache.__new__(ScoreCache)
++    cache.users=[1,2,3];cache.active=[1,2]
++    cache.ids=np.array([10,20,30,40])
++    cache.truth={1:{20,40},2:{10},3:{99}}
++    cache.positive_indices={1:{1,3},2:{0}}
++    cache.als={1:np.array([1.,.2,.1,0]),2:np.array([.1,.8,.3,.2])}
++    cache.bpr={1:np.array([0.,1.,.1,.4]),2:np.array([1.,.1,.3,.2])}
++    return cache
++
++
++def test_joint_selection_cannot_trade_away_recall():
++    reference={'ndcg':.1,'recall':.2}
++    rows=[dict(ndcg=.13,recall=.18),dict(ndcg=.11,recall=.22)]
++    assert select_row(rows,reference)['recall']==.22
++    assert joint_score(rows[0],reference)<0
++
++
++def test_saved_settings_are_reselected_against_final_reference():
++    rows=[dict(ndcg=.120,recall=.190),dict(ndcg=.115,recall=.205)]
++    first=select_row(rows,{'ndcg':.11,'recall':.18})
++    final=select_row(rows,{'ndcg':.12,'recall':.20})
++    assert first['ndcg']==.120
++    assert final['ndcg']==.115
++
++
++def test_fast_metrics_match_authoritative_metrics_and_count_missing():
++    cache=toy_cache();ranking={1:np.array([1,3]),2:np.array([2,0])}
++    records=[(u,int(cache.ids[i]),r) for u,items in ranking.items() for r,i in enumerate(items,1)]
++    frame=pd.DataFrame(records,columns=['visitorid','itemid','rank'])
++    expected,details=ranking_metrics(frame,cache.truth,2)
++    actual=cache.metrics(ranking,2)
++    assert actual['ndcg']==pytest.approx(expected['ndcg'])
++    assert actual['recall']==pytest.approx(expected['recall'])
++    assert cache.details(ranking,2).ndcg.mean()==pytest.approx(expected['ndcg'])
++    assert len(details)==3
++
++
++def test_mf_endpoint_preserves_ensemble_not_als():
++    cache=toy_cache();uid=1
++    mf=cache.mf(uid,.5)
++    final=hybrid_scores(mf,np.arange(4.),np.ones(4,dtype=bool),1.,1.)
++    assert np.array_equal(top_indices(final,cache.ids,4),top_indices(mf,cache.ids,4))
++    assert not np.array_equal(top_indices(final,cache.ids,4),top_indices(cache.als[uid],cache.ids,4))
++
++
++def test_candidates_do_not_depend_on_test_truth_and_have_no_duplicates():
++    cache=toy_cache()
++    a=candidate_indices(cache,1,.5,3,'balanced_union')
++    cache.truth={1:{99999}}
++    b=candidate_indices(cache,1,.5,3,'balanced_union')
++    assert np.array_equal(a,b)
++    assert len(a)==len(set(a))==3
++
++
++def test_balanced_union_keeps_each_retriever_quota_after_filling():
++    cache=toy_cache()
++    cache.bpr[1]=np.array([0.,0.,0.,1.])
++    union=candidate_indices(cache,1,1.,2,'balanced_union')
++    blend=candidate_indices(cache,1,1.,2,'blend')
++    assert set(union)=={0,3}
++    assert set(blend)=={0,1}
++    # With overlap, keep the distinct BPR contribution rather than collapsing
++    # back to the blended retrieval list after filling remaining slots.
++    cache.ids=np.arange(6)
++    cache.als[1]=np.array([6,5,4,3,2,1.])
++    cache.bpr[1]=np.array([6,1,2,3,4,5.])
++    union=candidate_indices(cache,1,1.,4,'balanced_union')
++    assert 5 in union and len(union)==4
++
++
++def test_mixed_negatives_align_ids_exclude_history_and_skip_saturated(tmp_path):
++    # Graph user/item orders deliberately differ from saved MF order.
++    pd.DataFrame({'visitorid':[200,100]}).to_csv(tmp_path/'als_user_mapping.csv',index=False)
++    pd.DataFrame({'itemid':[30,10,20]}).to_csv(tmp_path/'als_item_mapping.csv',index=False)
++    for model in ['als','bpr']:
++        np.save(tmp_path/f'{model}_user_factors.npy',np.array([[.1,.2],[.3,.4]]))
++        np.save(tmp_path/f'{model}_item_factors.npy',np.array([[.2,.1],[.4,.2],[.1,.3]]))
++    pairs=np.array([[0,0],[1,0],[1,1],[1,2]])
++    sampler=MFMixedNegativeSampler(pairs,3,tmp_path,[100,200],[10,20,30])
++    draws=sampler.sample(np.array([0]*100+[1]*100),np.random.default_rng(4))
++    assert set(draws[:100]) <= {1,2}
++    assert np.all(draws[100:]==-1)
+--- before/test_revision.py
++++ after/test_revision.py
+@@ -457,7 +457,12 @@
+         run_suite(tmp_path/'locked', tmp_path, seeds=(42,), iterations=1, bpr_epochs=1, epochs=1,
+                   device='cpu', include_ablations=False, factors=4, embedding_dim=4)
+     raw = tmp_path/'raw'
+-    make_raw(raw)
++    events = make_raw(raw)
++    # The IF stress test may remove the fixture's sole unobserved item. Keep
++    # several unobserved pairs so the test reaches validation/provenance logic
++    # instead of correctly stopping on a fully saturated BPR training matrix.
++    events = events.loc[(events.visitorid + events.itemid) % 5 != 0]
++    events.to_csv(raw/'events.csv', index=False)
+     root = tmp_path/'suite'
+     run_suite(root, raw, seeds=(42,), iterations=1, bpr_epochs=1, epochs=2, device='cpu',
+               include_ablations=False, factors=4, embedding_dim=4)
+--- /dev/null
++++ after/test_robust_hybrid.py
+@@ -0,0 +1,25 @@
++import pytest
++from robust_hybrid import robust_select,configuration_grid
++
++
++def test_selection_uses_three_seed_mean_not_favorable_single_seed():
++    rows=[]
++    for seed,ndcg,recall in [(42,.15,.24),(43,.10,.17),(44,.10,.17)]:
++        rows.append(dict(name='unstable',seed=seed,alpha=.5,strategy='blend',fusion='rrf',candidate_k=5000,omega=.3,gamma=1.,ndcg=ndcg,recall=recall))
++    for seed in [42,43,44]:
++        rows.append(dict(name='stable',seed=seed,alpha=.5,strategy='blend',fusion='rrf',candidate_k=5000,omega=.3,gamma=1.,ndcg=.13,recall=.21))
++    selected,_=robust_select(rows,dict(ndcg=.12,recall=.20))
++    assert selected['name']=='stable'
++    assert selected['joint_lift']==pytest.approx(.05)
++
++
++def test_selection_rejects_missing_validation_seed():
++    row=dict(name='x',seed=42,alpha=.5,strategy='blend',fusion='rrf',candidate_k=5000,omega=.3,gamma=1.,ndcg=.13,recall=.21)
++    with pytest.raises(ValueError,match='coverage'):robust_select([row],dict(ndcg=.12,recall=.20))
++
++
++def test_grid_contains_gnn_dominant_settings_and_neutral_inventory():
++    grid=configuration_grid()
++    assert len(grid)==576
++    assert any(c['omega']==.1 and c['gamma']==1. and c['candidate_k']==20000 for c in grid)
++    assert all(0<c['omega']<1 for c in grid)

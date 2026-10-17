@@ -1,0 +1,6 @@
+{
+  "utc": "2026-10-17T02:08:39.2796610Z",
+  "reason": "Same validation grid and statistical criterion; cache duplicate scoring after real-data parity verification",
+  "replacement": "hybrid_joint_8020_v5",
+  "outer_test_performed": false
+}

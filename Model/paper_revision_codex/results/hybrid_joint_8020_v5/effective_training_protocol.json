@@ -1,0 +1,84 @@
+{
+  "selection_hash": "31d247a1c1746fbac4dc88ae68305ca3b94e7f21daa8350e88297b5e05bc5759",
+  "models": [
+    {
+      "seed": 42,
+      "model": "GNN",
+      "epochs": 190,
+      "refit_mode": "fixed_epochs",
+      "artifact": "runs\\seed_42\\gnn\\gnn_artifacts.json",
+      "artifact_sha256": "cdcc693b2a1368358dd0cd879e87b6490296e3cd56a3c4868091b04ad06daf9f",
+      "reused_from": "results\\hybrid_joint_8020_v3\\runs\\seed_42\\gnn\\gnn_artifacts.json",
+      "history_sha256": "cf68e648fd760fc9d6a82abe8c32e7eae2019e4277117cd5cd2e82b121457733",
+      "producer_static_selection_metric": "validation original NDCG",
+      "effective_epoch_selection": "Initial seed42 inner validation, fixed before these refits",
+      "effective_configuration_selection": "Three-seed inner validation mean joint NDCG/Recall"
+    },
+    {
+      "seed": 42,
+      "model": "Hybrid",
+      "epochs": 190,
+      "refit_mode": "fixed_epochs",
+      "artifact": "runs\\seed_42\\hybrid\\gnn_artifacts.json",
+      "artifact_sha256": "cdcc693b2a1368358dd0cd879e87b6490296e3cd56a3c4868091b04ad06daf9f",
+      "reused_from": "results\\hybrid_joint_8020_v3\\runs\\seed_42\\gnn\\gnn_artifacts.json",
+      "history_sha256": "cf68e648fd760fc9d6a82abe8c32e7eae2019e4277117cd5cd2e82b121457733",
+      "producer_static_selection_metric": "validation original NDCG",
+      "effective_epoch_selection": "Initial seed42 inner validation, fixed before these refits",
+      "effective_configuration_selection": "Three-seed inner validation mean joint NDCG/Recall"
+    },
+    {
+      "seed": 43,
+      "model": "GNN",
+      "epochs": 190,
+      "refit_mode": "fixed_epochs",
+      "artifact": "runs\\seed_43\\gnn\\gnn_artifacts.json",
+      "artifact_sha256": "79e722b3dcdfa028f6e944d1f5ec1b9d6a62039883bca8ba804ad6732e32f13f",
+      "reused_from": "results\\hybrid_joint_8020_v3\\runs\\seed_43\\gnn\\gnn_artifacts.json",
+      "history_sha256": "38c53f351bf7f88ccf285d909e679bdd95e9d6a389c4fe1c4c92143699945c70",
+      "producer_static_selection_metric": "validation original NDCG",
+      "effective_epoch_selection": "Initial seed42 inner validation, fixed before these refits",
+      "effective_configuration_selection": "Three-seed inner validation mean joint NDCG/Recall"
+    },
+    {
+      "seed": 43,
+      "model": "Hybrid",
+      "epochs": 190,
+      "refit_mode": "fixed_epochs",
+      "artifact": "runs\\seed_43\\hybrid\\gnn_artifacts.json",
+      "artifact_sha256": "79e722b3dcdfa028f6e944d1f5ec1b9d6a62039883bca8ba804ad6732e32f13f",
+      "reused_from": "results\\hybrid_joint_8020_v3\\runs\\seed_43\\gnn\\gnn_artifacts.json",
+      "history_sha256": "38c53f351bf7f88ccf285d909e679bdd95e9d6a389c4fe1c4c92143699945c70",
+      "producer_static_selection_metric": "validation original NDCG",
+      "effective_epoch_selection": "Initial seed42 inner validation, fixed before these refits",
+      "effective_configuration_selection": "Three-seed inner validation mean joint NDCG/Recall"
+    },
+    {
+      "seed": 44,
+      "model": "GNN",
+      "epochs": 190,
+      "refit_mode": "fixed_epochs",
+      "artifact": "runs\\seed_44\\gnn\\gnn_artifacts.json",
+      "artifact_sha256": "16af5dd746bf49c40492eabc06a45b13a248af6c4424b1159554ba4d9c4fe04b",
+      "reused_from": "results\\hybrid_joint_8020_v3\\runs\\seed_44\\gnn\\gnn_artifacts.json",
+      "history_sha256": "cb168c8be4db09ccfe5a8c1af05aa7991cd8fce556d338201f70fdb1f53dd3c3",
+      "producer_static_selection_metric": "validation original NDCG",
+      "effective_epoch_selection": "Initial seed42 inner validation, fixed before these refits",
+      "effective_configuration_selection": "Three-seed inner validation mean joint NDCG/Recall"
+    },
+    {
+      "seed": 44,
+      "model": "Hybrid",
+      "epochs": 190,
+      "refit_mode": "fixed_epochs",
+      "artifact": "runs\\seed_44\\hybrid\\gnn_artifacts.json",
+      "artifact_sha256": "16af5dd746bf49c40492eabc06a45b13a248af6c4424b1159554ba4d9c4fe04b",
+      "reused_from": "results\\hybrid_joint_8020_v3\\runs\\seed_44\\gnn\\gnn_artifacts.json",
+      "history_sha256": "cb168c8be4db09ccfe5a8c1af05aa7991cd8fce556d338201f70fdb1f53dd3c3",
+      "producer_static_selection_metric": "validation original NDCG",
+      "effective_epoch_selection": "Initial seed42 inner validation, fixed before these refits",
+      "effective_configuration_selection": "Three-seed inner validation mean joint NDCG/Recall"
+    }
+  ],
+  "note": "The reusable producer writes a static selection_metric string even for fixed-epoch refits. Actual selection is the sealed selection.json and fixed_epochs history; original producer metadata are preserved."
+}

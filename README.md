@@ -92,6 +92,10 @@ PBDA_Teamproject/
 └── README.md                                # 프로젝트 설명서
 ```
 
+## 최신 Hybrid 개정 실험
+
+최종 Hybrid 실험은 [새 컴퓨터 실행 안내](Model/paper_revision_codex/REPRODUCE_KO.md)를 따른다. Python 3.11 및 NVIDIA CUDA GPU가 필요하며, 원시 RetailRocket 데이터는 별도로 준비한다. 아래 설치 설명은 과거 프로젝트 기준이다.
+
 ## 설치 및 실행 방법
 
 ### 환경 요구사항

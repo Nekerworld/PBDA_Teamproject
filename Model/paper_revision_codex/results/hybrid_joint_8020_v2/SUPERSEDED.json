@@ -1,0 +1,5 @@
+{
+  "new_output": "hybrid_joint_8020_v3",
+  "reason": "All validation training preserved; best candidates at5000 search boundary; extend validation candidates to10000/20000 and reselect all rows under common final reference",
+  "utc": "2026-10-16T16:19:14.1101028Z"
+}

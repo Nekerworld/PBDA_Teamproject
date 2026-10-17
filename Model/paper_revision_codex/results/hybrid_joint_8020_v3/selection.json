@@ -1,0 +1,54 @@
+{
+  "mf_alpha": 0.5,
+  "hybrid": {
+    "name": "l2_mf_mixed",
+    "checkpoint": "hybrid",
+    "trial": {
+      "variant": {
+        "layers": 2,
+        "negative_mode": "mf_mixed"
+      },
+      "baseline_epochs": 135,
+      "hybrid_epochs": 130,
+      "seconds": 869.0895535000018,
+      "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l2_mf_mixed"
+    },
+    "config": {
+      "alpha": 0.25,
+      "strategy": "balanced_union",
+      "fusion": "minmax",
+      "candidate_k": 10000,
+      "omega": 0.4,
+      "gamma": 1.0,
+      "ndcg": 0.13784584273605352,
+      "recall": 0.20513841465206184,
+      "joint_lift": 0.03945870614955238,
+      "average_lift": 0.05108365579141061
+    }
+  },
+  "gnn": {
+    "name": "l3_uniform",
+    "checkpoint": "baseline",
+    "metrics": {
+      "ndcg": 0.1285192949632615,
+      "recall": 0.19735119196023887
+    },
+    "trial": {
+      "variant": {
+        "layers": 3,
+        "negative_mode": "uniform"
+      },
+      "baseline_epochs": 190,
+      "hybrid_epochs": 90,
+      "seconds": 1061.4454773000034,
+      "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_uniform"
+    }
+  },
+  "validation_reference": {
+    "ndcg": 0.1297117968475031,
+    "recall": 0.19735119196023887
+  },
+  "validation_joint_lift": 0.03945870614955238,
+  "locked_utc": "2026-10-16T16:28:13.922308+00:00",
+  "outer_test_used_for_selection": false
+}

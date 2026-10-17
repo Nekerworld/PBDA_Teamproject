@@ -465,9 +465,14 @@ def test_plan_and_gamma_cannot_use_the_outer_test(tmp_path):
               include_ablations=False, factors=4, embedding_dim=4)
     plan = json.loads((root/'experiment_plan.json').read_text(encoding='utf-8'))
     assert plan['locked_before_test_evaluation'] is True
+    assert plan['primary_condition'] == 'if_events'
+    assert plan['isolation_forest'] is True
+    assert plan['test_size'] == 0.1
+    assert plan['gamma_grid'] == [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0]
+    assert plan['gamma_reference'] == [5.0, 10.0]
     assert plan['threads']['OPENBLAS_NUM_THREADS'] == '1'
     assert plan['als_use_gpu'] is False
-    run = root/'runs'/'no_if_events__main__s42'
+    run = root/'runs'/'if_events__main__s42'
     gamma = json.loads((run/'validation'/'gamma_selection.json').read_text(encoding='utf-8'))
     assert gamma['protocol_id'] == require_protocol(run/'validation')['protocol_id']
     assert gamma['protocol_id'] != require_protocol(run)['protocol_id']
@@ -489,12 +494,36 @@ def test_plan_and_gamma_cannot_use_the_outer_test(tmp_path):
              for name in ['ALS', 'BPR', 'ALS_BPR', 'GNN', 'Hybrid']]
     assert all(values == users[0] for values in users)
     figures = generate_experiment_figures(root, root/'experiment_figures', dpi=72)
-    baseline = pd.read_csv(figures/'baseline_metrics.csv')
-    assert baseline.model.tolist() == ['ALS', 'BPR', 'ALS+BPR', 'GNN', 'Hybrid']
-    assert baseline.seeds.tolist() == [1, 1, 1, 1, 1]
-    filter_table = pd.read_csv(figures/'filter_stage_statistics.csv')
+    table_columns = ['Model', 'Recall@10', 'NDCG@10', 'Recall@30', 'NDCG@30', 'Recall@50', 'NDCG@50']
+    model_comparison = pd.read_csv(root/'model_comparison_9010.csv')
+    assert model_comparison.Model.tolist() == ['ALS', 'BPR', 'ALS+BPR', 'LightGCN', 'Hybrid']
+    assert list(model_comparison.columns) == table_columns
+    assert list(pd.read_csv(figures/'model_comparison.csv').columns) == table_columns
+    per_seed = pd.read_csv(figures/'model_comparison_per_seed.csv')
+    assert set(per_seed.k) == {10, 30, 50} and len(per_seed) == 15
+    filter_table = pd.read_csv(figures/'preprocessing_filter_stage_statistics.csv')
     assert {'events', 'users', 'items', 'sparsity_percent'} <= set(filter_table.columns)
-    assert set(filter_table.condition) == {'no_if_events', 'if_events', 'no_if_neighbors'}
-    assert (figures/'baseline_comparison.pdf').exists()
-    assert (figures/'gamma_validation.pdf').exists()
-    assert (figures/'filter_comparison.pdf').exists()
+    assert set(filter_table.condition) == {'no_if_events', 'if_events', 'no_if_neighbors', 'if_neighbors'}
+    for name in ['preprocessing_dataset_statistics.csv', 'preprocessing_event_breakdown.csv',
+                 'preprocessing_filter_comparison.csv', 'gamma_sensitivity.csv',
+                 'gamma_sensitivity_per_seed.csv', 'gamma_selection.csv',
+                 'model_comparison.pdf', 'model_comparison.png',
+                 'gamma_sensitivity.pdf', 'gamma_sensitivity.png', 'paper_figure_manifest.json']:
+        assert (figures/name).exists(), name
+    assert (root/'table1_dataset_statistics.csv').exists()
+    assert (root/'table_s1_event_breakdown_reference.csv').exists()
+    gamma_curve = pd.read_csv(root/'runs'/'if_events__main__s42'/'validation'/'gamma_validation.csv')
+    assert set(gamma_curve.k) == {10, 20, 30, 40, 50}
+    assert len(gamma_curve) == 17 * 5
+    assert set(gamma_curve.loc[gamma_curve.reference, 'gamma']) == {5.0, 10.0}
+    assert gamma_curve.topk_available_share.between(0, 1).all()
+    selection = json.loads((run/'validation'/'gamma_selection.json').read_text(encoding='utf-8'))
+    assert selection['selected_gamma'] in plan['gamma_grid']
+
+    off_root = tmp_path/'suite_if_off'
+    run_suite(off_root, raw, seeds=(42,), iterations=1, bpr_epochs=1, epochs=2, device='cpu',
+              include_ablations=False, factors=4, embedding_dim=4, use_if=False)
+    off_plan = json.loads((off_root/'experiment_plan.json').read_text(encoding='utf-8'))
+    assert off_plan['primary_condition'] == 'no_if_events'
+    assert off_plan['isolation_forest'] is False
+    assert (off_root/'runs'/'no_if_events__main__s42'/'complete.json').exists()

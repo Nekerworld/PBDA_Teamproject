@@ -1,0 +1,10 @@
+{
+  "variant": {
+    "layers": 3,
+    "negative_mode": "mf_mixed"
+  },
+  "baseline_epochs": 200,
+  "hybrid_epochs": 155,
+  "seconds": 1123.0592980000001,
+  "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v2\\trials\\l3_mf_mixed"
+}

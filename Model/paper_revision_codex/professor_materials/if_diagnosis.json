@@ -1,0 +1,54 @@
+{
+  "training_only": true,
+  "cutoff_utc": "2015-08-18T04:23:31.966000+00:00",
+  "parameters": {
+    "bootstrap": false,
+    "contamination": "auto",
+    "max_features": 1.0,
+    "max_samples": "auto",
+    "n_estimators": 200,
+    "n_jobs": 1,
+    "random_state": 42,
+    "verbose": 0,
+    "warm_start": false
+  },
+  "results": [
+    {
+      "condition": "original_9",
+      "features": "event_count;view_count;unique_visitors;event_code_mean;event_code_std;first_event_hour;last_event_hour;event_duration_hours;property_count",
+      "kept_items": 184888,
+      "removed_items": 28027,
+      "kept_events": 836661,
+      "removed_events": 1368219,
+      "kept_purchases": 0,
+      "removed_purchases": 17864,
+      "kept_cart": 515,
+      "agreement_with_cached_labels": 1.0
+    },
+    {
+      "condition": "without_behavior_code",
+      "features": "event_count;view_count;unique_visitors;first_event_hour;last_event_hour;event_duration_hours;property_count",
+      "kept_items": 183288,
+      "removed_items": 29627,
+      "kept_events": 840590,
+      "removed_events": 1364290,
+      "kept_purchases": 3476,
+      "removed_purchases": 14388,
+      "kept_cart": 12840,
+      "agreement_with_cached_labels": null
+    },
+    {
+      "condition": "behavior_code_only",
+      "features": "event_code_mean;event_code_std",
+      "kept_items": 192189,
+      "removed_items": 20726,
+      "kept_events": 1193026,
+      "removed_events": 1011854,
+      "kept_purchases": 0,
+      "removed_purchases": 17864,
+      "kept_cart": 14,
+      "agreement_with_cached_labels": null
+    }
+  ],
+  "interpretation": "Controlled input-feature ablation, not verified bot classification. Original-label agreement must be checked before attributing differences."
+}

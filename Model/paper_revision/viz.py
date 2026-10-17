@@ -7,6 +7,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import NullFormatter
 import numpy as np
 import pandas as pd
 
@@ -17,6 +18,9 @@ except ImportError:
 
 MODEL_ORDER = ['ALS', 'BPR', 'ALS+BPR', 'GNN', 'Hybrid']
 COLORS = ['#4979a8', '#76a5b5', '#d2a84a', '#917ca9', '#c06454']
+TABLE_K_VALUES = [10, 30, 50]
+K_COLORS = {10: '#4979a8', 30: '#d2a84a', 50: '#c06454'}
+PAPER_VIZ_DIR = Path(__file__).resolve().parent / 'viz'
 
 
 def generate_figures(processed_dir=DEFAULT_PROCESSED, output_dir=None, dpi=600):
@@ -172,20 +176,101 @@ def generate_figures(processed_dir=DEFAULT_PROCESSED, output_dir=None, dpi=600):
     return output
 
 
+def _draw_model_table(table, seeds, split_label):
+    """Booktabs-style table; values in percent, best value per column in bold."""
+    metric_columns = [column for column in table.columns if column != 'Model']
+    cells = [[row['Model'], *[f'{100 * row[column]:.2f}' for column in metric_columns]]
+             for _, row in table.iterrows()]
+    fig, ax = plt.subplots(figsize=(1.6 + 1.05 * len(metric_columns), 0.42 * (len(table) + 2)))
+    ax.axis('off')
+    grid = ax.table(cellText=cells, colLabels=['Model', *metric_columns], loc='center', cellLoc='center')
+    grid.auto_set_font_size(False)
+    grid.set_fontsize(9)
+    grid.scale(1, 1.45)
+    last_row = len(table)
+    for (row, _), cell in grid.get_celld().items():
+        cell.visible_edges = 'TB' if row == 0 else ('B' if row == last_row else '')
+        cell.set_linewidth(0.8)
+        if row == 0:
+            cell.get_text().set_fontweight('bold')
+    for column_index, column in enumerate(metric_columns, start=1):
+        best = int(np.argmax(table[column].to_numpy()))
+        grid[(best + 1, column_index)].get_text().set_fontweight('bold')
+    ax.set_title(f'Top-K recommendation performance (%), chronological {split_label} test, '
+                 f'mean of {seeds} seed(s); best in bold', fontsize=9)
+    return fig
+
+
+def _draw_gamma_sensitivity(summary, selected_gammas, grid_max):
+    seeds = int(summary.seeds.max())
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.2))
+    panels = [('recall', 'Recall@K'), ('ndcg', 'NDCG@K'), ('topk_available_share', 'In-stock items in top-K (%)')]
+    reference_max = float(summary.gamma.max())
+    for ax, (metric, label) in zip(axes, panels):
+        scale = 100 if metric == 'topk_available_share' else 1
+        for k_value in TABLE_K_VALUES:
+            frame = summary.loc[summary.k == k_value].sort_values('gamma')
+            if frame.empty:
+                continue
+            color = K_COLORS[k_value]
+            main = frame.loc[~frame.reference]
+            reference = frame.loc[frame.reference]
+            mean, std = main[f'{metric}_mean'] * scale, main[f'{metric}_std'] * scale
+            ax.plot(main.gamma, mean, marker='o', markersize=3, color=color, label=f'K={k_value}')
+            if seeds > 1:
+                ax.fill_between(main.gamma, mean - std, mean + std, color=color, alpha=.15, linewidth=0)
+            if not reference.empty:
+                bridge = pd.concat([main.tail(1), reference])
+                ax.plot(bridge.gamma, bridge[f'{metric}_mean'] * scale, linestyle=':', color=color)
+                ax.scatter(reference.gamma, reference[f'{metric}_mean'] * scale,
+                           facecolors='white', edgecolors=color, zorder=3, s=22)
+        if metric == 'topk_available_share':
+            pool = float(summary.candidate_available_share_mean.mean()) * 100
+            ax.axhline(pool, color='black', linestyle=':', linewidth=1,
+                       label=f'Candidate pool ({pool:.1f}%)')
+        ax.axvline(1.0, color='grey', linestyle='--', linewidth=1, label='γ = 1 (no inventory weight)')
+        for index, gamma in enumerate(sorted(set(selected_gammas))):
+            ax.axvline(gamma, color='#2e7d32', linestyle='-.', linewidth=1,
+                       label='Selected γ' if index == 0 else None)
+        if reference_max > grid_max:
+            ax.axvspan(grid_max * 1.15, reference_max * 1.15, color='0.93', zorder=0)
+            ax.text(np.sqrt(grid_max * reference_max), 0.98, 'reference', transform=ax.get_xaxis_transform(),
+                    ha='center', va='top', fontsize=7, color='0.4')
+        ax.set_xscale('log')
+        ticks = [tick for tick in [0.2, 0.4, 0.6, 1, 2, 3, 5, 10] if tick <= reference_max * 1.01]
+        ax.set_xticks(ticks, [f'{tick:g}' for tick in ticks])
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax.set_xlabel('Inventory γ (log scale)')
+        ax.set_ylabel(label)
+        ax.grid(alpha=.2)
+    axes[0].legend(fontsize=7, loc='best')
+    axes[2].legend(fontsize=7, loc='best')
+    selected_text = ', '.join(f'{gamma:g}' for gamma in selected_gammas)
+    fig.suptitle(f'Inventory γ sensitivity of the Hybrid model on inner validation '
+                 f'({seeds} seed(s); selected γ: {selected_text})', fontsize=10)
+    return fig
+
+
 def generate_experiment_figures(root, output_dir=None, dpi=600):
-    """Figures for a completed multi-run directory. Every number is read from its CSV."""
+    """Paper outputs for a completed multi-run directory. Every number is read from its CSV.
+
+    Writes the model comparison table, preprocessing statistics, and gamma sensitivity,
+    each with the CSV it was drawn from.
+    """
     root = Path(root)
     manifest_path = root / 'experiment_manifest.json'
     if not manifest_path.exists():
         raise ValueError('Experiment summary is missing; finish experiments.py before drawing')
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    plan = json.loads((root / 'experiment_plan.json').read_text(encoding='utf-8'))
+    primary_condition = plan['primary_condition']
     for name, expected in manifest['files'].items():
         if sha256(root / name) != expected:
             raise ValueError(f'Experiment summary changed after it was sealed: {name}')
-    output = Path(output_dir) if output_dir else root / 'figures'
-    if output.exists() and any(output.iterdir()):
-        raise FileExistsError(f'Use a new empty figure directory: {output}')
-    output.mkdir(parents=True)
+    if 'model_comparison' not in manifest:
+        raise ValueError('Experiment summary predates the K=10/30/50 table; rerun experiments.py')
+    output = Path(output_dir) if output_dir else PAPER_VIZ_DIR
+    output.mkdir(parents=True, exist_ok=True)
     generated = []
 
     def save(fig, name):
@@ -195,105 +280,83 @@ def generate_experiment_figures(root, output_dir=None, dpi=600):
             generated.append(f'{name}.{ext}')
         plt.close(fig)
 
+    def write_csv(frame, name):
+        frame.to_csv(output / name, index=False)
+        generated.append(name)
+
+    test_size = float(plan.get('test_size', 0.1))
+    split_label = f'{int(round((1 - test_size) * 100))}:{int(round(test_size * 100))}'
+
+    table = pd.read_csv(root / manifest['model_comparison'])
+    per_seed = pd.read_csv(root / manifest['model_comparison_per_seed'])
+    write_csv(table, 'model_comparison.csv')
+    write_csv(per_seed, 'model_comparison_per_seed.csv')
+    save(_draw_model_table(table, int(per_seed.seed.nunique()), split_label), 'model_comparison')
+
     condition_manifest = json.loads((root / 'datasets' / 'condition_manifest.json').read_text(encoding='utf-8'))
-    comparison_path = root / 'datasets' / 'filter_comparison.csv'
-    if sha256(comparison_path) != condition_manifest['filter_comparison_hash']:
+    filter_path = root / 'datasets' / 'filter_comparison.csv'
+    if sha256(filter_path) != condition_manifest['filter_comparison_hash']:
         raise ValueError('Filter comparison does not match the sealed condition manifest')
     stage_stats_path = root / 'datasets' / 'filter_stage_statistics.csv'
     if sha256(stage_stats_path) != condition_manifest['filter_stage_statistics_hash']:
         raise ValueError('Filter stage statistics do not match the sealed condition manifest')
-    comparison = pd.read_csv(comparison_path)
-    fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
-    fields = [('transaction_events', 'Training purchases'), ('fixed_evaluation_users', 'Fixed reference users'),
-              ('mean_original_truth_retention', 'Mean original-truth retention')]
-    for ax, (field, title) in zip(axes, fields):
-        bars = ax.bar(comparison.condition, comparison[field], color=COLORS[:len(comparison)])
-        ax.bar_label(bars, fmt='%.3g', padding=3, fontsize=7)
-        ax.set_title(title, fontsize=10)
-        ax.tick_params(axis='x', labelrotation=20, labelsize=8)
-    fig.suptitle('Predeclared filter conditions on one fixed reference')
-    save(fig, 'filter_comparison')
-
     stage_stats = pd.read_csv(stage_stats_path)
     required_stats = {'condition', 'stage', 'events', 'users', 'items',
                       'unique_user_item_pairs', 'sparsity_percent'}
     if not required_stats <= set(stage_stats.columns):
         raise ValueError('Filter-stage table is missing dataset size or sparsity fields')
-    final_stats = stage_stats.loc[stage_stats.stage == 'train_final']
-    if set(final_stats.condition) != set(comparison.condition):
-        raise ValueError('Filter-stage table does not cover the compared conditions')
-    stage_stats.to_csv(output / 'filter_stage_statistics.csv', index=False)
-    comparison.to_csv(output / 'filter_comparison.csv', index=False)
+    write_csv(pd.read_csv(root / 'table1_dataset_statistics.csv'), 'preprocessing_dataset_statistics.csv')
+    write_csv(pd.read_csv(root / 'table_s1_event_breakdown_reference.csv'), 'preprocessing_event_breakdown.csv')
+    write_csv(stage_stats, 'preprocessing_filter_stage_statistics.csv')
+    write_csv(pd.read_csv(filter_path), 'preprocessing_filter_comparison.csv')
 
-    metrics = pd.read_csv(root / 'experiment_metrics.csv')
-    primary = metrics.loc[(metrics.condition == 'no_if_events') & (metrics.ablation == 'main')
-                          & (metrics.scope == 'original') & (metrics.k == 50)].copy()
-    if set(primary.model) != set(MODEL_ORDER) or primary.duplicated(['model', 'seed']).any():
-        raise ValueError('Primary comparison must contain one K=50 original-truth result per model and seed')
-    if primary.groupby('model').seed.nunique().nunique() != 1:
-        raise ValueError('Primary comparison models must have results for the same number of seeds')
-    baseline = primary.groupby('model').agg(
-        ndcg_mean=('ndcg', 'mean'), ndcg_std=('ndcg', 'std'),
-        recall_mean=('recall', 'mean'), recall_std=('recall', 'std'),
-        users=('users_evaluated', 'first'), seeds=('seed', 'nunique')).reindex(MODEL_ORDER).reset_index()
-    baseline[['ndcg_std', 'recall_std']] = baseline[['ndcg_std', 'recall_std']].fillna(0)
-    baseline.to_csv(output / 'baseline_metrics.csv', index=False)
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6))
-    for ax, metric, title in zip(axes, ['ndcg', 'recall'], ['NDCG@50', 'Recall@50']):
-        bars = ax.bar(MODEL_ORDER, baseline[f'{metric}_mean'], color=COLORS,
-                      yerr=baseline[f'{metric}_std'], capsize=3,
-                      error_kw={'elinewidth': 0.8})
-        ax.bar_label(bars, fmt='%.4f', padding=3, fontsize=7)
-        ax.set_ylabel(title)
-        ax.tick_params(axis='x', labelsize=8)
-        ax.set_ylim(0, max(.01, float((baseline[f'{metric}_mean'] + baseline[f'{metric}_std']).max()) * 1.2))
-        ax.grid(axis='y', alpha=.2)
-        ax.set_axisbelow(True)
-    fig.suptitle(f"Unified 80:20 test; {int(baseline.users.iloc[0]):,} fixed users; mean ± SD over {int(baseline.seeds.iloc[0])} seeds")
-    save(fig, 'baseline_comparison')
-
-    intervals = pd.read_csv(root / 'confidence_intervals.csv')
-    primary = intervals.loc[(intervals.condition == 'no_if_events') & (intervals.ablation == 'main') & (intervals.metric == 'ndcg')]
-    primary = primary.set_index('model').loc[MODEL_ORDER]
-    fig, ax = plt.subplots(figsize=(8, 3.6))
-    y = np.arange(len(primary))
-    ax.errorbar(primary['mean'], y, xerr=[primary['mean'] - primary.ci_low, primary.ci_high - primary['mean']],
-                fmt='o', color=COLORS[0], capsize=3)
-    ax.set_yticks(y, primary.index)
-    ax.set_xlabel('Original-truth NDCG, user bootstrap conditional on the finished seeds')
-    ax.set_title(f"Primary condition, {int(primary.seeds.iloc[0])} seed(s), {int(primary.users.iloc[0]):,} users")
-    save(fig, 'confidence_intervals')
-
-    hybrid = metrics.loc[metrics.model == 'Hybrid']
-    fig, ax = plt.subplots(figsize=(8, 3.6))
-    labels = hybrid.condition + '\n' + hybrid.ablation + '\nseed ' + hybrid.seed.astype(str)
-    bars = ax.bar(range(len(hybrid)), hybrid.ndcg, color=COLORS[4])
-    ax.bar_label(bars, fmt='%.4f', padding=3, fontsize=7)
-    ax.set_xticks(range(len(hybrid)), labels, fontsize=7)
-    ax.set_ylabel(f"Hybrid original NDCG@{int(hybrid.k.iloc[0])}")
-    ax.set_title('Finished runs; ablations are not a second test-set search')
-    save(fig, 'run_overview')
-
-    curves = sorted((root / 'runs').glob('no_if_events__main__s*/validation/gamma_validation.csv'))
-    if not curves:
-        raise ValueError('Validation gamma curves are missing')
-    fig, ax = plt.subplots(figsize=(7, 3.6))
-    for path in curves:
-        frame = pd.read_csv(path).sort_values('gamma')
+    runs = sorted((root / 'runs').glob(f'{primary_condition}__main__s*'))
+    curves, selections = [], []
+    required_gamma = {'gamma', 'reference', 'k', 'ndcg', 'recall',
+                      'topk_available_share', 'candidate_available_share'}
+    for run in runs:
+        path = run / 'validation' / 'gamma_validation.csv'
+        if not (run / 'complete.json').exists() or not path.exists():
+            continue
+        frame = pd.read_csv(path)
         if set(frame.role) != {'validation'} or set(frame.scope) != {'original'}:
             raise ValueError(f'Gamma file is not validation original truth: {path}')
-        ax.plot(frame.gamma, frame.ndcg, marker='o', label=path.parents[1].name)
-    ax.set_xlabel('Inventory gamma')
-    ax.set_ylabel('Validation original NDCG')
-    ax.set_title('Gamma chosen on inner validation, not the outer test')
-    ax.legend(fontsize=7)
-    save(fig, 'gamma_validation')
-    dump_json(output / 'experiment_figure_manifest.json', {
-        'experiment_reference_id': manifest['reference_id'], 'figures': generated, 'dpi': dpi,
+        if not required_gamma <= set(frame.columns):
+            raise ValueError(f'Gamma file predates the in-stock share columns; rerun experiments.py: {path}')
+        seed = json.loads((run / 'run_config.json').read_text(encoding='utf-8'))['seed']
+        frame.insert(0, 'seed', seed)
+        curves.append(frame)
+        selection = json.loads((run / 'validation' / 'gamma_selection.json').read_text(encoding='utf-8'))
+        selections.append({'seed': seed, 'selected_gamma': selection['selected_gamma'],
+                           **{key: selection.get(key) for key in
+                              ('als_weight', 'fusion', 'rerank_m', 'candidate_k', 'validation_ndcg')}})
+    if not curves:
+        raise ValueError('Validation gamma curves are missing')
+    gamma_per_seed = pd.concat(curves, ignore_index=True)
+    gamma_summary = gamma_per_seed.groupby(['gamma', 'reference', 'k']).agg(
+        recall_mean=('recall', 'mean'), recall_std=('recall', 'std'),
+        ndcg_mean=('ndcg', 'mean'), ndcg_std=('ndcg', 'std'),
+        topk_available_share_mean=('topk_available_share', 'mean'),
+        topk_available_share_std=('topk_available_share', 'std'),
+        candidate_available_share_mean=('candidate_available_share', 'mean'),
+        seeds=('seed', 'nunique')).reset_index()
+    gamma_summary = gamma_summary.fillna({column: 0.0 for column in gamma_summary.columns if column.endswith('_std')})
+    selection_frame = pd.DataFrame(selections).sort_values('seed')
+    write_csv(gamma_per_seed, 'gamma_sensitivity_per_seed.csv')
+    write_csv(gamma_summary, 'gamma_sensitivity.csv')
+    write_csv(selection_frame, 'gamma_selection.csv')
+    grid_max = float(gamma_summary.loc[~gamma_summary.reference, 'gamma'].max())
+    save(_draw_gamma_sensitivity(gamma_summary, selection_frame.selected_gamma.tolist(), grid_max),
+         'gamma_sensitivity')
+
+    dump_json(output / 'paper_figure_manifest.json', {
+        'experiment_dir': str(root.resolve()), 'experiment_reference_id': manifest['reference_id'],
+        'split': split_label, 'primary_condition': primary_condition, 'dpi': dpi, 'files': generated,
         'sources': {**{name: sha256(root / name) for name in manifest['files']},
-                    'filter_comparison.csv': sha256(comparison_path),
-                    'filter_stage_statistics.csv': sha256(stage_stats_path)}})
-    print(f'Created {len(generated)} experiment-figure files in {output.resolve()}')
+                    'datasets/filter_comparison.csv': sha256(filter_path),
+                    'datasets/filter_stage_statistics.csv': sha256(stage_stats_path)}})
+    print(f'Created {len(generated)} paper files in {output.resolve()}')
+    print(table.to_string(index=False))
     return output
 
 
@@ -301,7 +364,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--processed-dir', type=Path, default=DEFAULT_PROCESSED)
     parser.add_argument('--experiment-dir', type=Path)
-    parser.add_argument('--output-dir', type=Path)
+    parser.add_argument('--output-dir', type=Path,
+                        help='Default for --experiment-dir: Model/paper_revision/viz')
     parser.add_argument('--dpi', type=int, default=600)
     args = parser.parse_args(argv)
     if args.dpi < 72:

@@ -1,0 +1,18 @@
+{
+  "verified": true,
+  "users": 854,
+  "metric_pairs_replayed": 90,
+  "success": false,
+  "checks": [
+    "80:20 no-IF plan and nondegenerate MF+GNN weights",
+    "Seed 42: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+    "Seed 43: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+    "Seed 44: completion hashes, catalog, cohort and all 30 metric pairs replayed",
+    "Success flag independently recomputed from all three seeds",
+    "Six fixed-epoch refits match the sealed selection; effective protocol disambiguates inherited static metadata"
+  ],
+  "effective_training_protocol_hash": "2564d652fa6b43ebc9f7b7f53f4c385a423273c91fc186824f6f8b21a17222ba",
+  "experiment": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v3",
+  "selection_hash": "18aeae282b0111f07097211eb03c0ba0ca22750337d122a8eab1ba337cf66188",
+  "result_hash": "2054ee9a3a0e0e1b5057f1895e7d3d3b2e609edc2e911276f99bac6ca615d03d"
+}

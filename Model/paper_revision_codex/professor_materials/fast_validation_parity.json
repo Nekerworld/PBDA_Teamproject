@@ -1,0 +1,12 @@
+{
+  "verified": true,
+  "real_configurations": 576,
+  "maximum_metric_error": {
+    "ndcg": 8.326672684688674e-17,
+    "recall": 8.326672684688674e-17
+  },
+  "exact_top50_lists_checked": 247,
+  "users": 789,
+  "seconds": 110.51852679252625,
+  "scope": "All real-data validation settings of seed42 l3_uniform; no outer-test selection."
+}

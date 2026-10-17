@@ -1,0 +1,46 @@
+{
+  "data_protocol.py": {
+    "before_sha256": "9429041223822b4229c117fc651cb8c83a6132c2cabb8f7629ca3c6e26b67a87",
+    "after_sha256": "ae5764729063de48e75c4658ae7a3c6adab290ea6eac90dbced807f173784b85"
+  },
+  "experiments.py": {
+    "before_sha256": "67cf2f87fc6492a4dbb3726019db2155eb23e89fa5e2a7706c86c6e096f0587b",
+    "after_sha256": "49f42fb982926146a1f339f98ef927230c948bfefbf7e857986f5ff3e8b09553"
+  },
+  "fast_fusion.py": {
+    "before_sha256": null,
+    "after_sha256": "2857ca24ca43e73cefe3db91228639cf3e337059e98244365b0d7faf8c67e031"
+  },
+  "improve_hybrid.py": {
+    "before_sha256": null,
+    "after_sha256": "a69aab9989aced5a2cf24390cc365b82ffc46cdbeaab72096e9a196365e6d3be"
+  },
+  "learning.py": {
+    "before_sha256": "117ed1c313bbbbc634b8800ba48d322ebd23fa1c807a79cf2c828e52f7b962e2",
+    "after_sha256": "8cedda256fe2e46c0cd12c908498a026fc7f74fc57f0715c241dcc576255612c"
+  },
+  "model.py": {
+    "before_sha256": "3e34f91f4cdf35768511005779a71c428851c782de942f527a7f4c0799fcd3b5",
+    "after_sha256": "15d32e694ebc80444c7c3899df910a2e9fb0d33d22e6bd47a36ec32ec05c9cc4"
+  },
+  "robust_hybrid.py": {
+    "before_sha256": null,
+    "after_sha256": "9259177666943037e97c11e99e1d1435b4e942afe29655c0f96b2027b7a7f6ca"
+  },
+  "test_fast_fusion.py": {
+    "before_sha256": null,
+    "after_sha256": "ca4e2ed05498fae6d326196fa90118b50f3d8f507a6288d4614f6a2baa8e81bd"
+  },
+  "test_hybrid_improvement.py": {
+    "before_sha256": null,
+    "after_sha256": "e31c85fffa1f09ae2148bffb6057eb96dda815dc0e325d61664ea665b16c28ca"
+  },
+  "test_revision.py": {
+    "before_sha256": "bde2c2dbf498f808de4a2c826ed7dd0d3485442309bfa22e2cf499c2ac56990a",
+    "after_sha256": "e3012717156b70b61ab0941994dc877b53f384d36154758cda974c5b45c944e2"
+  },
+  "test_robust_hybrid.py": {
+    "before_sha256": null,
+    "after_sha256": "1b5d1b4ceef9c2e3021864e301078f255b44628758795060517b0da12ecef41d"
+  }
+}

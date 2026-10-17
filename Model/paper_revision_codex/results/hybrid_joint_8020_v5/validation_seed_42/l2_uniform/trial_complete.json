@@ -1,0 +1,10 @@
+{
+  "variant": {
+    "layers": 2,
+    "negative_mode": "uniform"
+  },
+  "baseline_epochs": 125,
+  "hybrid_epochs": 120,
+  "seconds": 816.0127678000026,
+  "directory": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v1\\trials\\l2_uniform"
+}

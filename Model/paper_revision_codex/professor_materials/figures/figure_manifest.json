@@ -1,0 +1,25 @@
+{
+  "sources": {
+    "professor_materials/evidence.json": "90e662a7c8da8e0cf67c27f571124f7285a2938dc7570d1a307d127ffbe7b6fa",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\model_summary.csv": "c06996e59d4e30f8cf1db3a28197817d1b07e53bad15acddf0579ef20f3a59dc",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\experiment_metrics.csv": "d449e5f16186c551648efd8051c1e4ee76c602a7d7f91aa8889948521c81d0d1",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\runtime_benchmark.csv": "de0ec4e386d42653aeaba11be2790969f725512944d95a4099e49a53ee14af9b",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\paired_differences.csv": "a3d9bcb5a439881f196c72c7549f02d8fb726b6f6a01875e326d7e975f83b4ce",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\trials\\l2_mf_mixed\\gnn_training_history.json": "6b8e5735f944e2528939064b2eda72492a3c079eace9846af25cd292de1019f7",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\trials\\l2_uniform\\gnn_training_history.json": "c69d5a6f5c0a6e1ad79f50092df63a969ea91e561b8d49c8f905fc26e967ed0b",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\trials\\l3_uniform\\gnn_training_history.json": "296c115a0a884dd9d2112cc1e2b2f6af122c0ca23d2dd5fa6219b8933a9ea370",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\selection.json": "31d247a1c1746fbac4dc88ae68305ca3b94e7f21daa8350e88297b5e05bc5759",
+    "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\results\\hybrid_joint_8020_v5\\validation_fusion_l3_uniform_baseline.csv": "d21a0424c17c64e06892f79e5116c1f4fc31fae1188d93b9cb24efb6dc44cb96"
+  },
+  "figures": [
+    "preprocessing_comparison",
+    "pipeline",
+    "model_comparison",
+    "topk_comparison",
+    "bpr_signal_ablation",
+    "paired_differences",
+    "validation_training",
+    "validation_tradeoff",
+    "gamma_sensitivity"
+  ]
+}

@@ -1,0 +1,216 @@
+{
+  "target": "Windows x86_64 / CPython 3.11",
+  "method": "pip --dry-run --ignore-installed --only-binary=:all: --python-version 3.11 --platform win_amd64",
+  "status": "resolved",
+  "fresh_install_executed": false,
+  "fresh_full_training_executed": false,
+  "packages": [
+    {
+      "name": "numpy",
+      "version": "2.4.6",
+      "wheel_url": "https://files.pythonhosted.org/packages/c5/31/7fc6239c12bce7e931463251cca4426c465e1876ba3cc785402ef4dd8f4e/numpy-2.4.6-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "pandas",
+      "version": "3.0.6",
+      "wheel_url": "https://files.pythonhosted.org/packages/d3/dc/d2df02854aec5d47659acfb2be352eecc691845b2f86e99c84f1010a8671/pandas-3.0.6-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "scipy",
+      "version": "1.17.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/95/da/0d1df507cf574b3f224ccc3d45244c9a1d732c81dcb26b1e8a766ae271a8/scipy-1.17.1-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "scikit-learn",
+      "version": "1.9.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/29/8a/8d1e888fe3d0dd4e2a1f3356dad703eed569aaf673e222b6f647005ad30f/scikit_learn-1.9.1-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "matplotlib",
+      "version": "3.11.2",
+      "wheel_url": "https://files.pythonhosted.org/packages/66/54/91fe3fdfa29100b4668cbf9721577a10acde6e009694618230e4e7a97527/matplotlib-3.11.2-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "implicit",
+      "version": "0.7.3",
+      "wheel_url": "https://files.pythonhosted.org/packages/8d/b0/a0cb666d80520bf6a5be4370cd7f572b7a4057fc7a3779249f10d1dec840/implicit-0.7.3-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "torch",
+      "version": "2.11.0+cu128",
+      "wheel_url": "https://download-r2.pytorch.org/whl/cu128/torch-2.11.0%2Bcu128-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl"
+    },
+    {
+      "name": "reportlab",
+      "version": "4.4.9",
+      "wheel_url": "https://files.pythonhosted.org/packages/17/77/546e50edfaba6a0e58e8ec5fdc4446510227cec9e8f40172b60941d5a633/reportlab-4.4.9-py3-none-any.whl"
+    },
+    {
+      "name": "pypdfium2",
+      "version": "5.14.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/00/dc/ca7874924c9cfd701ad53f89529968523790e70473e0b71e834668316148/pypdfium2-5.14.0-py3-none-win_amd64.whl"
+    },
+    {
+      "name": "pypdf",
+      "version": "6.10.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/55/f2/7ebe366f633f30a6ad105f650f44f24f98cb1335c4157d21ae47138b3482/pypdf-6.10.0-py3-none-any.whl"
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/63/c6/4bad1b18d132a50b27e1365e1ab163616f7a5bb56d330f66f9d1d9d4f9d4/pillow-12.3.0-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.7.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/40/9e/2b38731e0fc536806f16490e1a12d7f0dc2a1235aa8cc07bcc75416a7daa/pluggy-1.7.0-py3-none-any.whl"
+    },
+    {
+      "name": "setuptools",
+      "version": "81.0.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/e1/e3/c164c88b2e5ce7b24d667b9bd83589cf4f3520d97cad01534cd3c4f55fdb/setuptools-81.0.0-py3-none-any.whl"
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "wheel_url": "https://download.pytorch.org/whl/colorama-0.4.6-py2.py3-none-any.whl"
+    },
+    {
+      "name": "contourpy",
+      "version": "1.3.3",
+      "wheel_url": "https://files.pythonhosted.org/packages/98/4b/9bd370b004b5c9d8045c6c33cf65bae018b27aca550a3f657cdc99acdbd8/contourpy-1.3.3-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "cycler",
+      "version": "0.12.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl"
+    },
+    {
+      "name": "fonttools",
+      "version": "4.67.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/24/73/5c281531cf7899ae37a0937c62feed1f7d0e8a35538eea4d1595b52447e1/fonttools-4.67.0-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/6c/c0/a98505f18594f1bce828bb159cec0fcf9860562f1a2c85913409fc8f3d9e/fsspec-2026.9.0-py3-none-any.whl"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/56/43/4ca9e49d27a1fcf6bece6f6aec0ea46bb9112489b93d4b688fb415457bdb/iniconfig-2.3.1-py3-none-any.whl"
+    },
+    {
+      "name": "joblib",
+      "version": "1.6.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/18/53/84099323c2ec4be98d935f63c033ac4151ee83836ca1050ede3b3aadf155/joblib-1.6.0-py3-none-any.whl"
+    },
+    {
+      "name": "cloudpickle",
+      "version": "3.1.2",
+      "wheel_url": "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl"
+    },
+    {
+      "name": "kiwisolver",
+      "version": "1.5.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/bf/9f/6f9e489c188200e6fb3193935501894811e8c97577c8ffe9033589bf3521/kiwisolver-1.5.1-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "narwhals",
+      "version": "2.27.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/d1/89/5d4c86da1130d9059681e5b6cd7645df5c10279a6a079c5c37dcb2cc6f3f/narwhals-2.27.1-py3-none-any.whl"
+    },
+    {
+      "name": "networkx",
+      "version": "3.6.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "wheel_url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+    },
+    {
+      "name": "Pygments",
+      "version": "2.21.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl"
+    },
+    {
+      "name": "pyparsing",
+      "version": "3.3.3",
+      "wheel_url": "https://files.pythonhosted.org/packages/38/bb/d215ee7c73b61497b28a5503f9f53523f294fcc936762b7caf90e0c1c2b5/pyparsing-3.3.3-py3-none-any.whl"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0",
+      "wheel_url": "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl"
+    },
+    {
+      "name": "threadpoolctl",
+      "version": "3.7.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/43/3f/f88a53f60a472b46f4023f56d204dd7de33d34c5d2acbfa0d70a674e639e/threadpoolctl-3.7.0-py3-none-any.whl"
+    },
+    {
+      "name": "tqdm",
+      "version": "4.70.1",
+      "wheel_url": "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "wheel_url": "https://files.pythonhosted.org/packages/e8/fc/fdf8cf52ff21cd5bf158f20978991cf985325842f74283eb6df26c8a39d8/charset_normalizer-3.5.2-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "filelock",
+      "version": "4.2.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/8e/a3/9bc26acff301fe1aaea1cc3d82a1d57e0a34df3e1cadbfa91ac2dbcdde5c/filelock-4.2.0-py3-none-any.whl"
+    },
+    {
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "wheel_url": "https://download.pytorch.org/whl/jinja2-3.1.6-py3-none-any.whl"
+    },
+    {
+      "name": "MarkupSafe",
+      "version": "3.0.4",
+      "wheel_url": "https://files.pythonhosted.org/packages/91/89/f2b509f7bf79352e40117824c1070dbeafd4df67031d3fa98165a3134228/markupsafe-3.0.4-cp311-cp311-win_amd64.whl"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.5",
+      "wheel_url": "https://files.pythonhosted.org/packages/94/21/1e5995a1c920cce14e4bffae20c665ec10e7ed03ab25e006cd741092b718/tzdata-2026.5-py2.py3-none-any.whl"
+    }
+  ],
+  "regression_tests": {
+    "passed": 46,
+    "warnings": 1,
+    "seconds": 101.62,
+    "environment": "existing Python 3.11 experiment runtime",
+    "fresh_environment": false
+  }
+}

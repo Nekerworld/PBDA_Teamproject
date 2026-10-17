@@ -1,0 +1,138 @@
+{
+  "success": true,
+  "criterion": "3-seed mean original NDCG@50 AND Recall@50 above every baseline",
+  "selection_hash": "31d247a1c1746fbac4dc88ae68305ca3b94e7f21daa8350e88297b5e05bc5759",
+  "seconds_total": 4820.433252334595,
+  "primary": [
+    {
+      "model": "ALS",
+      "k": 50,
+      "ndcg_mean": 0.07366553661208784,
+      "ndcg_std": 0.0008782674993279807,
+      "recall_mean": 0.11610593173588396,
+      "recall_std": 0.0005155366894062707,
+      "precision_mean": 0.004754098360655738,
+      "precision_std": 0.0,
+      "hit_rate_mean": 0.15729898516783763,
+      "hit_rate_std": 0.0006760541793789536
+    },
+    {
+      "model": "ALS+BPR",
+      "k": 50,
+      "ndcg_mean": 0.1045644920267441,
+      "ndcg_std": 0.00016215018040094726,
+      "recall_mean": 0.14472534972657128,
+      "recall_std": 0.0014783795098168419,
+      "precision_mean": 0.006112412177985947,
+      "precision_std": 0.0001239227780358123,
+      "hit_rate_mean": 0.1920374707259953,
+      "hit_rate_std": 0.0023419203747072626
+    },
+    {
+      "model": "BPR",
+      "k": 50,
+      "ndcg_mean": 0.09783099182725097,
+      "ndcg_std": 0.0007972720166285978,
+      "recall_mean": 0.13209547885047063,
+      "recall_std": 0.0008769376542067308,
+      "precision_mean": 0.005448868071818891,
+      "precision_std": 4.875096017485078e-05,
+      "hit_rate_mean": 0.17408274785323966,
+      "hit_rate_std": 0.0006760541793789537
+    },
+    {
+      "model": "GNN",
+      "k": 50,
+      "ndcg_mean": 0.10572432430644023,
+      "ndcg_std": 0.002281512566397296,
+      "recall_mean": 0.16418173233357314,
+      "recall_std": 0.0025251560449428027,
+      "precision_mean": 0.006658860265417642,
+      "precision_std": 5.893703696542362e-05,
+      "hit_rate_mean": 0.20804059328649493,
+      "hit_rate_std": 0.004732379255652675
+    },
+    {
+      "model": "Hybrid",
+      "k": 50,
+      "ndcg_mean": 0.11717670427378389,
+      "ndcg_std": 0.000536031932056393,
+      "recall_mean": 0.1662600392109718,
+      "recall_std": 0.00258838461338605,
+      "precision_mean": 0.00708040593286495,
+      "precision_std": 0.00010560303870779664,
+      "hit_rate_mean": 0.21701795472287275,
+      "hit_rate_std": 0.00411227703077781
+    },
+    {
+      "model": "Hybrid_ALS_only",
+      "k": 50,
+      "ndcg_mean": 0.11021293947113005,
+      "ndcg_std": 0.0009141755856518333,
+      "recall_mean": 0.16586372950101402,
+      "recall_std": 0.001357318753067074,
+      "precision_mean": 0.006971116315378611,
+      "precision_std": 4.8750960174851024e-05,
+      "hit_rate_mean": 0.21350507416081185,
+      "hit_rate_std": 0.005280151935389795
+    }
+  ],
+  "paired": [
+    {
+      "comparison": "Hybrid - ALS",
+      "metric": "ndcg",
+      "difference": 0.04351116766169605,
+      "ci_low": 0.03424263265636784,
+      "ci_high": 0.05359887230666551
+    },
+    {
+      "comparison": "Hybrid - ALS",
+      "metric": "recall",
+      "difference": 0.05015410747508781,
+      "ci_low": 0.037777160819283576,
+      "ci_high": 0.06377225158245269
+    },
+    {
+      "comparison": "Hybrid - BPR",
+      "metric": "ndcg",
+      "difference": 0.019345712446532912,
+      "ci_low": 0.013416207842054769,
+      "ci_high": 0.02549983932319903
+    },
+    {
+      "comparison": "Hybrid - BPR",
+      "metric": "recall",
+      "difference": 0.03416456036050115,
+      "ci_low": 0.024239098737343822,
+      "ci_high": 0.04552681690777309
+    },
+    {
+      "comparison": "Hybrid - ALS+BPR",
+      "metric": "ndcg",
+      "difference": 0.012612212247039787,
+      "ci_low": 0.008303536576342049,
+      "ci_high": 0.017382138845523976
+    },
+    {
+      "comparison": "Hybrid - ALS+BPR",
+      "metric": "recall",
+      "difference": 0.021534689484400488,
+      "ci_low": 0.012599169764236253,
+      "ci_high": 0.030738249806368183
+    },
+    {
+      "comparison": "Hybrid - GNN",
+      "metric": "ndcg",
+      "difference": 0.01145237996734365,
+      "ci_low": 0.007000836648844524,
+      "ci_high": 0.01638208514749675
+    },
+    {
+      "comparison": "Hybrid - GNN",
+      "metric": "recall",
+      "difference": 0.0020783068773986457,
+      "ci_low": -0.0032667542673419717,
+      "ci_high": 0.007539150730053851
+    }
+  ]
+}

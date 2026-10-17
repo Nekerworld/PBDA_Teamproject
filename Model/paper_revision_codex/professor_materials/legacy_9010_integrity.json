@@ -1,0 +1,83 @@
+{
+  "source": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\data\\research_revision_9010",
+  "train_events": 2480490,
+  "test_events": 275611,
+  "actual_train_ratio": 0.8999996734517349,
+  "manifest_config_test_size": 0.2,
+  "manifest_actual_prefilter_train_ratio": 0.8999996734517349,
+  "manifest_config_matches_counts": false,
+  "train_purchases_before_filter": 20326,
+  "train_purchases_after_filter": 0,
+  "evaluation_users": 544,
+  "runs": [
+    {
+      "seed": 42,
+      "complete_present": true,
+      "evaluation_hash_matches": true,
+      "gamma": 0.8,
+      "candidate_k": 500
+    },
+    {
+      "seed": 43,
+      "complete_present": true,
+      "evaluation_hash_matches": true,
+      "gamma": 1.0,
+      "candidate_k": 1000
+    },
+    {
+      "seed": 44,
+      "complete_present": true,
+      "evaluation_hash_matches": true,
+      "gamma": 0.8,
+      "candidate_k": 1000
+    }
+  ],
+  "summary": [
+    {
+      "Model": "ALS",
+      "Recall@10": 0.0045445261437908,
+      "NDCG@10": 0.002699751435299,
+      "Recall@30": 0.004719596171802,
+      "NDCG@30": 0.0027694987724353,
+      "Recall@50": 0.0050113795518207,
+      "NDCG@50": 0.002886774792419
+    },
+    {
+      "Model": "BPR",
+      "Recall@10": 0.0065359477124183,
+      "NDCG@10": 0.0066472808085084,
+      "Recall@30": 0.0077614379084967,
+      "NDCG@30": 0.0069156510086028,
+      "Recall@50": 0.0083741830065359,
+      "NDCG@50": 0.0070300213586266
+    },
+    {
+      "Model": "ALS+BPR",
+      "Recall@10": 0.0087316176470587,
+      "NDCG@10": 0.0083982395174153,
+      "Recall@30": 0.0089893596327419,
+      "NDCG@30": 0.0085177860719955,
+      "Recall@50": 0.0091449774354185,
+      "NDCG@50": 0.0085757880817081
+    },
+    {
+      "Model": "LightGCN",
+      "Recall@10": 0.0091741557734204,
+      "NDCG@10": 0.0076785572572954,
+      "Recall@30": 0.0102343020541549,
+      "NDCG@30": 0.0080858247640109,
+      "Recall@50": 0.0103874883286647,
+      "NDCG@50": 0.0081420290112904
+    },
+    {
+      "Model": "Hybrid",
+      "Recall@10": 0.0051572712418299,
+      "NDCG@10": 0.0032944557796917,
+      "Recall@30": 0.0071559873949579,
+      "NDCG@30": 0.0039487324526994,
+      "Recall@50": 0.0084836017740429,
+      "NDCG@50": 0.0042929949424284
+    }
+  ],
+  "interpretation": "Historical counts describe 90:10; a nested manifest config retains 0.2. Completion hashes do not fix incorrect metadata."
+}

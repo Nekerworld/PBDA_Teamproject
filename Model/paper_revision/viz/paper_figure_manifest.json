@@ -1,0 +1,35 @@
+{
+  "experiment_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\data\\research_revision_9010",
+  "experiment_reference_id": "238aac73b3286bd8ce51d43a38acef93505842c070beef6ed6cefcf7d2b1fa8e",
+  "split": "90:10",
+  "primary_condition": "if_events",
+  "dpi": 600,
+  "files": [
+    "model_comparison.csv",
+    "model_comparison_per_seed.csv",
+    "model_comparison.png",
+    "model_comparison.pdf",
+    "preprocessing_dataset_statistics.csv",
+    "preprocessing_event_breakdown.csv",
+    "preprocessing_filter_stage_statistics.csv",
+    "preprocessing_filter_comparison.csv",
+    "gamma_sensitivity_per_seed.csv",
+    "gamma_sensitivity.csv",
+    "gamma_selection.csv",
+    "gamma_sensitivity.png",
+    "gamma_sensitivity.pdf"
+  ],
+  "sources": {
+    "experiment_metrics.csv": "73616d1fe7f878618aeb41218f6cb6a952a98dde61617eeb0fd2e006d4efaef6",
+    "candidate_comparison.csv": "da330bdf9af835daa4c00262d4574e2ec76d43c3dc46f6b9f0583dd1b7599e57",
+    "seed_summary.csv": "063243ebd1019bc16af179aa75dedea25f9c1cac00bab2797bbd56d8eaa61202",
+    "confidence_intervals.csv": "dcbb89c4e1cf8878ad17c329b87f8cea61bb3ab8f73e9b42ee2daf76313544cb",
+    "paired_differences.csv": "7b72cd08666e06d3a5872a23c30932d84c4ad0225956b4fb67fe008b05fda587",
+    "model_comparison_9010.csv": "62f2e23ca528b2a21299a9779d3939d36fe122a4529d058b668aa65ed0345bbd",
+    "model_comparison_9010_per_seed.csv": "a9441c1f3df3459e06424616385a3b4e1149b59bd8eb7c0078ec800353ea543d",
+    "table1_dataset_statistics.csv": "ba0e319447c758066d072f1db370cfff0787ba51763c17c9c5a7688bbd3ea84e",
+    "table_s1_event_breakdown_reference.csv": "c1dad770f9d0171ebc7eb6cf740ea2119171a26d4e763b054d6724a473888170",
+    "datasets/filter_comparison.csv": "86dbf301aeb827fecf660443a8beea3adfa98d59b137c658881a532a4095a66d",
+    "datasets/filter_stage_statistics.csv": "7365dece6935af5eee2285561b06a03596d532a719777a22f7544830515f680b"
+  }
+}
