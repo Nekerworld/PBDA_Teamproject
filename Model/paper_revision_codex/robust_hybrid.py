@@ -41,13 +41,21 @@ def configuration_grid():
         for g in [1.,1.1,1.25,1.5]]
 
 
-def run(root,parent,max_hours,reuse_validation=None):
+HISTORICAL_V5_BACKBONES=[('l2_uniform','baseline'),('l3_uniform','baseline'),('l2_mf_mixed','hybrid')]
+HISTORICAL_V5_GNN='l3_uniform'
+BACKBONE_PROVENANCE=('v5 backbones and the standalone GNN comparator were chosen manually after the v3 sealed '
+    'test had been observed; they are not the v3 validation top-k. Results from this script are therefore '
+    'test-informed. Use rolling_protocol.py for preregistered selection.')
+
+
+def run(root,parent,max_hours,reuse_validation=None,backbones=None,gnn_name=HISTORICAL_V5_GNN):
     root,parent=Path(root),Path(parent);root.mkdir(parents=True,exist_ok=True)
     torch.set_num_threads(1);start=time.time()
     pplan=json.loads((parent/'experiment_plan.json').read_text(encoding='utf-8'))
     old=json.loads((parent/'selection.json').read_text(encoding='utf-8'))
     trials=json.loads((parent/'validation_candidates.json').read_text(encoding='utf-8'))['hybrid']
-    specifications=[('l2_uniform','baseline'),('l3_uniform','baseline'),('l2_mf_mixed','hybrid')]
+    specifications=[tuple(s) for s in (backbones or HISTORICAL_V5_BACKBONES)]
+    if gnn_name not in {name for name,_ in specifications}:raise ValueError('Standalone GNN must be one of the backbones')
     entries={name:next(t for t in trials if t['name']==name and t['checkpoint']==checkpoint)
         for name,checkpoint in specifications}
     grid=configuration_grid()
@@ -59,6 +67,7 @@ def run(root,parent,max_hours,reuse_validation=None):
         'source':pplan['source'],'source_manifest_hash':pplan['source_manifest_hash'],
         'method':'three-seed mean validation min relative NDCG/Recall lift; fixed v3 standalone GNN comparator',
         'configurations_per_backbone':len(grid),'grid':grid,'backbones':specifications,
+        'standalone_gnn':gnn_name,'backbone_provenance':BACKBONE_PROVENANCE,
         'code':{p.name:sha256(p) for p in Path(__file__).parent.glob('*.py')},
         'torch':torch.__version__,'gpu':torch.cuda.get_device_name(0)}
     for name in ['model.py','learning.py','data_protocol.py','recommendation_scoring.py','ranking_evaluation.py','als_debug.py']:
@@ -149,8 +158,8 @@ def run(root,parent,max_hours,reuse_validation=None):
     cfg['candidate_k']=int(cfg['candidate_k']);cfg.update({n:float(best[n]) for n in ['ndcg','recall','joint_lift','average_lift']})
     winner={**winner,'config':cfg}
     # Existing strongest standalone architecture/checkpoint stays unchanged.
-    gnn_winner=entries['l3_uniform']
-    gnn_winner={**gnn_winner,'metrics':gnn_mean.loc['l3_uniform'].to_dict()}
+    gnn_winner=entries[gnn_name]
+    gnn_winner={**gnn_winner,'metrics':gnn_mean.loc[gnn_name].to_dict()}
     selection={'mf_alpha':mf_alpha,'hybrid':winner,'gnn':gnn_winner,
         'validation_reference':reference,'validation_joint_lift':float(best['joint_lift']),
         'validation_seeds':[42,43,44],'locked_utc':pd.Timestamp.now(tz='UTC').isoformat(),
@@ -227,4 +236,9 @@ if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--parent',type=Path,required=True);p.add_argument('--max-hours',type=float,default=9)
     p.add_argument('--reuse-validation',type=Path)
-    a=p.parse_args();run(a.output_dir,a.parent,a.max_hours,a.reuse_validation)
+    p.add_argument('--backbone',action='append',metavar='NAME:CHECKPOINT',
+        help='Repeatable; default is the historical v5 list (test-informed, see BACKBONE_PROVENANCE)')
+    p.add_argument('--standalone-gnn',default=HISTORICAL_V5_GNN)
+    a=p.parse_args()
+    backbones=[tuple(b.split(':',1)) for b in a.backbone] if a.backbone else None
+    run(a.output_dir,a.parent,a.max_hours,a.reuse_validation,backbones,a.standalone_gnn)
