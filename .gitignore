@@ -90,6 +90,11 @@ htmlcov/
 /Model/paper_revision_codex/test_artifacts/
 /Model/paper_revision_codex/professor_materials/qa/
 
+# Audit run workspaces (models, embeddings, processed splits); summaries are copied to audit/
+/Model/paper_revision_codex/audit_runs/
+# Small, verified audit summary tables are tracked
+!/Model/paper_revision_codex/audit/**/*.csv
+
 # Packaged datasets and delivery bundles
 *.zip
 *.7z
