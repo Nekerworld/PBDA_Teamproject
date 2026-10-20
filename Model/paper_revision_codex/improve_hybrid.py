@@ -18,7 +18,7 @@ import pandas as pd
 import torch
 from data_protocol import require_protocol,require_artifacts,positive_sets,dump_json,sha256
 from experiments import clone_protocol,write_dataset_statistics_tables,paired_bootstrap
-from model import ALSRecommender,GNNEmbeddingGenerator
+from model import ALSRecommender,GNNEmbeddingGenerator,load_without_adjacency
 from recommendation_scoring import FactorScorer,GNNScorer,minmax,top_indices,hybrid_scores
 
 KS=(10,20,30,40,50)
@@ -225,7 +225,7 @@ def train_trial(root,source,mf_dir,cache,alpha,name,variant,seed=42):
     alternative=directory/'hybrid_checkpoint'
     if not alternative.exists():clone_protocol(source,alternative)
     link_mf(mf_dir,alternative)
-    model.load_state_dict(torch.load(directory/'hybrid_best_state.pt',map_location='cpu',weights_only=True),strict=False)
+    load_without_adjacency(model,torch.load(directory/'hybrid_best_state.pt',map_location='cpu',weights_only=True))
     selected=json.loads((directory/'hybrid_checkpoint.json').read_text())
     generator.processed_dir=alternative
     generator._publish(model,graph,history,selected['epoch'],start,{'mode':'inner_hybrid_joint_selection'})

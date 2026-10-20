@@ -53,6 +53,14 @@ logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 # 전역 시드 고정 (재현가능성 보장)
 GLOBAL_SEED = 42
 
+def load_without_adjacency(model, state):
+    """Load a checkpoint saved without the fixed graph; any other key mismatch is an error."""
+    result = model.load_state_dict(state, strict=False)
+    if result.unexpected_keys or set(result.missing_keys) - {'adjacency'}:
+        raise RuntimeError(f'Checkpoint mismatch: missing={result.missing_keys} unexpected={result.unexpected_keys}')
+    return result
+
+
 def set_global_seed(seed: int = GLOBAL_SEED) -> None:
     """
     모든 랜덤 시드를 고정하여 재현가능성을 보장합니다.
@@ -164,6 +172,7 @@ class GNNEmbeddingGenerator:
     metadata_policy: str = 'latest'
     validation_k: int = 50
     validation_interval: int = 5
+    validation_metric: str = 'ndcg'
     propagation: str = 'unweighted'
     edge_dropout: float = 0.0
     negative_mode: str = 'uniform'
@@ -191,6 +200,8 @@ class GNNEmbeddingGenerator:
             raise ValueError('min_epochs must be positive')
         if not 0 <= self.edge_dropout < 1:
             raise ValueError('edge_dropout must be in [0, 1)')
+        if self.validation_metric not in {'ndcg', 'ndcg_recall_mean'}:
+            raise ValueError('validation_metric must be ndcg or ndcg_recall_mean')
 
     def _load_inputs_from(self,directory):
         require_protocol(directory)
@@ -366,7 +377,7 @@ class GNNEmbeddingGenerator:
         if validation is not None and best_epoch < 1:
             raise RuntimeError('Validation did not select a GNN epoch')
         if best_state is not None:
-            model.load_state_dict(best_state, strict=False)
+            load_without_adjacency(model, best_state)
         return model, best_epoch if validation is not None else epochs, history
 
     def _publish(self,model,graph,history,chosen,start,selection=None):
@@ -390,7 +401,8 @@ class GNNEmbeddingGenerator:
             graph_mode=self.graph_mode, loss_mode=self.loss_mode, n_negatives=self.n_negatives,
             temperature=self.temperature, min_epochs=self.min_epochs,
             device=self.device,
-            selection_metric='validation original NDCG', validation_k=self.validation_k,
+            selection_metric=('validation original NDCG' if self.validation_metric == 'ndcg'
+                              else 'validation original mean(NDCG, Recall)'), validation_k=self.validation_k,
             validation_protocol_id=(selection or {}).get('validation_protocol_id'))
 
     def run(self):
@@ -489,7 +501,10 @@ class GNNEmbeddingGenerator:
                 scores = (item_vectors @ chunk.T).detach().cpu().numpy()
                 for column, uid in enumerate(eligible[offset:offset + 256]):
                     append_ranking(records, uid, ids, scores[:, column], self.validation_k)
-        return ranking_metrics(recommendation_frame(records), positives, self.validation_k)[0]['ndcg']
+        metrics = ranking_metrics(recommendation_frame(records), positives, self.validation_k)[0]
+        if self.validation_metric == 'ndcg_recall_mean':
+            return (metrics['ndcg'] + metrics['recall']) / 2
+        return metrics['ndcg']
 
     def _save_embeddings(self, all_embeddings: np.ndarray, graph_data: Dict[str, Any]) -> None:
         """

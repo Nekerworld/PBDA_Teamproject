@@ -243,8 +243,13 @@ class FactorResult:
 
 def train_weighted_bpr(matrix, factors=128, regularization=.03, epochs=128,
                        seed=42, device='cpu', weighted=True, batch_size=65536,
-                       negative_mode='uniform'):
-    """Explicit weighted BPR; CSR data are actual pair-loss weights."""
+                       negative_mode='uniform', learning_rate=.001, checkpoint_epochs=(),
+                       checkpoint_callback=None):
+    """Explicit weighted BPR; CSR data are actual pair-loss weights.
+
+    ``checkpoint_callback(epoch, user_factors, item_factors)`` runs after the
+    listed epochs on detached CPU copies; it never alters the training stream.
+    """
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     coo = matrix.tocoo()
@@ -257,7 +262,8 @@ def train_weighted_bpr(matrix, factors=128, regularization=.03, epochs=128,
     items = torch.nn.Embedding(matrix.shape[1], factors, device=device)
     torch.nn.init.normal_(users.weight, std=.05)
     torch.nn.init.normal_(items.weight, std=.05)
-    optimizer = torch.optim.Adam([users.weight, items.weight], lr=.001)
+    optimizer = torch.optim.Adam([users.weight, items.weight], lr=learning_rate)
+    checkpoint_epochs = set(checkpoint_epochs)
     history = []
     for epoch in range(1, epochs + 1):
         negative = sampler.sample(pairs[:, 0], rng)
@@ -285,6 +291,9 @@ def train_weighted_bpr(matrix, factors=128, regularization=.03, epochs=128,
                         'negative_mode': negative_mode})
         if epoch == 1 or epoch % 25 == 0:
             print(f'Weighted BPR epoch {epoch}/{epochs}: {total / count:.6f}', flush=True)
+        if checkpoint_callback is not None and epoch in checkpoint_epochs:
+            checkpoint_callback(epoch, users.weight.detach().cpu().numpy().copy(),
+                                items.weight.detach().cpu().numpy().copy())
     return FactorResult(users.weight.detach().cpu().numpy(), items.weight.detach().cpu().numpy(), history)
 
 
