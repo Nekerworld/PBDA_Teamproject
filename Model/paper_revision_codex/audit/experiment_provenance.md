@@ -108,6 +108,8 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | 다른 PC 교차 재현 (v6 F3 전처리, 누수 검사, MF validation grid) | `report_tools/cross_machine_repro.py` | `audit/cross_machine/cross_machine_F3_early.json` |
 | CPU와 CUDA 학습 비교 (F3 내부 validation) | `report_tools/device_check.py` | `audit/cross_machine/device_check_F3_early.json` |
 | 변이 테스트 (사본에서 실행) | `report_tools/mutation_check.py` | `audit/mutation/mutation_results.json` |
+| ALS/BPR 점수 정밀도 비교 (v7 F4 내부 validation, Cycle 4) | `report_tools/check_score_precision.py` | `audit/cycle4/score_precision_F4_val.json` |
+| 누수 검사를 원본 전체 + `--end-fraction 0.36`으로 실행 (v7 F4, Cycle 4. 누수 검사이며 지표 계산 아님) | `audit_tools/leakage_check.py` | `audit/cycle4/leakage_F4_fullraw_end036.json` (커밋된 F4 결과와 28개 동일), `leakage_F4_fullraw_without_end.json` (옵션 없이 실행하면 12개 거짓 실패) |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 

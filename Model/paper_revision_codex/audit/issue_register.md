@@ -4,7 +4,7 @@
 상태: `해결·검증` / `수정·검증 대기(실험 필요)` / `환경 제약` / `원고 수정 필요` / `미해결`.
 "검증"은 이 PC에서 실제로 실행한 테스트·스크립트만 가리킨다. 결과 JSON을 읽은 것만으로는 검증으로 치지 않는다.
 
-> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (exit 0). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨.
+> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (exit 0). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨. Cycle 4 재감사 항목(I-39 – I-47) 처리 완료.
 > - 시험 열람: v6는 fold마다 봉인 평가 1회, F1에서만 사후 분석 2회 추가 (`audit/results_v6/test_access_log.jsonl`). v7은 F4 봉인 평가 1회 (`audit/results_v7/test_access_log.jsonl`).
 > - 결과와 검증: `validation_report.md` (v7은 §12).
 > - Cycle 2 재감사에서 I-23 – I-26, Cycle 2 커밋 후 검증(418e7dd)에서 I-27, Cycle 3에서 I-28 – I-37, Cycle 3 커밋 후 검증에서 I-38, Cycle 4 재감사에서 I-39 이후를 찾음.
@@ -34,7 +34,7 @@
 | I-21 | P3 | v5 성공 기준이 "평균이 모든 baseline보다 높음" (유의성 아님) | 원고 수정 필요 (`manuscript_alignment.md`) | - |
 | I-22 | P3 | 원고 파일이 저장소에 없음 | 원고 수정 필요 (대조표 제공) | - |
 | I-23 | P1 | v6의 ALS/BPR이 grid 경계에서 선택됨. 경계 밖에서 ALS validation이 +0.011 – +0.027 | 해결·검증 (한계 공개): 사용자 승인으로 처음 쓰는 구간 F4에서 모든 모델군 grid를 넓힌 v7 실행. ALS가 validation에서 GNN을 앞섰지만(0.2176 vs 0.2169) 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의 (v6는 NDCG 6칸 비유의, Recall 3칸 유의). "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론 유지. v6 F1–F3 수치는 덜 튜닝된 조건으로 남고, v7에서도 일부 축이 끝에 걸림(사전등록 규칙상 재확장 안 함) | c9d3e49, dea0f20 |
-| I-24 | P3 | ALS 결과가 BLAS 스레드 수에 따라 달라짐 | 문서화: v6는 1스레드로 고정. 다른 환경변수가 이미 있으면 그 값이 우선 | Cycle 2 커밋 |
+| I-24 | P3 | ALS 결과가 BLAS 스레드 수에 따라 달라짐 | 문서화: v6는 1스레드로 고정. v6·v7 시점 코드는 다른 환경변수가 이미 있으면 그 값이 우선했음 → Cycle 4에서 강제 고정 (I-41) | Cycle 2 커밋 |
 | I-25 | P2 | `determinism_check.py`가 numpy를 import한 뒤 스레드 환경변수를 설정함 (거짓 비결정성 보고) | 해결·검증 | Cycle 2 커밋 |
 | I-26 | P2 | Hybrid 후보 수가 fold마다 다름 (20000 / 500 / all) | 해석 사항: validation 곡선이 평평함. 원고에서 후보 수를 핵심 설계로 주장하지 않음 | - |
 | I-27 | P2 | 커밋된 결과 파일이 `SHA256SUMS.txt`와 불일치 (줄바꿈 자동 변환) | 해결·검증 (커밋 후 검증에서 발견). 새 clone(다른 PC)에서도 60/60 일치 | 418e7dd |
@@ -49,6 +49,15 @@
 | I-36 | P2 | `requirements.txt`가 scikit-learn 1.9.1을 고정하지만 v6·v7은 1.9.0으로 실행됨. v6·v7 실행에 쓴 분리 실행 스크립트도 저장소에 없음 (`audit_runs/`는 gitignore) | 해결·검증: v7 venv를 그대로 적은 `requirements-v7-lock.txt` 추가. 새 venv에 설치해 패키지 목록이 v7 venv와 완전히 같음을 확인. `report_tools/launch_detached.py` 추가 후 실제 실행으로 동작 확인. `requirements.txt` 자체는 기존 문서의 기준이라 바꾸지 않음 | e9538c8 |
 | I-37 | P2 | codex 폴더 첫 문서 `README.md`가 v5 주장("두 지표의 세 seed 평균이 모든 비교 모델보다 높았다")을 감사 결과 안내 없이 제시. `README_HYBRID_KO.md`, `REPRODUCE_KO.md`도 v5 경로만 안내. `professor_materials/README_KO.md`(같은 주장과 "NDCG +10.83%"), 저장소 최상위 `README.md`(v5 재실행을 "최종 Hybrid 실험"으로 안내)도 같음 | 해결: 원문은 이력으로 보존하고, 맨 앞에 시험 재사용 사실과 감사 문서(검증 결과, 재현 절차, 원고 대조표) 안내를 추가 | e9538c8 |
 | I-38 | P2 | plan의 코드 해시(`code_hashes`)가 작업 폴더의 원시 바이트를 해시해 checkout의 줄바꿈 변환(`core.autocrlf`)에 따라 달라짐. 같은 commit이라도 다른 PC에서는 plan 검사가 거짓 실패하고, "코드 변경"과 "줄바꿈 차이"를 구별할 수 없음 (v7 plan은 CRLF 19개·LF 7개가 섞여 있었고, 이 PC에서 v6 plan과 비교하면 내용이 같은 파일 7개가 불일치) | 해결·검증: 새 plan은 줄바꿈을 정규화한 해시(`sha256-lf`)와 방식을 기록함. 방식 기록이 없는 v6/v7 plan은 원시 바이트로 비교해 호환 유지. `report_tools/verify_plan_code.py`로 v6 25개, v7 26개 해시가 모두 각 plan commit의 git 내용과 일치함을 확인 (조작한 해시 1개는 검출). 테스트 3개 추가 | b575dac |
+| I-39 | P2 | 재개 시 누수 검사 게이트가 `leakage_check.json`의 존재만 확인함. 이 파일은 검사가 실패해도 쓰이므로, 실패한 fold를 재개하면 검사를 건너뛰고 진행됨 | 해결·검증: `leakage_gate`가 저장된 `all_pass`를 읽어 거짓이면 멈춤. 테스트 2개, 변이(옛 동작) 검출. v6 3 fold·v7 F4는 모두 `all_pass: true`라 결과 영향 없음 | 05b9c65 |
+| I-40 | P2 | 시험 열람 가드가 같은 root 안에서 plan 해시만 비교함. `selection.json`을 다시 만들어 같은 plan으로 시험을 다시 열거나, 새 root에서 바뀐 plan으로 같은 구간을 여는 것을 막지 못함 (docstring은 "fold마다 한 번"이라고 설명) | 해결·검증: 같은 root에서 `selection_sha256`이 다르면 거부. 실행 시작 시 커밋된 `audit/results_*`의 plan·접근 로그를 읽어 같은 원본 해시·같은 구간(`end_fraction`, `test_size`)을 다른 plan으로 연 기록이 있으면 거부 (같은 plan의 재현은 허용). 실제 커밋 기록으로 F1–F4가 새 plan에 막히고 v6·v7 자신은 막히지 않음을 테스트. 커밋되지 않은 root는 여전히 볼 수 없음(문서화). v6·v7 접근 로그는 fold마다 sealed_test 1회라 결과 영향 없음 | 05b9c65 |
+| I-41 | P2 | `rolling_protocol.py`가 BLAS 스레드 변수를 `setdefault`로 설정해 호출자가 준 값이 우선함. 나중에 import되는 `experiments.py`가 변수를 1로 다시 쓰지만 BLAS 로드 뒤라, 기록·확인용으로 변수를 읽으면 실제와 다를 수 있음. 스레드·장치가 plan에 기록되지 않음 | 해결·검증: 값을 강제로 1로 설정. plan `environment`에 변수, 로드된 라이브러리의 실제 스레드 수(threadpoolctl), torch 스레드, 장치 기록. 호출자가 4를 줘도 실제 BLAS 스레드가 1인지 확인하는 테스트(옛 동작 변이 검출). v7은 1 고정 launcher로 실행, v6은 §9 교차 재현이 1스레드를 뒷받침 | 05b9c65 |
+| I-42 | P3 | GNN 상한 연장을 한 번만 하고 다시 정렬함. 연장 뒤 다른 상한 도달 설정이 Hybrid backbone 상위 3개에 들어오면 연장 없이 쓰일 수 있음 | 해결·검증: 상위 3개에 연장 안 된 상한 도달 설정이 없을 때까지 반복 (`extend_capped_backbones`). 테스트 2개, 변이 검출. v6·v7은 상위 3개에 상한 도달이 없어 결과 영향 없음 | 05b9c65 |
+| I-43 | P3 | 재개 기준 파일 `test_metrics.csv`를 보고서 CSV보다 먼저 씀. 그 사이에 중단되면 재개 때 보고서를 만들지 않음 | 해결: `test_metrics.csv`를 마지막에 씀. 코드 정독으로 확인(전용 테스트 없음). v6·v7은 보고서가 모두 있음 | 05b9c65 |
+| I-44 | P3 | `leakage_check.py`를 단독으로 원본 폴더에 대해 실행하면 rolling fold의 끝 비율을 알 수 없음 (manifest에 없음). 원본 전체로 v7 F4를 검사하면 28개 중 12개가 거짓 실패 | 해결·검증: `--end-fraction` 추가. 원본 전체 + 0.36으로 v7 F4를 검사해 커밋된 결과와 28개 모두 같음 (`audit/cycle4/`). 테스트 1개, 변이 검출 | 05b9c65 |
+| I-45 | P3 | `verify_plan_code.py`가 코드가 바뀌어도 종료 코드 0을 냄 (plan 해시와 commit만 확인) | 해결·검증: 종료 코드의 뜻을 문서화하고 `--require-unchanged` 추가. 실제 v6 plan으로 0 / 1 확인하는 테스트 | 05b9c65 |
+| I-46 | P3 | 선택 경로는 ALS/BPR 원 점수로, 시험 경로는 min-max 후 float32 점수로 순위를 매김. 동점 순서가 달라질 수 있음 | 측정: v7 F4 내부 validation에서 두 정책 × ALS/BPR 모두 목록 100% 동일, 지표 차이 0 (원 점수도 float32). 코드 변경 없음 (`audit/cycle4/score_precision_F4_val.json`) | 05b9c65 |
+| I-47 | P2 | 감사 문서의 수치·표현 오류 24건 (v6 Hybrid − ALS+BPR Recall 3칸 유의를 "v6와 같이 모두 비유의"로 쓴 것, Recall 0 비율, 후보 수 범위, γ 정책별 값, GNN 상한 4+1개, 반올림 등). 저장소만으로 다시 확인할 수 없는 주장(v6 PC 전용 검사)이 표시 없이 있었음 | 해결·검증: 각 수치를 커밋된 CSV·JSON에서 다시 계산한 뒤 고침. 확인할 수 없는 주장은 그렇게 표시함 | e3cf44e |
 
 ---
 
@@ -190,8 +199,15 @@ Cycle 2에서 `report_tools/mf_boundary_probe.py`로 **validation 구간만** �
 
 `implicit` ALS는 OpenBLAS 스레드 수에 따라 부동소수점 누적 순서가 달라짐. 24스레드와 1스레드의 결과가 달랐음.
 
-- `rolling_protocol.py`는 numpy import 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS=1`을 `setdefault`로 설정함. 따라서 v6는 1스레드에서 실행됨.
-- 사용자 환경에 이 변수들이 다른 값으로 이미 있으면 그 값이 우선함. 재현할 때는 1로 설정해야 함 (`reproducibility.md`).
+- v6·v7 시점의 `rolling_protocol.py`는 numpy import 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS=1`을 `setdefault`로 설정함. 사용자 환경에 이 변수들이 다른 값으로 이미 있으면 그 값이 우선함.
+- v6가 1스레드였다는 근거는 다른 PC에서 1스레드로 다시 학습한 F3 ALS grid 24행이 비트 단위로 같다는 것(`validation_report.md` §9)이고, v7은 1로 고정하는 launcher로 실행함.
+- Cycle 4(I-41)부터 값을 강제로 1로 설정하고 실제 스레드 수를 plan에 기록함.
+
+## I-39 – I-47 (Cycle 4 재감사)
+
+Cycle 4의 독립 재감사(코드·문서 각각)가 찾은 항목을 감사자가 직접 확인한 뒤 고침. P0·P1은 없었음. 상세 내용은 위 표와 `cycle_log.md` Cycle 4에 있음.
+- 코드 수정(I-39 – I-45)은 모두 v6·v7 실행 이후의 변경이며, v6·v7의 선택·시험 결과를 바꾸지 않음 (항목별 근거는 표의 "결과 영향 없음" 참고).
+- 새 테스트 `test_cycle4_guards.py` 12개. 옛 동작을 다시 넣은 변이 6개(G1–G6)를 모두 잡음 (처음에는 스레드 변이 G5를 놓쳐, 환경변수 대신 실제 BLAS 스레드 수를 읽도록 테스트를 고침).
 
 ## I-25 (P2) 결정성 검사 스크립트의 import 순서
 
