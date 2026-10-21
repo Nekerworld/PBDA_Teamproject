@@ -1,0 +1,90 @@
+{
+  "fold": "F3_early",
+  "split": "inner validation (outer test not read)",
+  "gnn_config": {
+    "layers": 2,
+    "embedding_dim": 128,
+    "learning_rate": 0.001
+  },
+  "bpr_config": {
+    "factors": 128,
+    "learning_rate": 0.005,
+    "regularization": 0.003
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "sklearn": "1.9.0",
+    "torch": "2.11.0+cu128",
+    "implicit": "0.7.3",
+    "cuda": "12.8",
+    "gpu": "NVIDIA GeForce RTX 3090 Ti"
+  },
+  "runs": [
+    {
+      "model": "GNN",
+      "device": "cuda",
+      "epochs": 30,
+      "seconds": 141.95725250000032,
+      "ndcg": 0.14463587855708074,
+      "recall": 0.2377207392010664,
+      "precision": 0.007461368653421634,
+      "hit_rate": 0.293598233995585,
+      "hit_users": 133,
+      "users": 453,
+      "score": 0.19117830887907356
+    },
+    {
+      "model": "GNN",
+      "device": "cpu",
+      "epochs": 30,
+      "seconds": 1176.5323561000005,
+      "ndcg": 0.143132355905732,
+      "recall": 0.2344489006643272,
+      "precision": 0.007373068432671082,
+      "hit_rate": 0.293598233995585,
+      "hit_users": 133,
+      "users": 453,
+      "score": 0.1887906282850296
+    },
+    {
+      "model": "BPR",
+      "device": "cuda",
+      "epochs": 64,
+      "seconds": 15.665040300000328,
+      "ndcg": 0.16612587022531045,
+      "recall": 0.2137618284934365,
+      "precision": 0.006445916114790287,
+      "hit_rate": 0.2781456953642384,
+      "hit_users": 126,
+      "users": 453,
+      "score": 0.18994384935937347
+    },
+    {
+      "model": "BPR",
+      "device": "cpu",
+      "epochs": 64,
+      "seconds": 37.886287999999695,
+      "ndcg": 0.16394952818516592,
+      "recall": 0.21849137047463413,
+      "precision": 0.006445916114790287,
+      "hit_rate": 0.2803532008830022,
+      "hit_users": 127,
+      "users": 453,
+      "score": 0.1912204493299
+    }
+  ],
+  "gnn_cuda_vs_cpu": {
+    "max_abs_diff": 0.9631795000000001,
+    "mean_top50_overlap": 0.8398467432950191,
+    "identical_lists_share": 0.0
+  },
+  "bpr_cuda_vs_cpu": {
+    "max_abs_diff": 1.4525816440582275,
+    "mean_top50_overlap": 0.284904214559387,
+    "identical_lists_share": 0.0
+  }
+}
