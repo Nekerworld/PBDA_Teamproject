@@ -8,15 +8,16 @@
 |---|---|
 | 회귀 테스트 (기존 46개 + 신규 16개) | 62/62 통과 (Cycle 2, 첫 PC) |
 | 회귀 테스트, 다른 PC의 깨끗한 venv (Cycle 3) | 70/70 통과 (v7 테스트 포함). 이후 `test_cycle3_consistency.py` 9개 추가 → §11 |
-| 회귀 테스트 (Cycle 3, v7 완료 후) | 78개 시점: v7 실행 venv 78/78, `requirements-v7-lock.txt`로 새로 만든 venv 78/78. M04 테스트 추가 후 79/79 (두 venv 모두). I-38 수정 후 82/82 (v7 venv). 모두 인자 없는 `python -m pytest` |
+| 회귀 테스트 (Cycle 3, v7 완료 후) | 78개 시점: v7 실행 venv 78/78, `requirements-v7-lock.txt`로 새로 만든 venv 78/78. M04 테스트 추가 후 79/79 (두 venv 모두). I-38 수정 후 82/82 (v7 venv). 모두 인자 없는 `python -m pytest` (당시 실행 출력은 저장소에 없음. 현재 수는 Cycle 6 행) |
 | 회귀 테스트 (Cycle 4) | `test_cycle4_guards.py` 12개 추가 후 94/94 (v7 venv) → §13 |
 | 회귀 테스트 (Cycle 5) | `test_cycle5_guards.py` 12개 추가 후 106/106 (v7 venv) → §14 |
+| 회귀 테스트 (Cycle 6) | `test_cycle5_guards.py`에 3개 추가 후 109/109 (v7 venv) → §15 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
 | 실제 데이터 지표 교차 계산 | v6 평가기와 기존 `ranking_evaluation.ranking_metrics`를 3 fold × 8 모델 × K∈{10,50}, 48건에서 비교. 최대 차이 1.0e-16 (v6 PC의 실행 폴더에서 실행. 비교 결과 파일은 저장소에 없어 이 저장소만으로는 재확인할 수 없음) |
 | novel 정책 독립 검사 | 추천 1,010,100건 중 원본 학습 기간에 본 상품 0건, 사용자별 중복 0건 (위와 같이 v6 PC에서 실행, 결과 파일 없음. v7은 커밋된 도구로 다시 실행 가능 → §12.1) |
-| 수기 계산 대조 | F1 Recent (0.0938 / 0.1265)가 감사 초기에 따로 계산한 값과 같음 |
+| 수기 계산 대조 | F1 Recent (0.0938 / 0.1265)가 감사 초기에 따로 계산한 값과 같음 (그 계산 기록은 저장소에 없음. 저장된 추천 목록으로 지표를 다시 계산하는 검사(§12 `recompute_test_metrics.py`)는 v7 F4에만 했다. v6 추천 목록은 v6 PC의 실행 폴더에만 있음) |
 
 ## 2. 누수 (원본 데이터로 독립 재계산)
 
@@ -45,7 +46,7 @@ F1, F2, F3 모두 28/28 통과 (`F*/leakage_check.json`). 검사 항목:
 | | | novel | 505 | 248 | 225 | |
 
 - 모든 모델의 분모는 같다. 학습 벡터가 없는 사용자는 0점으로 포함한다.
-- repeat 정책에서 학습 모델마다 사용자의 73.6–80.8%가 Recall 0이다 (모델별 값, Hybrid는 73.6–77.8%, `per_user_distribution.csv`).
+- repeat 정책에서 학습 모델(baseline 4종과 Hybrid)마다 사용자의 73.6–80.8%가 Recall 0이다 (모델별 값, Hybrid는 73.6–77.8%, `per_user_distribution.csv`). ablation `Hybrid_ALS_only`까지 넣으면 73.2–80.8%.
 - 적어도 한 seed에서 맞힌 사용자 수(Hybrid, repeat)는 F1 190, F2 205, F3 166명이다.
 
 ## 4. 시험 결과
@@ -95,10 +96,10 @@ novel 정책에서 학습 모델의 NDCG는 repeat의 약 15–28%, Recall은 �
 
 **해석**
 - Hybrid는 평균으로는 대부분의 칸에서 1위다 (baseline 7종 대비 12칸 중 9칸).
-- `Hybrid_ALS_only`는 Hybrid에서 MF 부분의 BPR만 뺀 ablation이다 (GNN 결합과 γ는 같음). 사전등록 비교 대상이 아니어서 검정하지 않았다.
+- `Hybrid_ALS_only`는 Hybrid와 같은 후보(ALS+BPR로 만든 후보)에서, 최종 결합 점수의 MF 부분만 ALS로 바꾼 ablation이다 (GNN 결합과 γ는 같음). 후보 생성에는 BPR이 그대로 쓰이므로 BPR을 완전히 뺀 모델이 아니다. `balanced_union` 후보에서는 BPR 상위 항목이 후보의 절반까지 들어온다. 사전등록 비교 대상이 아니어서 검정하지 않았다.
   - Hybrid와의 평균 차이는 작다 (repeat NDCG +0.0011 – +0.0051).
-  - F3 novel에서는 ablation이 더 높다 (NDCG 0.0353 vs 0.0347, Recall 0.0805 vs 0.0786).
-  - BPR 결합의 기여는 확인되지 않는다.
+  - ablation이 더 높은 칸: F3 novel (NDCG 0.0353 vs 0.0347, Recall 0.0805 vs 0.0786), F1 repeat Recall (0.1681 vs 0.1668).
+  - 후보 생성에 BPR이 남아 있고 검정도 하지 않았으므로, 이 비교로 BPR의 기여를 판단할 수 없다.
 - GNN 결합, γ, 후보 생성, 따로 선택된 MF 결합 비율 α(Hybrid와 ALS+BPR baseline의 α가 fold·정책에 따라 다름)를 합친 효과는 "Hybrid − ALS+BPR" 비교가 보여 준다: NDCG는 6칸 모두 비유의, Recall은 3칸(F1·F2 repeat, F3 novel) 유의.
 - 가장 강한 두 baseline(GNN, ALS+BPR)보다 **세 fold 모두에서 유의하게 높은 지표는 없다**.
 - ALS+BPR 대비 NDCG는 6개 칸 모두 비유의다.
@@ -259,7 +260,7 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
 - 특히 M09–M11은 "validation 선택에 쓰는 `hybrid_grid` 점수"와 "시험에 쓰는 `hybrid_ranking` 점수"가 같은지를 아무 테스트도 확인하지 않았다는 뜻이다. 새 테스트는 두 정책, 두 결합 방식, γ ∈ {1, 1.5}, 후보 수 3종에서 두 경로의 지표가 1e-12 이내로 같음을 확인한다.
 - **M04**: 기존 합성 데이터는 모든 사용자가 같은 상품을 반복해서 보므로 core 필터가 학습 이력을 하나도 지우지 않는다 (필터 전후 이력이 다른 사용자 0명). 그래서 "원본 이력 대신 필터 후 이력"을 쓰는 결함이 이 데이터에서는 정답 코드와 구별되지 않았다. 필터가 지우는 희귀 상품을 본 뒤 시험에서 그 상품을 산 사용자를 넣은 테스트(`test_novel_truth_removes_items_seen_only_before_core_filtering`)를 추가해 잡았다.
 - 기록 정정: v7 실행 중 같은 사본으로 한 예비 실행(`audit_runs/mutation.log`, 보존)에서는 M04를 기존 테스트가 잡은 것으로 나왔다. 대상 코드는 같은데 공식 실행에서는 놓침으로 나왔고, 위 설명대로 합성 데이터에서 M04는 정답 코드와 구별되지 않는다. 따라서 예비 실행의 실패는 M04와 무관한 원인이었다 (예비 실행 당시의 mutant 문구 또는 v7과 GPU를 같이 쓴 환경으로 추정하며, 확인하지 못함). 이 문서는 공식 실행만 쓴다. M04 테스트를 넣기 전의 공식 실행 결과는 `mutation_results_run1_before_M04_test.json`으로 보존했다.
-- 이 결과 뒤에 `rolling_protocol.py`가 두 번 바뀌었다 (I-38 코드 해시, Cycle 4 가드). Cycle 4 수정 후 같은 명령으로 다시 실행한 결과(2026-10-22, 49분 38초)가 위 공식 결과 JSON과 완전히 같았다 (17/17 검출, 기존 테스트 11개 놓침, 새 테스트는 M06·M12 놓침).
+- 이 결과 뒤에 `rolling_protocol.py`가 여러 번 바뀌었다 (I-38 코드 해시, Cycle 4·5·6 가드). 대상 문구 17개는 매번 한 번씩 있음을 확인했다. Cycle 4 수정 후 같은 명령으로 다시 실행한 결과(2026-10-22, 49분 38초)가 위 공식 결과 JSON과 완전히 같았다 (17/17 검출, 기존 테스트 11개 놓침, 새 테스트는 M06·M12 놓침).
 
 ## 12. v7: 확장 grid, 처음 쓰는 구간 F4 (I-23 확인 실험)
 
@@ -326,10 +327,10 @@ GNN·ALS+BPR 대비 95% CI 반폭은 0.004 – 0.010이다. 사전 추정은 pla
 
 - **I-23의 질문("baseline을 충분히 튜닝해도 결론이 유지되는가")에 대한 답**: 유지된다. ALS·BPR·GNN grid를 모두 넓히자 ALS는 validation에서 GNN을 앞섰지만, 시험에서 Hybrid와 ALS+BPR의 차이는 네 칸 모두 비유의다. v6에서는 NDCG 6칸 모두 비유의, Recall 6칸 중 3칸 유의였다. 따라서 공통된 결론은 "Hybrid가 가장 강한 baseline보다 일관되게 유의하게 높지는 않다"이다.
 - Hybrid는 네 칸 모두에서 평균 1위다. 평균이 가장 높은 baseline은 칸마다 다르다: repeat에서는 BPR(NDCG 0.1901, Recall 0.2474. Recall은 ALS+BPR 0.2473과 사실상 같음), novel에서는 ALS+BPR(0.0389, 0.0842). 이 baseline 대비 Hybrid는 repeat Recall(Hybrid − BPR +0.0076, p_holm .029)만 유의하고, 나머지 세 칸은 비유의다. 네 칸 모두에 Hybrid가 유의하게 앞서지 못한 학습 baseline이 하나 이상 있다 (repeat NDCG: BPR·ALS+BPR, repeat Recall: ALS·ALS+BPR·GNN, novel NDCG: 넷 모두, novel Recall: BPR·ALS+BPR). 따라서 v7도 "Hybrid가 모든 baseline보다 우수하다"는 주장을 뒷받침하지 않는다.
-- 95% CI는 Holm 보정을 하지 않은 값이다. 그래서 CI가 0을 포함하지 않는데 Holm 기준으로는 비유의한 칸이 있다 (repeat Hybrid − ALS Recall, Hybrid − ALS+BPR NDCG·Recall, novel Hybrid − ALS+BPR Recall). 유의성 판정은 p_holm만 따른다.
+- 95% CI는 Holm 보정을 하지 않은 값이다. 그래서 CI가 0을 포함하지 않는데 Holm 기준으로는 비유의한 칸이 있다 (repeat Hybrid − ALS Recall, Hybrid − ALS+BPR NDCG·Recall, Hybrid − GNN Recall, novel Hybrid − ALS+BPR Recall, Hybrid − GNN NDCG). 유의성 판정은 p_holm만 따른다.
 - 단일 fold, 사용자 수백 명이라 0.01 이하의 차이는 이 실험으로 판정할 수 없다 (사전에 적어 둔 검정력 한계와 같다).
 - validation과 시험의 순위가 다르다. ALS는 validation에서 단일 모델군(ALS·BPR·GNN) 중 1위였지만(0.2176 vs GNN 0.2169, BPR 0.2154. 결합 모델인 ALS+BPR 0.2219, Hybrid 0.2250은 더 높음), 시험 repeat NDCG에서는 단일 모델군 중 최하위다 (ALS 0.1726, GNN 0.1824, BPR 0.1901). validation 모집단이 294명이라 선택 자체에 잡음이 크다.
-- `Hybrid_ALS_only`(BPR 제거 ablation, 사전등록 비교 대상 아님, 검정 안 함)는 repeat NDCG 0.1814로 Hybrid보다 0.0127 낮다. v6 F3 novel에서는 반대였으므로, BPR 결합의 기여는 구간에 따라 다르다.
+- `Hybrid_ALS_only`(같은 후보에서 결합 점수의 MF 부분만 ALS로 바꾼 ablation, 사전등록 비교 대상 아님, 검정 안 함)는 repeat NDCG 0.1814로 Hybrid보다 0.0127 낮다. v6에서는 F3 novel(두 지표)과 F1 repeat Recall에서 반대였다. 후보 생성에는 BPR이 남아 있고 검정도 하지 않았으므로, 이 결과로 BPR의 기여를 판단할 수는 없다.
 - v7의 수치를 v6 fold와 평균하지 않는다. grid와 구간이 달라 같은 실험이 아니다.
 - 남은 한계: ALS factors·α, BPR factors, GNN layers·dim·lr이 v7에서도 끝에 걸렸다. 사전등록 규칙에 따라 다시 넓히지 않았다.
 
@@ -342,7 +343,7 @@ v6·v7 실행 이후의 코드 수정이다. v6·v7의 선택과 시험 결과�
 | 새 테스트 `test_cycle4_guards.py` | 12/12 통과. 전체 94/94 |
 | 새 테스트의 결함 검출력 (옛 동작을 사본에 다시 넣음) | 6/6 검출: 누수 판정 무시(G1), selection 해시 미비교(G2), 커밋 기록 가드 없음(G3), 상한 연장 1회(G4), 스레드 `setdefault`(G5), `end_fraction` 무시(G6). 이 G 변이는 임시 스크립트로 돌려 결과 파일을 남기지 않았다 (Cycle 5의 H 변이는 커밋된 도구와 결과 파일이 있음 → §14) |
 | G5 처음 결과 | 놓침. 환경변수를 읽는 테스트였는데, `experiments.py`가 BLAS 로드 뒤 변수를 1로 다시 써서 옛 동작에서도 '1'이 읽혔다. 로드된 라이브러리의 실제 스레드 수를 읽도록 테스트를 고친 뒤 검출 |
-| 커밋된 기록으로 시험 열람 가드 | v6·v7 plan 자신은 통과, 새 plan은 F1_hist·F2_mid·F3_early·F4_unseen 모두 거부 |
+| 커밋된 기록으로 시험 열람 가드 | Cycle 4 코드에서: v6·v7 plan 자신은 통과, 새 plan은 F1_hist·F2_mid·F3_early·F4_unseen 모두 거부. Cycle 5부터는 코드도 같아야 예외라, 현재 코드에서는 v6·v7 plan도 거부됨 (§14) |
 | 누수 검사 `--end-fraction` (실제 데이터) | 원본 전체 + 0.36으로 v7 F4를 검사: 28개 모두 통과, 커밋된 `leakage_check.json`과 검사값까지 같음. 옵션 없이 실행하면 12개 거짓 실패 (`audit/cycle4/`) |
 | 선택·시험 경로의 점수 정밀도 (I-46) | v7 F4 내부 validation, 두 정책 × ALS/BPR: 목록 100% 동일, 지표 차이 0 (`audit/cycle4/score_precision_F4_val.json`) |
 | 변이 테스트 17개 (§11) | 수정된 코드로 다시 실행한 결과가 공식 결과와 완전히 같음 (`audit/cycle4/mutation_results_cycle4.json`, 00:42 – 01:31 KST) |
@@ -354,12 +355,29 @@ Cycle 4 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 �
 | 검사 | 결과 |
 |---|---|
 | 새 테스트 `test_cycle5_guards.py` | 12/12 통과. 전체 106/106 (v7 venv) |
-| 가드 변이 (옛 동작 12개를 사본에 하나씩 넣음, `report_tools/guard_mutation_check.py`) | 12/12 검출 (`audit/cycle5/guard_mutants.json`). 첫 실행에서는 H11(사후 분석 기준 파일을 먼저 씀), H12(selection의 plan 미확인)가 살아남아, 각각 전용 테스트를 추가한 뒤 다시 실행 |
+| 가드 변이 (옛 동작 12개를 사본에 하나씩 넣음, `report_tools/guard_mutation_check.py`) | 12/12 검출 (`audit/cycle5/guard_mutants.json`. 이 파일은 Cycle 6에서 H13·H14를 더한 14/14 결과로 다시 만들어짐 → §15). 첫 실행에서는 H11(사후 분석 기준 파일을 먼저 씀), H12(selection의 plan 미확인)가 살아남아, 각각 전용 테스트를 추가한 뒤 다시 실행 (첫 실행 결과 파일은 덮어써져 남아 있지 않음) |
 | 실제 기록으로 가드 (실제 원본 해시, 이 PC) | 커밋된 `audit/results_v6`·`results_v7`과 커밋 안 된 `audit_runs/v7`을 모두 찾음. 현재 코드에서는 v6 plan, v7 plan, 새 plan 모두 F1–F4가 충돌 (v6·v7은 코드가 바뀌어 재현 예외가 아님. plan commit을 checkout하면 예외) |
 | plan 코드 확인 (`verify_plan_code.py`) | v6 25개, v7 26개 해시가 plan commit 내용과 일치 (종료 코드 0). `--require-unchanged`는 둘 다 1 (바뀐 파일과 추가된 파일이 있음) |
-| 캐시 재사용 규칙을 실제 v7 root에 적용 (I-51) | GNN 작업 39개(validation 36 + refit 3), MF 학습 4개 모두 설정 일치 (`audit/cycle5/cache_identity_v7.json`) |
+| 캐시 재사용 규칙을 실제 v7 root에 적용 (I-51, I-60) | plan·selection·`validation_gnn.json`에서 다시 만든 요청 GNN 39개(validation 36 + refit 3)가 모두 있고 학습 설정과 일치, MF 학습 4개 일치 (`audit/cycle5/cache_identity_v7.json`. Cycle 5의 첫 도구는 같은 파일끼리 비교해 의미가 없었고, Cycle 6에서 고쳐 다시 만듦) |
 | v7 ALS의 BLAS 스레드 (I-24, I-41 정정) | F4 seed 42 ALS를 같은 설정으로 다시 학습: 1스레드는 저장된 v7 인자와 비트 단위로 같고, 24스레드는 최대 차이 0.49, Top-50 목록 완전 일치 1.3%(평균 겹침 98.6%) (`audit/cycle5/determinism_v7_blas1.csv`, `determinism_v7_blas24.csv`). BPR(GPU)은 둘 다 비트 단위로 같음. 2–23스레드는 검사 안 함 |
-| 변이 테스트 17개 (§11) | Cycle 5 코드로 다시 실행: 대상 문구 17개 모두 한 번씩 있음, 수정 안 한 사본은 두 묶음 통과, 결과가 공식 `mutation_results.json`과 완전히 같음 (17/17 검출, `audit/cycle5/mutation_results_cycle5.json`, 56분 36초. 다른 검사와 동시 실행) |
+| 변이 테스트 17개 (§11) | Cycle 5 코드로 다시 실행: 대상 문구 17개 모두 한 번씩 있음, 수정 안 한 사본은 두 묶음 통과, 결과가 공식 `mutation_results.json`과 완전히 같음 (17/17 검출, `audit/cycle5/mutation_results_cycle5.json`, 56분 36초. 다른 검사와 동시 실행). 실행은 fd9bcca 커밋(02:37 KST) 전인 02:22 KST에 작업 폴더를 복사해 시작했다. 변이 사본은 매번 원래 내용으로 되돌려지므로, 남은 사본 30개 파일이 fd9bcca와 줄바꿈 외에 모두 같음을 Cycle 6에 확인했다 (`audit/cycle6/mutation_src_vs_fd9bcca.json`) |
 | Cycle 4 점수 정밀도 결과 (I-55) | 고친 도구(1스레드)로 다시 실행한 결과가 커밋된 `score_precision_F4_val.json`과 완전히 같음 (`audit/cycle5/score_precision_F4_val_blas1.json`) |
-| 커밋 후 재검증 (fd9bcca) | 새 worktree + `requirements-v7-lock.txt` venv: 105 통과, 1 건너뜀(원본 `events.csv`가 worktree 기준 상대경로에 없어 v7 원본 경계 테스트가 건너뜀. 원래 작업 폴더에서는 통과). `SHA256SUMS.txt` v6 60/60, v7 28/28 |
+| 커밋 후 재검증 (fd9bcca) | 새 worktree + `requirements-v7-lock.txt` venv: 105 통과, 1 건너뜀(원본 `events.csv`가 worktree 기준 상대경로에 없어 v7 원본 경계 테스트가 건너뜀. 원래 작업 폴더에서는 통과). `SHA256SUMS.txt` v6 60/60, v7 28/28 (실행 출력은 저장소에 없음. Cycle 6부터는 `audit/cycle6/`에 보존) |
 | 문서 (I-57) | 12건 정정. 결론에 영향을 주는 것은 v7의 "가장 강한 baseline" 서술(§12.5): repeat에서는 BPR이 평균 최고이고, 그 대비 repeat Recall만 유의. "모든 칸에서 Hybrid가 유의하게 앞서지 못한 학습 baseline이 있다"는 결론은 같음 |
+
+## 15. Cycle 6: 시험 기록 비교 기준, 캐시 확인 도구, 문서 정정 (I-58 – I-62)
+
+Cycle 5 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. v6·v7의 선택과 시험 결과는 바뀌지 않는다. 각 항목은 원본 파일과 실제 실행으로 다시 확인한 뒤 고쳤다.
+
+| 검사 | 결과 |
+|---|---|
+| 회귀 테스트 | `test_cycle5_guards.py` 3개 추가(events 해시만 비교, git 상태 열, 요청 설정과 캐시 비교), 전체 109/109 (v7 venv) |
+| 가드 변이 H1–H14 (H13: 원본 4개 파일 바이트를 모두 비교, H14: git 출력 전체 strip) | 14/14 검출, 수정 안 한 사본 26 통과 (`audit/cycle5/guard_mutants.json`, 실행 출력 `audit/cycle6/guard_mutants_cycle6_log.txt`) |
+| 실제 원본으로 시험 기록 가드 (I-59) | 원본 `events.csv`의 원래·LF·CRLF 해시에 v6·v7 plan의 events 해시가 들어 있고, 커밋된 v6·v7 기록과 로컬 `audit_runs/v7`의 기록 5건이 모두 잡힘. 현재 코드에서 v6 plan, v7 plan, 새 plan 모두 F1–F4 충돌 |
+| 캐시 확인 도구 (I-60) | plan·`validation_gnn.json`·`selection.json`에서 다시 만든 요청 GNN 39개와 MF 4개가 v7 캐시와 모두 일치, 불일치 0 (`audit/cycle5/cache_identity_v7.json`) |
+| 변이 테스트 17개 대상 문구 | 현재 코드에서 17개 모두 한 번씩 있음 |
+| Cycle 5 변이 재실행의 코드 | 남은 사본 30개 파일이 fd9bcca와 같음 (`audit/cycle6/mutation_src_vs_fd9bcca.json`) |
+| 환경 lock | 두 venv의 `uv pip freeze`가 같음 (36개, `audit/cycle6/freeze_*.txt`) |
+| plan 코드 확인 (커밋 57dc03b) | v6 25개, v7 26개 해시가 plan commit과 일치 (종료 코드 0). plan 뒤에 바뀐 파일: v6 `leakage_check.py`·`rolling_protocol.py`·`test_v6_smoke.py`, v7 `leakage_check.py`·`rolling_protocol.py`. `--require-unchanged`는 둘 다 1 (`audit/cycle6/plan_code_v6.json`, `plan_code_v7.json`) |
+| 커밋 후 재검증 (57dc03b) | 새 worktree + `requirements-v7-lock.txt` venv: 108 통과, 1 건너뜀(원본 `events.csv`가 worktree 기준 상대경로에 없음. 원래 작업 폴더에서는 같은 코드로 통과) (`audit/cycle6/postcommit_57dc03b_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_57dc03b_sha256.txt`) |
+| 문서 (I-58, I-62) | `Hybrid_ALS_only` 설명을 코드에 맞춤(후보는 같고 결합 점수의 MF만 ALS). 문서 오류 11건 정정, 저장소로 확인할 수 없는 기록에 출처 표시. 결론은 바뀌지 않음 |

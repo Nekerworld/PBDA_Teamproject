@@ -35,14 +35,14 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 # 또는: python -m venv <venv>; <venv>\Scripts\python -m pip install -r requirements-v7-lock.txt
 ```
 
-- 확인: 새 venv에 위 명령으로 설치한 뒤 `uv pip freeze` 결과가 v7 venv와 한 줄도 다르지 않음 (2026-10-21).
+- 확인: 새 venv에 위 명령으로 설치한 뒤 `uv pip freeze` 결과가 v7 venv와 한 줄도 다르지 않음 (2026-10-21. Cycle 6에 다시 확인: 두 venv 36개 패키지 동일, lock 파일과는 index URL 두 줄만 다름, `audit/cycle6/freeze_pbda_v7.txt`, `freeze_pbda_lockcheck.txt`).
 - uv는 기본적으로 첫 번째로 패키지를 찾은 index만 보므로, `--index-strategy unsafe-best-match`가 없으면 PyTorch index에서 `filelock` 버전을 못 찾아 실패함.
 
 ## 3. 처음부터 실행하는 방법
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 106개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 109개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -56,9 +56,9 @@ python report_tools/launch_detached.py --log audit_runs/v7_run.log -- python -u 
 python report_tools/plot_rolling_results.py --results audit/results_v7 --output audit/figures_v7
 # 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서, 다른 GPU 작업이 없을 때 실행)
 python report_tools/mutation_check.py
-# 6) 가드 변이 테스트 (Cycle 5 가드의 옛 동작 12개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 약 15분)
+# 6) 가드 변이 테스트 (Cycle 5·6 가드의 옛 동작 14개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 약 15분)
 python report_tools/guard_mutation_check.py
-# 7) 끝난 root의 캐시가 재개 규칙(설정 일치)을 만족하는지 (학습·정답 읽기 없음)
+# 7) 끝난 root의 캐시가 plan·selection이 요청할 설정과 같은지 (학습·정답 읽기 없음)
 python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit/cycle5/cache_identity_v7.json
 ```
 
@@ -72,11 +72,12 @@ python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit/cyc
 ```powershell
 python report_tools/verify_plan_code.py --plan audit/results_v7/plan.json --output audit/plan_code/plan_code_v7.json
 ```
-  - 종료 코드 0은 "plan 해시가 plan commit의 내용과 맞음"이라는 뜻이다. 그 뒤 코드가 바뀌었는지는 `changed_since_plan`에만 나온다. 바뀐 경우도 실패로 처리하려면 `--require-unchanged`를 붙인다 (현재 v6·v7 모두 `rolling_protocol.py`가 바뀌어 실패함).
-- 시험 열람 가드 (Cycle 4 I-40, Cycle 5 I-48 – I-52):
+  - 종료 코드 0은 "plan 해시가 plan commit의 내용과 맞음"이라는 뜻이다. 그 뒤 코드가 바뀌었는지는 `changed_since_plan`에만 나온다. 바뀐 경우도 실패로 처리하려면 `--require-unchanged`를 붙인다 (현재 v6·v7 모두 실패함: plan 뒤에 `rolling_protocol.py`·`audit_tools/leakage_check.py`가 바뀌었고 v6은 `test_v6_smoke.py`도 바뀜. 새 테스트 파일은 `added_since_plan`에 나옴. `audit/plan_code/`는 Cycle 3 시점 결과이고 현재 결과는 `audit/cycle6/plan_code_v*.json`).
+- 시험 열람 가드 (Cycle 4 I-40, Cycle 5 I-48 – I-52, Cycle 6 I-59):
   - 같은 `--root`에서는 plan이 바뀌었거나 `selection.json`이 다시 만들어졌으면(해시가 다르면) 이미 연 fold의 시험을 다시 열 수 없다. 시험 평가와 사후 분석 모두 같은 plan·selection이어야 하고, 이미 끝난 단계도 재개할 때 이 검사를 거친다. `selection.json`을 만든 plan이 현재 plan과 다르면 멈춘다.
-  - 다른 `--root`에서도, `audit/`(커밋된 결과)와 `audit_runs/`(이 PC의 실행 폴더) 아래의 plan·접근 로그 중 같은 원본 데이터(해시)로 겹치는 시험 구간(바깥 시험 구간 (end·(1−test_size), end)이 겹침, 맞닿기만 하면 아님)을 연 기록이 있으면 실행을 시작하지 않는다. 예외는 plan 해시와 코드 해시가 모두 같은 재현뿐이다. 그래서 v6·v7은 현재 코드로는 다시 열 수 없고, 각 plan commit을 checkout해야 한다.
-  - 다른 PC의 커밋되지 않은 기록은 볼 수 없다.
+  - 다른 `--root`에서도, `audit/`(커밋된 결과)와 `audit_runs/`(이 PC의 실행 폴더) 아래의 plan·접근 로그 중 같은 `events.csv`(시험 구간을 정하는 파일. 줄바꿈만 다른 사본도 같은 것으로 봄)로 겹치는 시험 구간(바깥 시험 구간 (end·(1−test_size), end)이 겹침, 맞닿기만 하면 아님)을 연 기록이 있으면 실행을 시작하지 않는다. 예외는 plan 해시와 코드 해시가 모두 같은 재현뿐이다. 그래서 v6·v7은 현재 코드로는 다시 열 수 없고, 각 plan commit을 checkout해야 한다.
+  - 가드가 보지 못하는 경우: 다른 PC의 커밋되지 않은 기록, 프로젝트 폴더의 `audit/`·`audit_runs/` 바로 아래가 아닌 곳에 만든 root, 내용(행)이 바뀐 `events.csv`. 정확한 재현(같은 plan·코드)은 새 root에서 여러 번 열 수 있으므로, 결과를 고르지 않도록 재현 root도 접근 로그와 함께 보고해야 한다.
+  - 캐시 재사용 조건에 장치(CPU/GPU)는 들어가지 않는다. 다른 장치에서 재개하면 두 장치의 산출물이 섞일 수 있으므로(I-34) 같은 장치에서 재개한다. 장치는 plan `environment`와 각 GNN `job_result.json`에 남는다.
   - 재개할 때마다 원본 4개 파일을 다시 해시해 plan의 `raw_input_sha256`과 다르면 멈춘다. 캐시된 MF 학습과 GNN 작업은 설정(seed, 하이퍼파라미터, epoch)이 요청과 같을 때만 재사용한다.
   - 실행 중 누수 검사는 fold의 잘린 원본이 아니라 원본 전체 + fold `end_fraction`으로 한다 (fold 자르기도 독립적으로 확인).
 - `launch_detached.py`가 필요한 이유 (Windows): 셸의 Ctrl+C·창 닫기 이벤트가 v6 실행을 두 번 끊었고, `DETACHED_PROCESS`로 띄우면 BLAS 안의 Intel Fortran 런타임이 `forrtl: error (200)`으로 중단됨 (I-31). launcher는 별도 프로세스 그룹, job 분리, 숨은 자체 콘솔을 쓰고 `FOR_DISABLE_CONSOLE_CTRL_HANDLER=1`, BLAS 스레드 1을 설정함.

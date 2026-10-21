@@ -4,10 +4,10 @@
 상태: `해결·검증` / `수정·검증 대기(실험 필요)` / `환경 제약` / `원고 수정 필요` / `미해결`.
 "검증"은 이 PC에서 실제로 실행한 테스트·스크립트만 가리킨다. 결과 JSON을 읽은 것만으로는 검증으로 치지 않는다.
 
-> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (3 fold의 봉인 평가 결과가 커밋됨. 종료 코드 0은 v6 PC의 실행 로그 기준). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨. Cycle 4 재감사 항목(I-39 – I-47), Cycle 5 재감사 항목(I-48 – I-57) 처리 완료.
+> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (3 fold의 봉인 평가 결과가 커밋됨. 종료 코드 0은 v6 PC의 실행 로그 기준). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨. Cycle 4 재감사 항목(I-39 – I-47), Cycle 5 재감사 항목(I-48 – I-57), Cycle 6 재감사 항목(I-58 – I-62) 처리 완료.
 > - 시험 열람: v6는 fold마다 봉인 평가 1회, F1에서만 사후 분석 2회 추가 (`audit/results_v6/test_access_log.jsonl`). v7은 F4 봉인 평가 1회 (`audit/results_v7/test_access_log.jsonl`).
 > - 결과와 검증: `validation_report.md` (v7은 §12).
-> - Cycle 2 재감사에서 I-23 – I-26, Cycle 2 커밋 후 검증(418e7dd)에서 I-27, Cycle 3에서 I-28 – I-37, Cycle 3 커밋 후 검증에서 I-38, Cycle 4 재감사에서 I-39 – I-47, Cycle 5 재감사에서 I-48 – I-57을 찾음.
+> - Cycle 2 재감사에서 I-23 – I-26, Cycle 2 커밋 후 검증(418e7dd)에서 I-27, Cycle 3에서 I-28 – I-37, Cycle 3 커밋 후 검증에서 I-38, Cycle 4 재감사에서 I-39 – I-47, Cycle 5 재감사에서 I-48 – I-57, Cycle 6 재감사에서 I-58 이후를 찾음.
 
 | ID | 등급 | 문제 | 상태 | 커밋 |
 |---|---|---|---|---|
@@ -39,7 +39,7 @@
 | I-26 | P2 | Hybrid 후보 수가 fold마다 다름 (20000 / 500 / all) | 해석 사항: validation 곡선이 평평함. 원고에서 후보 수를 핵심 설계로 주장하지 않음 | - |
 | I-27 | P2 | 커밋된 결과 파일이 `SHA256SUMS.txt`와 불일치 (줄바꿈 자동 변환) | 해결·검증 (커밋 후 검증에서 발견). 새 clone(다른 PC)에서도 60/60 일치 | 418e7dd |
 | I-28 | P3 | 인자 없는 `python -m pytest`가 보관용 `source_*` 폴더의 옛 테스트까지 수집해 오류 16개 | 해결·검증: `pytest.ini`로 수집 범위 제한. 다른 PC의 깨끗한 venv에서 70개 통과 | 1170ea5 |
-| I-29 | P3 | v7 "미사용 구간" 테스트가 비율만 비교함 (실제 시각 미확인) | 해결·검증: 원본 타임스탬프로 F4 끝 ≤ v6 내부 validation 시작을 확인하는 테스트 추가. 실제 경계는 같은 타임스탬프(겹침 0건). end 0.37 변이를 잡음 | 1170ea5 |
+| I-29 | P3 | v7 "미사용 구간" 테스트가 비율만 비교함 (실제 시각 미확인) | 해결·검증: 원본 타임스탬프로 F4 끝 ≤ v6 내부 validation 시작을 확인하는 테스트 추가. 실제 경계는 같은 타임스탬프(겹침 0건). end 0.37 변이를 잡음 (일회성 수동 확인, 기록 없음) | 1170ea5 |
 | I-30 | P2 | 평가·선택·통계의 핵심 성질을 고정하는 테스트 부재 (변이 테스트에서 발견) | 해결·검증: 구현은 올바름(정독 + 실제 데이터 대조). 기존 테스트는 변이 17개 중 11개를 놓침. `test_cycle3_consistency.py`(9개) 추가 후 두 묶음 합쳐 17/17. M04는 합성 데이터에서 필터 전후 이력이 같아 구별되지 않던 것을 전용 데이터로 고정함. v7 실행 중 코드 해시 잠금 때문에 v7 종료 후 커밋 | 70f5106 |
 | I-31 | P3 | 분리 실행(`DETACHED_PROCESS`) 시 Intel Fortran 런타임이 창 닫기 이벤트로 프로세스를 중단 (`forrtl: error (200)`) | 해결: `CREATE_NO_WINDOW` + `FOR_DISABLE_CONSOLE_CTRL_HANDLER=1`로 재실행. 중단은 v7 전처리 중이었고 시험 열람·학습 없음. 미완성 폴더는 `prepared_incomplete_run1`로 보존 | 문서 |
 | I-32 | P2 | 원고용 그림이 v5 단일 분할 결과 기준 (`professor_materials/figures`) | 해결·검증: 커밋된 v6 CSV만 읽는 그림·표 생성기와 결과(`audit/figures_v6`). 재실행 시 바이트 동일 | a2c5445 |
@@ -50,7 +50,7 @@
 | I-37 | P2 | codex 폴더 첫 문서 `README.md`가 v5 주장("두 지표의 세 seed 평균이 모든 비교 모델보다 높았다")을 감사 결과 안내 없이 제시. `README_HYBRID_KO.md`, `REPRODUCE_KO.md`도 v5 경로만 안내. `professor_materials/README_KO.md`(같은 주장과 "NDCG +10.83%"), 저장소 최상위 `README.md`(v5 재실행을 "최종 Hybrid 실험"으로 안내)도 같음 | 해결: 원문은 이력으로 보존하고, 맨 앞에 시험 재사용 사실과 감사 문서(검증 결과, 재현 절차, 원고 대조표) 안내를 추가 | e9538c8 |
 | I-38 | P2 | plan의 코드 해시(`code_hashes`)가 작업 폴더의 원시 바이트를 해시해 checkout의 줄바꿈 변환(`core.autocrlf`)에 따라 달라짐. 같은 commit이라도 다른 PC에서는 plan 검사가 거짓 실패하고, "코드 변경"과 "줄바꿈 차이"를 구별할 수 없음 (v7 plan은 CRLF 19개·LF 7개가 섞여 있었고, 이 PC에서 v6 plan과 비교하면 내용이 같은 파일 7개가 불일치) | 해결·검증: 새 plan은 줄바꿈을 정규화한 해시(`sha256-lf`)와 방식을 기록함. 방식 기록이 없는 v6/v7 plan은 원시 바이트로 비교해 호환 유지. `report_tools/verify_plan_code.py`로 v6 25개, v7 26개 해시가 모두 각 plan commit의 git 내용과 일치함을 확인 (조작한 해시 1개는 검출). 테스트 3개 추가 | b575dac |
 | I-39 | P2 | 재개 시 누수 검사 게이트가 `leakage_check.json`의 존재만 확인함. 이 파일은 검사가 실패해도 쓰이므로, 실패한 fold를 재개하면 검사를 건너뛰고 진행됨 | 해결·검증: `leakage_gate`가 저장된 `all_pass`를 읽어 거짓이면 멈춤. 테스트 2개, 변이(옛 동작) 검출. v6 3 fold·v7 F4는 모두 `all_pass: true`라 결과 영향 없음 | 05b9c65 |
-| I-40 | P2 | 시험 열람 가드가 같은 root 안에서 plan 해시만 비교함. `selection.json`을 다시 만들어 같은 plan으로 시험을 다시 열거나, 새 root에서 바뀐 plan으로 같은 구간을 여는 것을 막지 못함 (docstring은 "fold마다 한 번"이라고 설명) | 해결·검증: 같은 root에서 `selection_sha256`이 다르면 거부. 실행 시작 시 커밋된 `audit/results_*`의 plan·접근 로그를 읽어 같은 원본 해시·같은 구간(`end_fraction`, `test_size`)을 다른 plan으로 연 기록이 있으면 거부 (같은 plan의 재현은 허용). 실제 커밋 기록으로 F1–F4가 새 plan에 막히고 v6·v7 자신은 막히지 않음을 테스트. 커밋되지 않은 root는 여전히 볼 수 없음(문서화). v6·v7 접근 로그는 fold마다 sealed_test 1회라 결과 영향 없음 | 05b9c65 |
+| I-40 | P2 | 시험 열람 가드가 같은 root 안에서 plan 해시만 비교함. `selection.json`을 다시 만들어 같은 plan으로 시험을 다시 열거나, 새 root에서 바뀐 plan으로 같은 구간을 여는 것을 막지 못함 (docstring은 "fold마다 한 번"이라고 설명) | 해결·검증: 같은 root에서 `selection_sha256`이 다르면 거부. 실행 시작 시 커밋된 `audit/results_*`의 plan·접근 로그를 읽어 같은 원본 해시·같은 구간(`end_fraction`, `test_size`)을 다른 plan으로 연 기록이 있으면 거부 (같은 plan의 재현은 허용). 실제 커밋 기록으로 F1–F4가 새 plan에 막히고 v6·v7 자신은 막히지 않음을 테스트 (Cycle 4 시점. Cycle 5부터는 코드도 같아야 예외라 현재 코드에서는 v6·v7도 막힘 → I-48). 커밋되지 않은 root는 여전히 볼 수 없음(문서화). v6·v7 접근 로그는 fold마다 sealed_test 1회라 결과 영향 없음 | 05b9c65 |
 | I-41 | P2 | `rolling_protocol.py`가 BLAS 스레드 변수를 `setdefault`로 설정해 호출자가 준 값이 우선함. 나중에 import되는 `experiments.py`가 변수를 1로 다시 쓰지만 BLAS 로드 뒤라, 기록·확인용으로 변수를 읽으면 실제와 다를 수 있음. 스레드·장치가 plan에 기록되지 않음 | 해결·검증: 값을 강제로 1로 설정. plan `environment`에 변수, 로드된 라이브러리의 실제 스레드 수(threadpoolctl), torch 스레드, 장치 기록. 호출자가 4를 줘도 실제 BLAS 스레드가 1인지 확인하는 테스트(옛 동작 변이 검출). v6·v7의 실제 스레드 수는 기록되지 않음 (v7을 띄운 launcher는 커밋 전 버전이라 남아 있지 않음. `launch_detached.py`는 v7 뒤에 커밋). 결과로 확인: v6은 §9 교차 재현, v7은 F4 seed 42 ALS가 1스레드 재학습과 비트 단위 일치·24스레드와 불일치 (`audit/cycle5/determinism_v7_blas*.csv`, Cycle 5에서 정정) | 05b9c65 |
 | I-42 | P3 | GNN 상한 연장을 한 번만 하고 다시 정렬함. 연장 뒤 다른 상한 도달 설정이 Hybrid backbone 상위 3개에 들어오면 연장 없이 쓰일 수 있음 | 해결·검증: 상위 3개에 연장 안 된 상한 도달 설정이 없을 때까지 반복 (`extend_capped_backbones`). 테스트 2개, 변이 검출. v6·v7은 상위 3개에 상한 도달이 없어 결과 영향 없음 | 05b9c65 |
 | I-43 | P3 | 재개 기준 파일 `test_metrics.csv`를 보고서 CSV보다 먼저 씀. 그 사이에 중단되면 재개 때 보고서를 만들지 않음 | 해결: `test_metrics.csv`를 마지막에 씀. 코드 정독으로 확인(전용 테스트 없음). v6·v7은 보고서가 모두 있음 | 05b9c65 |
@@ -58,16 +58,21 @@
 | I-45 | P3 | `verify_plan_code.py`가 코드가 바뀌어도 종료 코드 0을 냄 (plan 해시와 commit만 확인) | 해결·검증: 종료 코드의 뜻을 문서화하고 `--require-unchanged` 추가. 실제 v6 plan으로 0 / 1 확인하는 테스트 | 05b9c65 |
 | I-46 | P3 | 선택 경로는 ALS/BPR 원 점수로, 시험 경로는 min-max 후 float32 점수로 순위를 매김. 동점 순서가 달라질 수 있음 | 측정: v7 F4 내부 validation에서 두 정책 × ALS/BPR 모두 목록 100% 동일, 지표 차이 0 (원 점수도 float32). 코드 변경 없음 (`audit/cycle4/score_precision_F4_val.json`) | 05b9c65 |
 | I-47 | P2 | 감사 문서의 수치·표현 오류 24건 (v6 Hybrid − ALS+BPR Recall 3칸 유의를 "v6와 같이 모두 비유의"로 쓴 것, Recall 0 비율, 후보 수 범위, γ 정책별 값, GNN 상한 4+1개, 반올림 등). 저장소만으로 다시 확인할 수 없는 주장(v6 PC 전용 검사)이 표시 없이 있었음 | 해결·검증: 각 수치를 커밋된 CSV·JSON에서 다시 계산한 뒤 고침. 확인할 수 없는 주장은 그렇게 표시함 | e3cf44e |
-| I-48 | P2 | Cycle 4 시험 열람 가드의 빈틈 세 가지: (1) 다른 root의 기록은 plan 해시만 같으면 면제해, 코드를 바꾸고 같은 plan으로 같은 구간을 다시 열 수 있었음. (2) 구간이 정확히 같을 때만 충돌로 봐, 겹치는 다른 구간(예: end .65, test .2)은 통과. (3) 커밋된 `audit/results_*`만 읽어, 같은 PC의 커밋 안 된 root(`audit_runs/*`)는 보지 않음 | 해결·검증: 면제는 plan 해시와 코드 해시(`code_matches`, 줄바꿈 무관, 파일 목록까지 같음)가 모두 같을 때만. 바깥 시험 구간 (end·(1−test), end)이 겹치면 충돌 (맞닿기만 하면 아님). `audit/`와 `audit_runs/` 아래 모든 `plan.json`+접근 로그를 읽음. 테스트 추가, 옛 동작 변이 H1–H3 검출. 실제 기록에서 v7은 자기 기록과만, 새 plan은 F1–F4 모두와 충돌. v6·v7은 이제 코드가 바뀌어 같은 구간을 다시 열 수 없음(재현은 plan commit checkout 필요, 원래 그랬음) | Cycle 5 |
+| I-48 | P2 | Cycle 4 시험 열람 가드의 빈틈 세 가지: (1) 다른 root의 기록은 plan 해시만 같으면 면제해, 코드를 바꾸고 같은 plan으로 같은 구간을 다시 열 수 있었음. (2) 구간이 정확히 같을 때만 충돌로 봐, 겹치는 다른 구간(예: end .65, test .2)은 통과. (3) 커밋된 `audit/results_*`만 읽어, 같은 PC의 커밋 안 된 root(`audit_runs/*`)는 보지 않음 | 해결·검증: 면제는 plan 해시와 코드 해시(`code_matches`, 줄바꿈 무관, 파일 목록까지 같음)가 모두 같을 때만. 바깥 시험 구간 (end·(1−test), end)이 겹치면 충돌 (맞닿기만 하면 아님). `audit/`와 `audit_runs/` 바로 아래 root(`*/plan.json`)의 plan·접근 로그를 읽음 (그 밖의 위치에 만든 root는 보지 못함, 문서화). 테스트 추가, 옛 동작 변이 H1–H3 검출. 실제 원본으로 현재 코드에서 v6 plan, v7 plan, 새 plan 모두 F1–F4가 충돌하고, 커밋 안 된 `audit_runs/v7`도 잡힘. v6·v7은 이제 코드가 바뀌어 같은 구간을 다시 열 수 없음(재현은 plan commit checkout 필요, 원래 그랬음) | Cycle 5 |
 | I-49 | P2 | 원본 데이터 해시를 plan을 처음 만들 때만 계산함. 같은 root를 다른 `--raw`(다른 원본)로 재개해도 막지 않음 | 해결·검증: 매 실행마다 원본 4개 파일을 다시 해시해 plan의 `raw_input_sha256`과 다르면 멈춤. 실행 시작을 `run_started`(git, 실제 BLAS 스레드 수)로 로그. 테스트, 변이 H4 검출 | Cycle 5 |
 | I-50 | P3 | 접근 로그의 selection 비교가 같은 목적(purpose) 안에서만 이뤄짐. 또 완료된 단계(`test_metrics.csv`, 사후 분석 CSV가 있음)는 로그 검사 전에 돌아가, 바뀐 plan·selection으로 재개해도 조용히 통과 | 해결·검증: `open_test`가 fold의 모든 목적에 대해 plan·selection 해시를 비교하고, 완료된 단계도 검사만 하고(기록은 안 함) 돌아감. 테스트, 변이 H5·H6 검출 | Cycle 5 |
-| I-51 | P3 | 재개 시 캐시된 MF 학습(`mf_fit.json`)과 GNN 작업(`job_result.json`)을 설정 확인 없이 재사용 | 해결·검증: MF는 seed·ALS·BPR·BPR epoch, GNN은 config·fixed·seed·mode·epochs가 요청과 같아야 재사용(장치는 달라도 됨). 테스트, 변이 H7·H8 검출. 실제 v7 root에 같은 규칙 적용: GNN 39개(validation 36 + refit 3), MF 4개 모두 일치 (`audit/cycle5/cache_identity_v7.json`) | Cycle 5 |
+| I-51 | P3 | 재개 시 캐시된 MF 학습(`mf_fit.json`)과 GNN 작업(`job_result.json`)을 설정 확인 없이 재사용 | 해결·검증: MF는 seed·ALS·BPR·BPR epoch, GNN은 config·fixed·seed·mode·epochs가 요청과 같아야 재사용(장치는 달라도 됨). 테스트, 변이 H7·H8 검출. 실제 v7 root: plan·selection·`validation_gnn.json`에서 다시 만든 요청 GNN 39개(validation 36 + refit 3)와 MF 4개가 캐시와 모두 일치 (`audit/cycle5/cache_identity_v7.json`, Cycle 6에서 도구를 고쳐 다시 만듦 → I-60) | Cycle 5 |
 | I-52 | P3 | 재개 시 `selection.json`을 만든 plan이 현재 plan인지 확인하지 않음 | 해결·검증: `sealed_selection`이 다르면 멈춤. 테스트, 변이 H12 검출 | Cycle 5 |
 | I-53 | P3 | 사후 분석의 재개 기준 파일(`posthoc_candidate_depth.csv`)을 γ 표보다 먼저 씀. 그 사이에 중단되면 재개 때 γ 표 없이 완료로 처리 | 해결·검증: 기준 파일을 마지막에 씀. γ 단계에서 중단시키는 테스트(기준 파일이 없어야 하고, 재개하면 두 표가 모두 생김), 변이 H11 검출 | Cycle 5 |
 | I-54 | P3 | `verify_plan_code.py --require-unchanged`가 plan 뒤에 추가된 파일은 무시함 | 해결: 추가된 파일도 실패로 처리. 실제 v6·v7 plan으로 0 / 1 확인 (둘 다 바뀐 파일도 있어 추가 파일만의 효과는 코드 정독으로 확인) | Cycle 5 |
 | I-55 | P3 | 보조 스크립트의 스레드 설정 불일치: `cross_machine_repro`·`determinism_check`·`mf_boundary_probe`·`device_check`가 `setdefault`를 써 호출자 값이 우선. `check_score_precision`은 numpy를 `rolling_protocol`보다 먼저 import해 BLAS가 다중 스레드로 로드됨 | 해결·검증: 모두 1로 강제. `check_score_precision`은 `rolling_protocol`을 먼저 import. 호출자가 4를 줘도 실제 BLAS 스레드가 1인지 확인하는 테스트, 변이 H9 검출. 이전에 커밋된 보조 결과의 실제 스레드 수는 기록되지 않음: `determinism_mf_blas1.csv`(재학습 = 원래 값)와 §9 교차 재현(v6 값과 비트 단위 동일)은 1스레드 결과와 일치하고, `score_precision_F4_val.json`은 고친 도구(1스레드)로 다시 실행한 결과가 커밋된 파일과 완전히 같음 (`audit/cycle5/score_precision_F4_val_blas1.json`). `mf_boundary_probe.csv`는 다시 실행하지 않아 확인하지 않음 | Cycle 5 |
 | I-56 | P3 | 실행 중 누수 검사 게이트가 fold의 `fold_raw`(이미 잘린 원본)로 검사해, fold 자르기 자체를 독립적으로 확인하지 못함 | 해결·검증: 원본 전체 + fold의 `end_fraction`으로 검사 (I-44의 옵션 사용). 테스트, 변이 H10 검출. v7 F4는 원본 전체 + 0.36 검사 결과가 커밋된 결과와 28개 동일 (Cycle 4) | Cycle 5 |
 | I-57 | P2 | 감사 문서 오류 12건: v7에서 "가장 강한 baseline = ALS+BPR"(repeat에서는 BPR이 평균 최고), "Holm 보정 CI"(CI는 보정 안 함), "ALS가 validation에서 학습 모델 중 1위"(단일 모델군 중 1위), 결정성 재검사에 BPR도 있었음, p_holm 0.062→0.061, v7이 `launch_detached.py`로 실행됐다는 주장, 보조 스크립트 스레드 설정 범위, "v6는 1스레드로 고정"(기록 아닌 정황 근거), v7 전처리 완료 시각, v6 완료 시각(저장소로 확인 불가), "413명"(novel은 306명), "80:20"(F1만) | 해결·검증: 각 항목을 커밋된 CSV·JSON·로그에서 다시 확인한 뒤 고침 | Cycle 5 |
+| I-58 | P2 | 문서가 `Hybrid_ALS_only`를 "BPR을 뺀 ablation"으로 설명하고 "BPR 결합의 기여는 구간에 따라 다르다"고 해석함. 코드(`policy_evaluation.hybrid_ranking`, `mf_source='als'`)는 최종 결합 점수에서만 BPR을 빼고, 후보는 Hybrid와 같이 ALS+BPR(`balanced_union`이면 BPR 상위 절반 포함)로 만듦 | 해결: 문서를 "같은 후보에서 결합 점수의 MF 부분만 ALS"로 고치고 BPR 기여에 대한 해석을 삭제. 수치는 맞으므로 결과 변경 없음. BPR을 후보에서도 뺀 ablation은 실행하지 않음 | Cycle 6 |
+| I-59 | P3 | 다른 root의 시험 열람 기록을 원본 4개 파일의 바이트 해시가 모두 같을 때만 비교함. 줄바꿈만 다른 사본이나 구간과 무관한 파일(`category_tree.csv` 등)을 바꾸면 기록을 건너뜀 | 해결·검증: 구간을 정하는 `events.csv`의 해시로만 비교하고, 실행 시 그 파일의 원래·LF·CRLF 형태 해시를 함께 씀(`event_digests`). 테스트, 변이 H13 검출. 실제 원본으로 v6·v7 plan의 events 해시가 일치하고 기록 5건이 모두 잡힘. 행 내용이 바뀐 `events.csv`는 여전히 다른 데이터로 봄(문서화) | Cycle 6 |
+| I-60 | P3 | `check_cached_runs.py`의 GNN 검사가 `job_specs/*.json`과 `job_result.json`을 비교함. 둘은 같은 파일에서 나와 항상 일치하므로, 캐시가 지금 plan·selection이 요청할 설정과 맞는지 확인하지 못함 (I-51의 실제 데이터 근거가 무의미했음) | 해결·검증: plan(grid, 고정 설정, epoch 상한, seed), `validation_gnn.json`(상한 연장), `selection.json`(refit 설정·epoch)에서 요청을 다시 만들어 비교. 어긋난 refit을 잡는 테스트. 다시 만든 v7 결과: 요청 39개 모두 존재·일치, MF 4개 일치 | Cycle 6 |
+| I-61 | P3 | `git_state`가 git 출력 전체를 `strip()`해 첫 줄의 상태 열 공백이 사라지고, 경로 비교(`line[3:]`)가 한 글자 밀림. 첫 줄이 `audit_runs` 파일이면 제외되지 않음 | 해결·검증: 끝 줄바꿈만 제거. 테스트, 변이 H14 검출. `audit_runs/`는 gitignore 대상이라 v6·v7 실행에는 영향 없음 | Cycle 6 |
+| I-62 | P2 | 감사 문서 오류 11건과 근거 표시 누락: I-24의 "v7은 1로 고정하는 launcher로 실행"(기록 없음), §12.5의 CI가 0을 포함하지 않지만 유의하지 않은 칸 목록에서 2칸 누락(repeat Hybrid − GNN Recall, novel Hybrid − GNN NDCG), "시험 사용자 413명"(novel 306), I-40·§13의 "v6·v7 자신은 통과"(Cycle 5부터는 막힘), v7 전처리 완료 시각이 커밋된 `progress.jsonl`에 있음, `rolling_protocol.py` 변경 횟수, ablation이 더 높은 칸 F1 repeat Recall 누락, Recall 0 비율 범위(ablation 73.2% 제외), I-48 "모든 `plan.json`"(한 단계 아래만), `--require-unchanged` 실패 파일(`leakage_check.py`도 바뀜), §7 표 끊김. 또 저장소로 다시 확인할 수 없는 기록(v6 중단 시각, exit 0, 수기 계산, 일회성 변이, 실행 출력)에 출처 표시가 없었음 | 해결·검증: 각 항목을 커밋된 CSV·JSON·로그와 실제 실행(`verify_plan_code`, 두 venv `uv pip freeze`, 변이 사본과 fd9bcca 비교)으로 확인한 뒤 고치고, 확인할 수 없는 기록에는 출처와 "저장소로 확인 불가"를 표시 | Cycle 6 |
 
 ---
 
@@ -203,14 +208,14 @@ Cycle 2에서 `report_tools/mf_boundary_probe.py`로 **validation 구간만** �
 **Cycle 3 처리 (v7)**: F1–F3를 다시 여는 대신, 한 번도 평가하지 않은 구간 F4(이벤트 앞 36%)에서 ALS·BPR·GNN grid를 모두 넓힌 v7을 사전등록하고 사용자 승인 후 실행함 (`v7_feasibility.md`, `validation_report.md` §12).
 - ALS: factors 1024, α 80 (둘 다 새 grid의 끝), validation 0.2176. 단독 GNN 최고 0.2169보다 높음.
 - 시험: Hybrid − ALS+BPR은 repeat/novel × NDCG/Recall 4칸 모두 Holm 보정 후 비유의 (+0.0013 – +0.0077). v6(NDCG 6칸 비유의, Recall 3칸 유의)와 합쳐 보면 "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론이 같음.
-- 남은 한계: v6 표의 ALS·ALS+BPR 수치는 고칠 수 없음. v7에서도 ALS factors·α, BPR factors, GNN layers·dim·lr이 끝에 걸렸고, 사전등록 규칙대로 더 넓히지 않음. F4 한 fold, 시험 사용자 413명이라 0.01 이하의 차이는 판정할 수 없음.
+- 남은 한계: v6 표의 ALS·ALS+BPR 수치는 고칠 수 없음. v7에서도 ALS factors·α, BPR factors, GNN layers·dim·lr이 끝에 걸렸고, 사전등록 규칙대로 더 넓히지 않음. F4 한 fold, 시험 사용자 repeat 413명 / novel 306명이라 0.01 이하의 차이는 판정할 수 없음.
 
 ## I-24 (P3) BLAS 스레드 수
 
 `implicit` ALS는 OpenBLAS 스레드 수에 따라 부동소수점 누적 순서가 달라짐. 24스레드와 1스레드의 결과가 달랐음.
 
 - v6·v7 시점의 `rolling_protocol.py`는 numpy import 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS=1`을 `setdefault`로 설정함. 사용자 환경에 이 변수들이 다른 값으로 이미 있으면 그 값이 우선함.
-- v6가 1스레드였다는 근거는 다른 PC에서 1스레드로 다시 학습한 F3 ALS grid 24행이 비트 단위로 같다는 것(`validation_report.md` §9)이고, v7은 1로 고정하는 launcher로 실행함.
+- v6가 1스레드였다는 근거는 다른 PC에서 1스레드로 다시 학습한 F3 ALS grid 24행이 비트 단위로 같다는 것(`validation_report.md` §9)이다. v7의 실제 스레드 수도 기록되지 않았고(실행한 launcher는 남아 있지 않음), F4 seed 42 ALS가 1스레드 재학습과 비트 단위로 같고 24스레드와는 다르다는 것이 근거다 (Cycle 5, `audit/cycle5/determinism_v7_blas*.csv`).
 - Cycle 4(I-41)부터 값을 강제로 1로 설정하고 실제 스레드 수를 plan에 기록함.
 
 ## I-39 – I-47 (Cycle 4 재감사)

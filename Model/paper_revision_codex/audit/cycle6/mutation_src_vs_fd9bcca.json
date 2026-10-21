@@ -1,0 +1,190 @@
+{
+  "purpose": "Cycle 5 mutation rerun copied the working tree at 2026-10-21T17:22:24Z, before fd9bcca was committed; mutation_check restores every mutated file, so the sandbox still holds that copy",
+  "sandbox": "audit_runs/mutation_src",
+  "sandbox_mtime_utc": "2026-10-21T18:18:50.345729Z",
+  "commit": "fd9bcca",
+  "files": 30,
+  "all_same": true,
+  "rows": [
+    {
+      "file": "als_debug.py",
+      "sandbox_sha256_lf": "3a88ca5020cf9cf958aaa6645d1d93af31a37687823e29aee08bb2417fce482c",
+      "fd9bcca_sha256_lf": "3a88ca5020cf9cf958aaa6645d1d93af31a37687823e29aee08bb2417fce482c",
+      "same": true
+    },
+    {
+      "file": "audit_revision.py",
+      "sandbox_sha256_lf": "e093c91bff075baa54d25b29378aa8b98f9b5dea40dddd092e8f72a53a2d66b3",
+      "fd9bcca_sha256_lf": "e093c91bff075baa54d25b29378aa8b98f9b5dea40dddd092e8f72a53a2d66b3",
+      "same": true
+    },
+    {
+      "file": "audit_tools/leakage_check.py",
+      "sandbox_sha256_lf": "ece63c4b8ac634d9912d42b14170d99c2347894b90bd4ecc830d6205097c5f28",
+      "fd9bcca_sha256_lf": "ece63c4b8ac634d9912d42b14170d99c2347894b90bd4ecc830d6205097c5f28",
+      "same": true
+    },
+    {
+      "file": "data_protocol.py",
+      "sandbox_sha256_lf": "48178d815d5bccea7629df749f3c2c9843869ac68eeba54aad99b2355d131899",
+      "fd9bcca_sha256_lf": "48178d815d5bccea7629df749f3c2c9843869ac68eeba54aad99b2355d131899",
+      "same": true
+    },
+    {
+      "file": "experiments.py",
+      "sandbox_sha256_lf": "c42202c4e18c23c4629c666f261505feb573766754ea85bd404c9b844aa132f1",
+      "fd9bcca_sha256_lf": "c42202c4e18c23c4629c666f261505feb573766754ea85bd404c9b844aa132f1",
+      "same": true
+    },
+    {
+      "file": "export_legacy_gnn_split.py",
+      "sandbox_sha256_lf": "bcdbb9a9be66abe377e2a45530466fa2ee164ef7f54b7617f677fa1fb72151b2",
+      "fd9bcca_sha256_lf": "bcdbb9a9be66abe377e2a45530466fa2ee164ef7f54b7617f677fa1fb72151b2",
+      "same": true
+    },
+    {
+      "file": "fast_fusion.py",
+      "sandbox_sha256_lf": "2857ca24ca43e73cefe3db91228639cf3e337059e98244365b0d7faf8c67e031",
+      "fd9bcca_sha256_lf": "2857ca24ca43e73cefe3db91228639cf3e337059e98244365b0d7faf8c67e031",
+      "same": true
+    },
+    {
+      "file": "improve_hybrid.py",
+      "sandbox_sha256_lf": "8275e520565cd17150c502bba83afb75d2c6584f56be8414e926d08c2e6e9285",
+      "fd9bcca_sha256_lf": "8275e520565cd17150c502bba83afb75d2c6584f56be8414e926d08c2e6e9285",
+      "same": true
+    },
+    {
+      "file": "learning.py",
+      "sandbox_sha256_lf": "4762c8d4e6def6c0537a6878a9fdc7d399125228c21cc253ab2ccad9a3934d60",
+      "fd9bcca_sha256_lf": "4762c8d4e6def6c0537a6878a9fdc7d399125228c21cc253ab2ccad9a3934d60",
+      "same": true
+    },
+    {
+      "file": "model.py",
+      "sandbox_sha256_lf": "94439477f43a2f556861f9beebe3dad2543304d4d57e0b642cdbfcc58d86c6b0",
+      "fd9bcca_sha256_lf": "94439477f43a2f556861f9beebe3dad2543304d4d57e0b642cdbfcc58d86c6b0",
+      "same": true
+    },
+    {
+      "file": "past_code.py",
+      "sandbox_sha256_lf": "c30a5ad00cce1d5159d0740fb5ccccadd9fdfd4b029d49aa7a858a8faf63bc18",
+      "fd9bcca_sha256_lf": "c30a5ad00cce1d5159d0740fb5ccccadd9fdfd4b029d49aa7a858a8faf63bc18",
+      "same": true
+    },
+    {
+      "file": "policy_evaluation.py",
+      "sandbox_sha256_lf": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+      "fd9bcca_sha256_lf": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+      "same": true
+    },
+    {
+      "file": "pytest.ini",
+      "sandbox_sha256_lf": "0a2ee676df5f20cdc746e31bb54a3953c0fd6a75172ca66f42f784aab3600cc9",
+      "fd9bcca_sha256_lf": "0a2ee676df5f20cdc746e31bb54a3953c0fd6a75172ca66f42f784aab3600cc9",
+      "same": true
+    },
+    {
+      "file": "ranking_evaluation.py",
+      "sandbox_sha256_lf": "db2be93ca8d587c6761f635848f1b898c5186542a881c2f4b3ad259524f14b6b",
+      "fd9bcca_sha256_lf": "db2be93ca8d587c6761f635848f1b898c5186542a881c2f4b3ad259524f14b6b",
+      "same": true
+    },
+    {
+      "file": "recommendation_scoring.py",
+      "sandbox_sha256_lf": "2fff8abe3cc419aedf06e91a64f94d1627197af73db8e1975305fab4e243629d",
+      "fd9bcca_sha256_lf": "2fff8abe3cc419aedf06e91a64f94d1627197af73db8e1975305fab4e243629d",
+      "same": true
+    },
+    {
+      "file": "robust_hybrid.py",
+      "sandbox_sha256_lf": "226db3b5d20916ef8becae0fb392be87d8d362bc8a288a4d7f051bfc734f0966",
+      "fd9bcca_sha256_lf": "226db3b5d20916ef8becae0fb392be87d8d362bc8a288a4d7f051bfc734f0966",
+      "same": true
+    },
+    {
+      "file": "rolling_protocol.py",
+      "sandbox_sha256_lf": "c31c59406968d114fad4f6fadd2206c11ce18028bda9888e45fecc013fe734d1",
+      "fd9bcca_sha256_lf": "c31c59406968d114fad4f6fadd2206c11ce18028bda9888e45fecc013fe734d1",
+      "same": true
+    },
+    {
+      "file": "stats_tools.py",
+      "sandbox_sha256_lf": "4b7ca4cd4489480679ef172907da9a1a9e6ed01ad957143c47d077f615beb1de",
+      "fd9bcca_sha256_lf": "4b7ca4cd4489480679ef172907da9a1a9e6ed01ad957143c47d077f615beb1de",
+      "same": true
+    },
+    {
+      "file": "test_codex_audit.py",
+      "sandbox_sha256_lf": "4ad61dddc364a0b0965a5e7def418d35fbdbd177db128a36bbd17efa372bc6ad",
+      "fd9bcca_sha256_lf": "4ad61dddc364a0b0965a5e7def418d35fbdbd177db128a36bbd17efa372bc6ad",
+      "same": true
+    },
+    {
+      "file": "test_cycle3_consistency.py",
+      "sandbox_sha256_lf": "05ac501721229c7b3565c716e87b871d947d8f8a2217dea475671ffb1dd4c3f3",
+      "fd9bcca_sha256_lf": "05ac501721229c7b3565c716e87b871d947d8f8a2217dea475671ffb1dd4c3f3",
+      "same": true
+    },
+    {
+      "file": "test_cycle4_guards.py",
+      "sandbox_sha256_lf": "9ee50c6f877b54f3fd28b177a6145993e3f1ca253f29db03b9e5798df3edb157",
+      "fd9bcca_sha256_lf": "9ee50c6f877b54f3fd28b177a6145993e3f1ca253f29db03b9e5798df3edb157",
+      "same": true
+    },
+    {
+      "file": "test_cycle5_guards.py",
+      "sandbox_sha256_lf": "2b596fd0bc62799ae28f2e9f32614d31a8f598da75aeedfbe1b55890f5f64e5a",
+      "fd9bcca_sha256_lf": "2b596fd0bc62799ae28f2e9f32614d31a8f598da75aeedfbe1b55890f5f64e5a",
+      "same": true
+    },
+    {
+      "file": "test_fast_fusion.py",
+      "sandbox_sha256_lf": "ca4e2ed05498fae6d326196fa90118b50f3d8f507a6288d4614f6a2baa8e81bd",
+      "fd9bcca_sha256_lf": "ca4e2ed05498fae6d326196fa90118b50f3d8f507a6288d4614f6a2baa8e81bd",
+      "same": true
+    },
+    {
+      "file": "test_hybrid_improvement.py",
+      "sandbox_sha256_lf": "e31c85fffa1f09ae2148bffb6057eb96dda815dc0e325d61664ea665b16c28ca",
+      "fd9bcca_sha256_lf": "e31c85fffa1f09ae2148bffb6057eb96dda815dc0e325d61664ea665b16c28ca",
+      "same": true
+    },
+    {
+      "file": "test_revision.py",
+      "sandbox_sha256_lf": "3435e4e444497bf9317236198ee1f7e5744b3fce0688184fffd14758198ffeab",
+      "fd9bcca_sha256_lf": "3435e4e444497bf9317236198ee1f7e5744b3fce0688184fffd14758198ffeab",
+      "same": true
+    },
+    {
+      "file": "test_robust_hybrid.py",
+      "sandbox_sha256_lf": "1b5d1b4ceef9c2e3021864e301078f255b44628758795060517b0da12ecef41d",
+      "fd9bcca_sha256_lf": "1b5d1b4ceef9c2e3021864e301078f255b44628758795060517b0da12ecef41d",
+      "same": true
+    },
+    {
+      "file": "test_v6_protocol.py",
+      "sandbox_sha256_lf": "e21c89525d79c19c01ce0302190512de27aacb7bbd92463ce4716f560bcd4be7",
+      "fd9bcca_sha256_lf": "e21c89525d79c19c01ce0302190512de27aacb7bbd92463ce4716f560bcd4be7",
+      "same": true
+    },
+    {
+      "file": "test_v6_smoke.py",
+      "sandbox_sha256_lf": "9ccaec9b340954cdc891ef85b1e5175cece23316486b2c54df95b1c333be8ecc",
+      "fd9bcca_sha256_lf": "9ccaec9b340954cdc891ef85b1e5175cece23316486b2c54df95b1c333be8ecc",
+      "same": true
+    },
+    {
+      "file": "test_v7_protocol.py",
+      "sandbox_sha256_lf": "6880a2f32dff445befc312bb73e703fe9d31445aa650ee225ab36a892360a79d",
+      "fd9bcca_sha256_lf": "6880a2f32dff445befc312bb73e703fe9d31445aa650ee225ab36a892360a79d",
+      "same": true
+    },
+    {
+      "file": "viz.py",
+      "sandbox_sha256_lf": "eb8569fade99b952056f19b4e9b6fa2c6ba943b0351a40911cccdab102458d82",
+      "fd9bcca_sha256_lf": "eb8569fade99b952056f19b4e9b6fa2c6ba943b0351a40911cccdab102458d82",
+      "same": true
+    }
+  ]
+}
