@@ -3,7 +3,9 @@
 Every grid, fold, seed and selection rule below is frozen into plan.json before
 any model is trained. Selection reads inner-validation labels only. Each fold's
 outer test is opened once, after selection.json is sealed, and every opening is
-appended to an access log. A changed plan cannot reopen a fold's test.
+appended to an access log. A changed plan or a re-made selection cannot reopen a
+fold's test in the same root, and no root can open a test window on the same raw
+input that a committed result set (audit/results_*) opened under another plan.
 
 Usage (from Model/paper_revision_codex):
   python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
@@ -11,8 +13,10 @@ Usage (from Model/paper_revision_codex):
   python rolling_protocol.py gnn-job <spec.json>      (internal worker)
 """
 import os
-for _name in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'NUMEXPR_NUM_THREADS'):
-    os.environ.setdefault(_name, '1')
+# ALS results depend on the BLAS thread count, so it is forced (not defaulted) before numpy is imported.
+THREAD_VARIABLES = ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'NUMEXPR_NUM_THREADS')
+for _name in THREAD_VARIABLES:
+    os.environ[_name] = '1'
 import argparse
 import hashlib
 import itertools
@@ -164,12 +168,21 @@ def git_state():
                             if line.strip() and not line[3:].startswith(('audit_runs', 'Model/paper_revision_codex/audit_runs'))]}
 
 
+def native_threads():
+    """Threads the loaded BLAS/OpenMP libraries actually use (the variables can be rewritten after loading)."""
+    import threadpoolctl
+    return sorted({(info['internal_api'], info['num_threads']) for info in threadpoolctl.threadpool_info()})
+
+
 def environment():
     import torch, implicit, scipy, sklearn
     return {'python': platform.python_version(), 'platform': platform.platform(), 'numpy': np.__version__,
             'pandas': pd.__version__, 'scipy': scipy.__version__, 'sklearn': sklearn.__version__,
             'torch': torch.__version__, 'implicit': implicit.__version__,
-            'cuda': torch.version.cuda, 'gpu': torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}
+            'cuda': torch.version.cuda, 'gpu': torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+            'device': 'cuda' if torch.cuda.is_available() else 'cpu',
+            'thread_env': {name: os.environ.get(name) for name in THREAD_VARIABLES},
+            'native_threads': native_threads(), 'torch_threads': torch.get_num_threads()}
 
 
 # Line endings are normalised so that a checkout's core.autocrlf cannot change the hash of unchanged code.
@@ -511,8 +524,37 @@ def access_log(root, entry):
         if item['fold'] == entry['fold'] and item['purpose'] == entry['purpose'] and item['plan_sha256'] != entry['plan_sha256']:
             raise RuntimeError(f'Fold {entry["fold"]} test was already opened under plan {item["plan_sha256"]}; '
                                'a changed plan cannot reopen it.')
+        if (item['fold'] == entry['fold'] and item['purpose'] == entry['purpose']
+                and item.get('selection_sha256') != entry.get('selection_sha256')):
+            raise RuntimeError(f'Fold {entry["fold"]} test was already opened under selection '
+                               f'{item.get("selection_sha256")}; a re-made selection cannot reopen it.')
     with open(path, 'a', encoding='utf-8') as stream:
         stream.write(json.dumps(entry) + '\n')
+
+
+COMMITTED_RESULTS = HERE / 'audit'
+
+
+def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None):
+    """Committed sealed tests on the same raw input and test window that were opened under another plan.
+
+    The per-root access log cannot see other result roots, so a new root would otherwise be free to
+    reopen a window that a committed protocol already evaluated.
+    """
+    conflicts = []
+    for plan_path in sorted(Path(records or COMMITTED_RESULTS).glob('results_*/plan.json')):
+        log_path = plan_path.parent / 'test_access_log.jsonl'
+        stored = json.loads(plan_path.read_text(encoding='utf-8'))
+        if (not raw_hashes or not log_path.exists() or stored.get('raw_input_sha256') != raw_hashes
+                or stored['plan_sha256'] == plan_hash):
+            continue
+        windows = {f['name']: (f['end_fraction'], f['test_size']) for f in stored['plan']['folds']}
+        opened = {json.loads(line)['fold'] for line in log_path.read_text(encoding='utf-8').splitlines() if line.strip()}
+        for fold in folds:
+            for name in opened:
+                if windows.get(name) == (fold['end_fraction'], fold['test_size']):
+                    conflicts.append({'fold': fold['name'], 'opened_as': name, 'record': str(plan_path.parent)})
+    return conflicts
 
 
 def fold_statistics(policy, details):
@@ -572,7 +614,6 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
     report = fold_dir / 'report'
     report.mkdir(exist_ok=True)
     metrics = pd.DataFrame(metric_rows)
-    metrics.to_csv(fold_dir / 'test_metrics.csv', index=False)
     metrics.to_csv(report / 'test_metrics.csv', index=False)
     summary = metrics.groupby(['fold', 'policy', 'model', 'k'])[['ndcg', 'recall', 'precision', 'hit_rate', 'hit_users']].agg(['mean', 'std']).reset_index()
     summary.columns = ['_'.join(c).strip('_') for c in summary.columns]
@@ -580,6 +621,8 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
     pd.concat(stats_rows).to_csv(report / 'paired_tests.csv', index=False)
     pd.concat(dist_rows).to_csv(report / 'per_user_distribution.csv', index=False)
     pd.DataFrame(populations).to_csv(report / 'populations.csv', index=False)
+    # Written last: its presence marks the fold's test as complete when a run resumes.
+    metrics.to_csv(fold_dir / 'test_metrics.csv', index=False)
 
 
 # ----------------------------------------------------------------------------- post-hoc analyses (F1)
@@ -714,14 +757,39 @@ def if_ablation(root, fold, raw, selection, plan_hash):
 
 
 # ----------------------------------------------------------------------------- fold driver
+def extend_capped_backbones(gnn_rows, extend):
+    """Extend capped rows among the top HYBRID_BACKBONES until none is left unextended.
+
+    gnn_rows is re-sorted in place after each round, because an extension can lift another capped
+    configuration into the backbone set. extend(rows) returns one update per row, carrying 'result'.
+    """
+    results = []
+    while True:
+        todo = [row for row in gnn_rows[:HYBRID_BACKBONES] if row['at_cap'] and not row.get('extended')]
+        if not todo:
+            return results
+        for row, update in zip(todo, extend(todo)):
+            update = dict(update)
+            results.append(update.pop('result'))
+            row.update(update, extended=True)
+        gnn_rows.sort(key=lambda r: r['score'], reverse=True)
+
+
+def leakage_gate(prepared, fold_dir):
+    """leakage_check.json is written whether or not the check passes, so a resumed run must read its verdict."""
+    from audit_tools.leakage_check import main as leakage_main
+    path = Path(fold_dir) / 'leakage_check.json'
+    if not path.exists():
+        leakage_main(prepared, Path(fold_dir) / 'fold_raw', gnn=True, output=path)
+    if not json.loads(path.read_text(encoding='utf-8')).get('all_pass'):
+        raise RuntimeError(f'Leakage check failed for {Path(fold_dir).name} ({path})')
+
+
 def run_fold(root, fold, raw, plan_hash):
     fold_dir = Path(root) / fold['name']
     prepared, fold_raw = prepare_fold(fold, root, raw)
     log(root, 'prepared', fold=fold['name'])
-    from audit_tools.leakage_check import main as leakage_main
-    if not (fold_dir / 'leakage_check.json').exists():
-        if not leakage_main(prepared, fold_dir / 'fold_raw', gnn=True, output=fold_dir / 'leakage_check.json'):
-            raise RuntimeError(f'Leakage check failed for {fold["name"]}')
+    leakage_gate(prepared, fold_dir)
     val_dir = prepared / 'validation'
     contexts = {p: EvaluationContext(val_dir, p) for p in POLICIES}
     dump_json(fold_dir / 'validation_population.json', [c.population() for c in contexts.values()])
@@ -757,21 +825,18 @@ def run_fold(root, fold, raw, plan_hash):
                          'repeat': scores['repeat'], 'novel': scores['novel'],
                          'score': selection_score(scores['repeat'])})
     gnn_rows.sort(key=lambda r: r['score'], reverse=True)
-    extensions, extension_results = [], []
-    for row in gnn_rows[:HYBRID_BACKBONES]:
-        if row['at_cap']:
-            extensions.append(gnn_spec(Path(row['job_dir']).parent / (row['name'] + '_cap800'), val_dir, row['config'],
-                                       SELECTION_SEED, 'select', GNN_CAP_EXTENSION_EPOCHS))
-    if extensions:
-        extension_results = run_gnn_jobs(root, extensions)
-        for spec, result in zip(extensions, extension_results):
-            vectors = load_gnn(spec['job_dir'], contexts['repeat'])
-            scores = evaluate_vectors(contexts, vectors)
-            replaced = next(r for r in gnn_rows if r['config'] == spec['config'])
-            replaced.update(job_dir=spec['job_dir'], epochs=result['chosen_epochs'], at_cap=result['at_cap'],
-                            extended=True, seconds=replaced['seconds'] + result['seconds'],
-                            repeat=scores['repeat'], novel=scores['novel'], score=selection_score(scores['repeat']))
-        gnn_rows.sort(key=lambda r: r['score'], reverse=True)
+
+    def extend(rows):
+        extensions = [gnn_spec(Path(row['job_dir']).parent / (row['name'] + '_cap800'), val_dir, row['config'],
+                               SELECTION_SEED, 'select', GNN_CAP_EXTENSION_EPOCHS) for row in rows]
+        updates = []
+        for row, spec, result in zip(rows, extensions, run_gnn_jobs(root, extensions)):
+            scores = evaluate_vectors(contexts, load_gnn(spec['job_dir'], contexts['repeat']))
+            updates.append(dict(job_dir=spec['job_dir'], epochs=result['chosen_epochs'], at_cap=result['at_cap'],
+                                seconds=row['seconds'] + result['seconds'], repeat=scores['repeat'],
+                                novel=scores['novel'], score=selection_score(scores['repeat']), result=result))
+        return updates
+    extension_results = extend_capped_backbones(gnn_rows, extend)
     dump_json(fold_dir / 'validation_gnn.json', gnn_rows)
     policies, grid_rows = {}, {}
     for policy in POLICIES:
@@ -907,6 +972,10 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
     if code_now != stored['code_sha256']:
         changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
         raise RuntimeError(f'Code changed since the plan was frozen: {changed}')
+    conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash,
+                                         [f for f in FOLDS if not folds or f['name'] in folds])
+    if conflicts:
+        raise RuntimeError(f'These test windows were already opened under another committed plan: {conflicts}')
     for fold in FOLDS:
         if folds and fold['name'] not in folds:
             continue

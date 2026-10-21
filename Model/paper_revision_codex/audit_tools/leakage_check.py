@@ -139,12 +139,14 @@ def audit_graph(name, directory, train, future_pairs, checks):
                    'pass': not future_only, 'future_only_pairs_in_graph': len(future_only)})
 
 
-def main(processed, raw, gnn=False, output=None):
+def main(processed, raw, gnn=False, output=None, end_fraction=None):
+    """raw is the fold's own raw folder (fold_raw for rolling folds). Pass end_fraction to check a
+    rolling fold against the full raw data instead; preprocessing manifests do not record it."""
     processed = Path(processed)
     outer = json.loads((processed / 'manifest.json').read_text(encoding='utf-8'))
     config = outer['config']
     events = raw_events(raw)
-    end = config.get('end_fraction', 1.0)
+    end = end_fraction if end_fraction is not None else config.get('end_fraction', 1.0)
     if end < 1.0:
         end_cutoff = tie_safe_cutoff(events, 1 - end)
         events = events.loc[events.timestamp < end_cutoff]
@@ -181,5 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw', type=Path, required=True)
     parser.add_argument('--gnn', action='store_true')
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--end-fraction', type=float,
+                        help='fold end fraction when --raw is the full raw folder rather than the fold_raw copy')
     args = parser.parse_args()
-    sys.exit(0 if main(args.processed, args.raw, args.gnn, args.output) else 1)
+    sys.exit(0 if main(args.processed, args.raw, args.gnn, args.output, args.end_fraction) else 1)

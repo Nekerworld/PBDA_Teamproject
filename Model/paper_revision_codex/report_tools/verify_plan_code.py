@@ -6,6 +6,8 @@ ignored)? Plans before the 'sha256-lf' scheme hashed raw working-tree bytes, so 
 hash differently on two checkouts; this tells "only line endings differ" apart from "code changed".
 
 Usage: python report_tools/verify_plan_code.py --plan audit/results_v6/plan.json --output <json>
+Exit status 1 means a plan hash matches no form of the file at the plan commit. Files changed since the
+plan are only listed (changed_since_plan) unless --require-unchanged is given.
 """
 import argparse
 import hashlib
@@ -48,12 +50,16 @@ def main(plan_path, output):
         Path(output).parent.mkdir(parents=True, exist_ok=True)
         Path(output).write_text(json.dumps(result, indent=2), encoding='utf-8')
     print(json.dumps({k: v for k, v in result.items() if k != 'rows'}, indent=2))
-    return result['all_plan_hashes_match_commit']
+    return result
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--plan', type=Path, required=True)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--require-unchanged', action='store_true',
+                        help='also fail when a hashed file differs from the plan commit (default: report only)')
     args = parser.parse_args()
-    raise SystemExit(0 if main(args.plan, args.output) else 1)
+    result = main(args.plan, args.output)
+    ok = result['all_plan_hashes_match_commit'] and not (args.require_unchanged and result['changed_since_plan'])
+    raise SystemExit(0 if ok else 1)
