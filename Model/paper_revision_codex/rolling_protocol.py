@@ -161,7 +161,8 @@ def plan_payload():
 def git_state():
     def run(*args):
         try:
-            return subprocess.run(['git', *args], cwd=HERE, capture_output=True, text=True, check=True).stdout.strip()
+            # rstrip only: porcelain lines start with a status column that may be a space
+            return subprocess.run(['git', *args], cwd=HERE, capture_output=True, text=True, check=True).stdout.rstrip('\n')
         except (OSError, subprocess.CalledProcessError):
             return None
     return {'commit': run('rev-parse', 'HEAD'), 'branch': run('rev-parse', '--abbrev-ref', 'HEAD'),
@@ -196,6 +197,13 @@ RAW_FILES = ('events.csv', 'item_properties_part1.csv', 'item_properties_part2.c
 
 def raw_hashes(raw):
     return {name: sha256(Path(raw) / name) for name in RAW_FILES}
+
+
+def event_digests(raw):
+    """Hashes events.csv would have as stored, with LF and with CRLF line endings."""
+    data = (Path(raw) / 'events.csv').read_bytes().replace(b'\r\n', b'\n')
+    return {sha256(Path(raw) / 'events.csv'), hashlib.sha256(data).hexdigest(),
+            hashlib.sha256(data.replace(b'\n', b'\r\n')).hexdigest()}
 
 
 def code_hashes(root=HERE, scheme=CODE_HASH_SCHEME):
@@ -585,22 +593,25 @@ def code_matches(stored, scheme, root=HERE):
     return True
 
 
-def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None):
-    """Recorded test openings on the same raw input whose window overlaps one of ``folds``.
+def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_forms=None):
+    """Recorded test openings on the same events whose window overlaps one of ``folds``.
 
     The per-root access log cannot see other result roots, so a new root would otherwise be free to
     reopen a window that another run already evaluated. Only an exact reproduction (same plan and
     same code as that record) may reopen it. ``records`` are folders holding ``*/plan.json`` with a
     ``test_access_log.jsonl`` beside it: the committed audit/results_* and local audit_runs/* roots.
+    Windows are cut from events.csv alone, so records are matched on its hash; ``event_forms``
+    (from ``event_digests``) also matches a copy that differs only in line endings.
     """
     bases = [records] if isinstance(records, (str, Path)) else (records or RESULT_RECORDS)
+    forms = set(event_forms or ()) | ({raw_hashes['events.csv']} if raw_hashes else set())
     conflicts = []
     for plan_path in sorted(p for base in bases for p in Path(base).glob('*/plan.json')):
         log_path = plan_path.parent / 'test_access_log.jsonl'
-        if not raw_hashes or not log_path.exists():
+        if not forms or not log_path.exists():
             continue
         stored = json.loads(plan_path.read_text(encoding='utf-8'))
-        if stored.get('raw_input_sha256') != raw_hashes:
+        if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:
             continue
         if stored['plan_sha256'] == plan_hash and code_matches(stored.get('code_sha256', {}),
                                                                stored.get('code_hash_scheme', 'sha256-raw')):
@@ -1035,7 +1046,8 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
         changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
         raise RuntimeError(f'Code changed since the plan was frozen: {changed}')
     conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash,
-                                         [f for f in FOLDS if not folds or f['name'] in folds])
+                                         [f for f in FOLDS if not folds or f['name'] in folds],
+                                         event_forms=event_digests(raw) if (Path(raw) / 'events.csv').exists() else None)
     if conflicts:
         raise RuntimeError(f'These test windows were already opened under another plan or code: {conflicts}')
     log(root, 'run_started', git=git_state()['commit'], native_threads=native_threads())

@@ -1,4 +1,4 @@
-"""Put the pre-fix behaviour of each cycle-5 guard back into a temporary copy, one at a time, and check
+"""Put the pre-fix behaviour of each cycle-5/6 guard (H1-H14) back into a temporary copy, one at a time, and check
 that test_cycle4_guards.py / test_cycle5_guards.py fail. Output: audit/cycle5/guard_mutants.json.
 
 Usage: python report_tools/guard_mutation_check.py
@@ -19,6 +19,8 @@ M = {
  'H10 leakage gate on fold_raw only': ('rolling_protocol.py', "        leakage_main(prepared, raw, gnn=True, output=path, end_fraction=end_fraction)", "        leakage_main(prepared, Path(fold_dir) / 'fold_raw', gnn=True, output=path, end_fraction=None)"),
  'H11 posthoc marker written first': ('rolling_protocol.py', "    frame['note'] = 'Post-hoc on sealed test, seed 42, repeat policy; never used for selection.'\n", "    frame['note'] = 'Post-hoc on sealed test, seed 42, repeat policy; never used for selection.'\n    frame.to_csv(out, index=False)\n"),
  'H12 selection plan hash not checked': ('rolling_protocol.py', "    if selection['plan_sha256'] != plan_hash:\n        raise", "    if False:\n        raise"),
+ 'H13 records matched on all raw file bytes': ('rolling_protocol.py', "        if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:", "        if stored.get('raw_input_sha256') != raw_hashes:"),
+ 'H14 git output fully stripped': ('rolling_protocol.py', ".stdout.rstrip('\\n')", ".stdout.strip()"),
 }
 tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))
 def fresh():

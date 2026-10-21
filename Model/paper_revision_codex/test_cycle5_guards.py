@@ -144,6 +144,61 @@ def test_score_precision_tool_loads_blas_single_threaded():
     assert threads and all(count == 1 for api, count in threads if api in ('openblas', 'mkl'))
 
 
+def test_records_match_on_events_whatever_the_line_endings_or_other_raw_files(tmp_path):
+    original = raw_folder(tmp_path / 'raw')
+    (original / 'events.csv').write_bytes(b'timestamp,visitorid\n1,2\n')
+    committed_record(tmp_path / 'records', rp.raw_hashes(original), 'p1', [FOLD], opened=['A'])
+    copy = raw_folder(tmp_path / 'copy')
+    (copy / 'events.csv').write_bytes(b'timestamp,visitorid\r\n1,2\r\n')
+    (copy / 'category_tree.csv').write_bytes(b'categoryid,parentid\r\n')
+
+    def opened(raw, forms=None):
+        return [c['fold'] for c in rp.committed_test_conflicts(rp.raw_hashes(raw), 'p2', [FOLD], tmp_path / 'records',
+                                                               event_forms=forms)]
+    assert opened(copy) == []  # byte hash alone misses a line-ending copy
+    assert opened(copy, rp.event_digests(copy)) == ['A']
+    (copy / 'events.csv').write_bytes(b'timestamp,visitorid\n1,2\n')
+    assert opened(copy) == ['A']  # other raw files do not define the window
+    (copy / 'events.csv').write_bytes(b'timestamp,visitorid\n1,3\n')
+    assert opened(copy, rp.event_digests(copy)) == []
+
+
+def test_git_state_keeps_the_status_column_of_the_first_line(monkeypatch):
+    class Done:
+        stdout = ' M audit_runs/v7/x.json\n M rolling_protocol.py\n'
+    monkeypatch.setattr(rp.subprocess, 'run', lambda *a, **k: Done())
+    assert rp.git_state()['dirty_files'] == [' M rolling_protocol.py']
+
+
+def test_cache_audit_compares_with_what_the_plan_and_selection_request(tmp_path):
+    sys.path.insert(0, str(HERE / 'report_tools'))
+    import check_cached_runs
+    config = {'layers': 1, 'embedding_dim': 8, 'learning_rate': .01}
+    plan = {'gnn_fixed': {'reg': 1e-4}, 'selection_seed': 42, 'seeds': [42], 'gnn_grid': [config],
+            'gnn_max_epochs': 400, 'gnn_cap_rule': f'cap {rp.GNN_CAP_EXTENSION_EPOCHS}'}
+    (tmp_path / 'plan.json').write_text(json.dumps({'plan': plan}), encoding='utf-8')
+    fold = tmp_path / 'F'
+    mf = {'als': {'factors': 4}, 'bpr': {'factors': 4}, 'bpr_epochs': 2}
+    gnn_row = {'name': 'g', 'config': config, 'epochs': 90}
+    (fold / 'runs' / 'seed_42').mkdir(parents=True)
+    (fold / 'val_mf').mkdir()
+    for d in (fold / 'val_mf', fold / 'runs' / 'seed_42'):
+        (d / 'mf_fit.json').write_text(json.dumps(dict(mf, seed=42)), encoding='utf-8')
+    (fold / 'selection.json').write_text(json.dumps({'mf': mf, 'gnn': gnn_row, 'hybrid_backbone': gnn_row}), encoding='utf-8')
+    (fold / 'validation_gnn.json').write_text(json.dumps([dict(gnn_row, job_dir='x/g')]), encoding='utf-8')
+
+    def trained(job, **spec):
+        (fold / job).mkdir(parents=True, exist_ok=True)
+        (fold / job / 'job_result.json').write_text(json.dumps({'spec': dict(spec, fixed=plan['gnn_fixed'])}), encoding='utf-8')
+    trained(Path('gnn_val') / rp.config_name('gnn', config), config=config, seed=42, mode='select', epochs=400)
+    trained(Path('runs') / 'gnn_seed_42', config=config, seed=42, mode='refit', epochs=90)
+    clean = check_cached_runs.main(tmp_path, tmp_path / 'ok.json')
+    assert (clean['gnn_requested'], clean['gnn_mismatches'], clean['mf_mismatches']) == (2, 0, 0)
+    trained(Path('runs') / 'gnn_seed_42', config=dict(config, layers=4), seed=42, mode='refit', epochs=400)
+    stale = check_cached_runs.main(tmp_path, tmp_path / 'bad.json')
+    assert stale['gnn_mismatches'] == 1 and set(stale['gnn'][1]['differs']) == {'config', 'epochs'}
+
+
 class CrashOnIteration(list):
     def __iter__(self):
         raise KeyboardInterrupt('interrupted during the post-hoc gamma sweep')

@@ -1,4 +1,6 @@
-"""Re-train sealed v6 artifacts with the same seed and compare them (no labels are read).
+"""Re-train sealed v6 artifacts with the same seed and compare them (no metric is computed).
+
+The outer-test truth is loaded only through EvaluationContext, to define the warm evaluation users.
 
 GNN: re-runs one recorded refit job spec into a new directory.
 MF:  re-fits ALS (CPU) and BPR (GPU) with the sealed configuration and seed.
