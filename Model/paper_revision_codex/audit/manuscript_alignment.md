@@ -25,7 +25,7 @@
 
 | 기존 서술 (v5 / briefing) | 문제 | 검증된 대체 서술 |
 |---|---|---|
-| "Hybrid가 두 지표의 세 seed 평균 모두 가장 높았다" (F1 = v5 시험 구간) | v6 F1에서 Recall은 GNN이 더 높음 (0.1681 vs 0.1668). F3 NDCG는 ALS+BPR이 더 높음 | "Hybrid는 12개 칸(3 fold × 2 정책 × 2 지표) 중 9개에서 평균 1위였다" |
+| "Hybrid가 두 지표의 세 seed 평균 모두 가장 높았다" (F1 = v5 시험 구간) | v6 F1에서 Recall은 GNN이 더 높음 (0.1681 vs 0.1668). F3 NDCG는 ALS+BPR이 더 높음 | "baseline 7종과 비교하면 Hybrid는 12개 칸(3 fold × 2 정책 × 2 지표) 중 9개에서 평균 1위였고, 가장 강한 baseline(GNN, ALS+BPR)보다 세 fold 모두에서 유의하게 높은 지표는 없었다". BPR을 뺀 ablation(`Hybrid_ALS_only`)은 F3 novel에서 Hybrid보다 높았다 |
 | "가장 강한 비교 모델 대비 NDCG +10.83%" | v5는 시험을 본 뒤 설계를 바꾼 결과임. 상대 개선율은 비유의한 차이를 과장함 | GNN·ALS+BPR 대비 차이와 Holm 보정 CI를 그대로 보고 (`validation_report.md` §4.3). 세 fold 모두에서 유의한 우위는 없음 |
 | Recall 우위 | v5에서도 CI가 0을 포함함 | Recall 우위를 주장하지 않음 |
 | 계산 효율 (retrieve-then-rank) | 후보 수는 fold마다 500–전체로 바뀌고, Hybrid 경로는 GNN 단독 전체 카탈로그 점수 계산보다 10배 이상 느림 | 효율성 주장을 삭제하거나 "후보 500개에서도 정확도 유지"로 한정 |

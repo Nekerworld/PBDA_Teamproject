@@ -89,7 +89,12 @@ novel 정책에서는 모든 지표가 repeat의 약 1/3–1/4로 떨어진다. 
 | Hybrid − ALS, BPR, Popularity, Recent | 둘 다 | 둘 다 | 대부분 유의 | 대부분 유의 | 대부분 유의 (예외는 `paired_tests.csv`) |
 
 **해석**
-- Hybrid는 평균으로는 대부분의 칸에서 1위다.
+- Hybrid는 평균으로는 대부분의 칸에서 1위다 (baseline 7종 대비 12칸 중 9칸).
+- `Hybrid_ALS_only`는 Hybrid에서 MF 부분의 BPR만 뺀 ablation이다 (GNN 결합과 γ는 같음). 사전등록 비교 대상이 아니어서 검정하지 않았다.
+  - Hybrid와의 평균 차이는 작다 (repeat NDCG +0.0012 – +0.0051).
+  - F3 novel에서는 ablation이 더 높다 (NDCG 0.0353 vs 0.0347, Recall 0.0805 vs 0.0786).
+  - BPR 결합의 기여는 확인되지 않는다.
+- GNN 결합과 γ를 합친 기여는 "Hybrid − ALS+BPR" 비교가 보여 준다: NDCG는 6칸 모두 비유의, Recall은 3칸 유의.
 - 가장 강한 두 baseline(GNN, ALS+BPR)보다 **세 fold 모두에서 유의하게 높은 지표는 없다**.
 - ALS+BPR 대비 NDCG는 6개 칸 모두 비유의다.
 - GNN 대비 Recall은 F1에서 평균이 더 낮다.
