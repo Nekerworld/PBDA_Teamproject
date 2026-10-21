@@ -1,0 +1,2 @@
+# Keep the evidence files byte-exact as written by the checks; disable EOL conversion
+* -text

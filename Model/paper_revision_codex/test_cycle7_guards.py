@@ -19,7 +19,8 @@ def test_test_opening_rechecks_roots_that_opened_the_window_after_this_run_start
     root = tmp_path / 'mine'
     (root / fold['name']).mkdir(parents=True)
     (root / fold['name'] / 'selection.json').write_text('{}', encoding='utf-8')
-    (root / 'plan.json').write_text(json.dumps({'plan_sha256': 'p1', 'raw_input_sha256': raw}), encoding='utf-8')
+    (root / 'plan.json').write_text(json.dumps({'plan_sha256': 'p1', 'raw_input_sha256': raw, 'code_hash_scheme':
+                                                rp.CODE_HASH_SCHEME, 'code_sha256': rp.code_hashes()}), encoding='utf-8')
     records = tmp_path / 'records'
     records.mkdir()
     monkeypatch.setattr(rp, 'RESULT_RECORDS', (records,))

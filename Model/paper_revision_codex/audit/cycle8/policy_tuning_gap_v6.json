@@ -1,0 +1,204 @@
+{
+  "root": "audit/results_v6",
+  "score": "mean(NDCG@50, Recall@50) on inner validation",
+  "folds": {
+    "F1_hist": {
+      "repeat": {
+        "hybrid_selected": 0.17594556318011334,
+        "families": {
+          "GNN": {
+            "selected": 0.16776698893028108,
+            "best": 0.16776698893028108,
+            "best_config": "gnn_layers3_embedding_dim128_learning_rate0p001",
+            "selected_rank": 1,
+            "configs": 8
+          },
+          "ALS": {
+            "selected": 0.14586878142776805,
+            "best": 0.14586878142776805,
+            "best_config": "18",
+            "selected_rank": 1,
+            "configs": 24
+          },
+          "BPR": {
+            "selected": 0.15395770116868218,
+            "best": 0.15395770116868218,
+            "best_config": "38",
+            "selected_rank": 1,
+            "configs": 20
+          },
+          "ALS+BPR": {
+            "selected": 0.1667120369870643,
+            "best": 0.1667120369870643,
+            "note": "best varies alpha only; the ALS and BPR inside stay the repeat-selected fits"
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      },
+      "novel": {
+        "hybrid_selected": 0.06410740460828425,
+        "families": {
+          "GNN": {
+            "selected": 0.05787345075348375,
+            "best": 0.05787345075348375,
+            "best_config": "gnn_layers3_embedding_dim128_learning_rate0p001",
+            "selected_rank": 1,
+            "configs": 8
+          },
+          "ALS": {
+            "selected": 0.04736817605015725,
+            "best": 0.04772547406411915,
+            "best_config": "22",
+            "selected_rank": 2,
+            "configs": 24
+          },
+          "BPR": {
+            "selected": 0.0373080878209292,
+            "best": 0.0373080878209292,
+            "best_config": "38",
+            "selected_rank": 1,
+            "configs": 20
+          },
+          "ALS+BPR": {
+            "selected": 0.0568695372875966,
+            "best": 0.0568695372875966,
+            "note": "best varies alpha only; the ALS and BPR inside stay the repeat-selected fits"
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      }
+    },
+    "F2_mid": {
+      "repeat": {
+        "hybrid_selected": 0.19662014445855672,
+        "families": {
+          "GNN": {
+            "selected": 0.19123243801386403,
+            "best": 0.19123243801386403,
+            "best_config": "gnn_layers2_embedding_dim128_learning_rate0p001",
+            "selected_rank": 1,
+            "configs": 8
+          },
+          "ALS": {
+            "selected": 0.16732356090234465,
+            "best": 0.16732356090234465,
+            "best_config": "22",
+            "selected_rank": 1,
+            "configs": 24
+          },
+          "BPR": {
+            "selected": 0.18119768719450186,
+            "best": 0.18119768719450186,
+            "best_config": "38",
+            "selected_rank": 1,
+            "configs": 20
+          },
+          "ALS+BPR": {
+            "selected": 0.1857399652819527,
+            "best": 0.1857399652819527,
+            "note": "best varies alpha only; the ALS and BPR inside stay the repeat-selected fits"
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      },
+      "novel": {
+        "hybrid_selected": 0.07080340957101856,
+        "families": {
+          "GNN": {
+            "selected": 0.05980979709343342,
+            "best": 0.06501990208405041,
+            "best_config": "gnn_layers2_embedding_dim64_learning_rate0p001",
+            "selected_rank": 3,
+            "configs": 8
+          },
+          "ALS": {
+            "selected": 0.052256146352279896,
+            "best": 0.0523204577069362,
+            "best_config": "18",
+            "selected_rank": 3,
+            "configs": 24
+          },
+          "BPR": {
+            "selected": 0.04436195976961165,
+            "best": 0.04436195976961165,
+            "best_config": "38",
+            "selected_rank": 1,
+            "configs": 20
+          },
+          "ALS+BPR": {
+            "selected": 0.060128282111406,
+            "best": 0.060128282111406,
+            "note": "best varies alpha only; the ALS and BPR inside stay the repeat-selected fits"
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      }
+    },
+    "F3_early": {
+      "repeat": {
+        "hybrid_selected": 0.2171427122484043,
+        "families": {
+          "GNN": {
+            "selected": 0.21194411147299355,
+            "best": 0.21194411147299355,
+            "best_config": "gnn_layers2_embedding_dim128_learning_rate0p001",
+            "selected_rank": 1,
+            "configs": 8
+          },
+          "ALS": {
+            "selected": 0.18179878237143549,
+            "best": 0.18179878237143549,
+            "best_config": "18",
+            "selected_rank": 1,
+            "configs": 24
+          },
+          "BPR": {
+            "selected": 0.19844994161304036,
+            "best": 0.19844994161304036,
+            "best_config": "38",
+            "selected_rank": 1,
+            "configs": 20
+          },
+          "ALS+BPR": {
+            "selected": 0.2075046379317709,
+            "best": 0.2075046379317709,
+            "note": "best varies alpha only; the ALS and BPR inside stay the repeat-selected fits"
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      },
+      "novel": {
+        "hybrid_selected": 0.06742243540766053,
+        "families": {
+          "GNN": {
+            "selected": 0.05293332961039647,
+            "best": 0.0580945587677439,
+            "best_config": "gnn_layers2_embedding_dim128_learning_rate0p003",
+            "selected_rank": 4,
+            "configs": 8
+          },
+          "ALS": {
+            "selected": 0.0493390404220973,
+            "best": 0.05041550749616275,
+            "best_config": "23",
+            "selected_rank": 2,
+            "configs": 24
+          },
+          "BPR": {
+            "selected": 0.0297966928664499,
+            "best": 0.0297966928664499,
+            "best_config": "38",
+            "selected_rank": 1,
+            "configs": 20
+          },
+          "ALS+BPR": {
+            "selected": 0.0538142310934102,
+            "best": 0.0538142310934102,
+            "note": "best varies alpha only; the ALS and BPR inside stay the repeat-selected fits"
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      }
+    }
+  }
+}

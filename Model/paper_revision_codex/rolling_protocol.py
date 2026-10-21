@@ -220,6 +220,16 @@ def code_hashes(root=HERE, scheme=CODE_HASH_SCHEME):
     return digest
 
 
+def require_frozen_code(root):
+    """The code on disk must still be the plan's code. Checked again during a run, not only at its start:
+    GNN jobs are new processes and some modules are imported on first use, so both load whatever is on disk."""
+    stored = json.loads((Path(root) / 'plan.json').read_text(encoding='utf-8'))
+    code_now = code_hashes(scheme=stored.get('code_hash_scheme', 'sha256-raw'))
+    if code_now != stored['code_sha256']:
+        changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
+        raise RuntimeError(f'Code changed since the plan was frozen: {changed}')
+
+
 def rel(path, root):
     return Path(os.path.relpath(Path(path).resolve(), Path(root).resolve())).as_posix()
 
@@ -469,6 +479,7 @@ def run_gnn_jobs(root, specs):
     while pending or running:
         while pending and len(running) < MAX_PARALLEL_GNN:
             spec = pending.pop(0)
+            require_frozen_code(root)
             path = spec_dir / (hashlib.sha1(spec['job_dir'].encode()).hexdigest()[:16] + '.json')
             dump_json(path, spec)
             Path(spec['job_dir']).parent.mkdir(parents=True, exist_ok=True)
@@ -526,10 +537,11 @@ def cached_grid(path, compute):
     """Reuse a Hybrid validation grid only when it has a row for every configuration; write it atomically.
 
     A CSV cut at a row boundary still parses, so a run interrupted mid-write would otherwise select
-    from part of the grid on resume. Returns (rows, reused)."""
+    from part of the grid on resume. Read back with round-trip float parsing: the default parser is off by
+    a few ulp, so a resumed selection.json would differ from an uninterrupted one. Returns (rows, reused)."""
     path = Path(path)
     if path.exists():
-        rows = pd.read_csv(path).to_dict('records')
+        rows = pd.read_csv(path, float_precision='round_trip').to_dict('records')
         if len(rows) == len(HYBRID_GRID):
             return rows, True
     rows = compute()
@@ -566,7 +578,10 @@ def access_log(root, entry, record=True):
 
     record=False only checks, for runs that find the fold's outputs already written."""
     path = Path(root) / 'test_access_log.jsonl'
-    previous = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []
+    try:
+        previous = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []
+    except ValueError as error:
+        raise RuntimeError(f'{path} has a line that cannot be read ({error}); the earlier openings cannot be checked.') from error
     for item in previous:
         if item['fold'] != entry['fold']:
             continue
@@ -584,13 +599,15 @@ def access_log(root, entry, record=True):
 def open_test(root, fold_name, purpose, plan_hash, done):
     """Log a test opening, or only check the log when the outputs already exist. Returns True to proceed.
 
-    Other roots are checked again here, not only when the run starts: a run started in parallel may
-    have opened an overlapping window in the hours since."""
+    The code and other roots are checked again here, not only when the run starts: the code may have been
+    edited, or a run started in parallel may have opened an overlapping window, in the hours since. This
+    root's own openings are governed by its access log."""
     if not done:
-        plan_path = Path(root) / 'plan.json'
-        stored = json.loads(plan_path.read_text(encoding='utf-8')) if plan_path.exists() else {}
+        require_frozen_code(root)
+        stored = json.loads((Path(root) / 'plan.json').read_text(encoding='utf-8'))
         fold = next(f for f in FOLDS if f['name'] == fold_name)
-        conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS)
+        conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS,
+                                             exclude=root)
         if conflicts:
             raise RuntimeError(f'Another run opened an overlapping test window after this run started: {conflicts}')
     access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold_name, 'purpose': purpose,
@@ -621,7 +638,7 @@ def code_matches(stored, scheme, root=HERE):
     return True
 
 
-def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_forms=None):
+def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_forms=None, exclude=None):
     """Recorded test openings on the same events whose window overlaps one of ``folds``.
 
     The per-root access log cannot see other result roots, so a new root would otherwise be free to
@@ -629,16 +646,23 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
     code and raw files as that record) may reopen it. ``records`` are folders holding ``*/plan.json`` with a
     ``test_access_log.jsonl`` beside it: the committed audit/results_* and local audit_runs/* roots.
     Windows are cut from events.csv alone, so records are matched on its hash; ``event_forms``
-    (from ``event_digests``) also matches a copy that differs only in line endings.
+    (from ``event_digests``) also matches a copy that differs only in line endings. ``exclude`` is a root
+    left out (the running root itself). A log line that cannot be read (a write cut off) counts as an
+    opening of every fold in that record.
     """
     bases = [records] if isinstance(records, (str, Path)) else (records or RESULT_RECORDS)
     forms = set(event_forms or ()) | ({raw_hashes['events.csv']} if raw_hashes else set())
+    skip = Path(exclude).resolve() if exclude else None
     conflicts = []
     for plan_path in sorted(p for base in bases for p in Path(base).glob('*/plan.json')):
         log_path = plan_path.parent / 'test_access_log.jsonl'
-        if not forms or not log_path.exists():
+        if not forms or not log_path.exists() or plan_path.parent.resolve() == skip:
             continue
-        stored = json.loads(plan_path.read_text(encoding='utf-8'))
+        try:
+            stored = json.loads(plan_path.read_text(encoding='utf-8'))
+        except ValueError as error:
+            raise RuntimeError(f'Test record {plan_path} cannot be read ({error}); repair it or move the record '
+                               'out of the result folders before running.') from error
         if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:
             continue
         exact_reproduction = (stored['plan_sha256'] == plan_hash and stored.get('raw_input_sha256') == raw_hashes
@@ -646,7 +670,14 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
         if exact_reproduction:
             continue
         windows = {f['name']: outer_test_window(f) for f in stored['plan']['folds']}
-        opened = {json.loads(line)['fold'] for line in log_path.read_text(encoding='utf-8').splitlines() if line.strip()}
+        opened = set()
+        for line in log_path.read_text(encoding='utf-8').splitlines():
+            if not line.strip():
+                continue
+            try:
+                opened.add(json.loads(line)['fold'])
+            except (ValueError, KeyError, TypeError):
+                opened |= set(windows)
         for fold in folds:
             low, high = outer_test_window(fold)
             for name in sorted(opened & set(windows)):
@@ -1070,10 +1101,7 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
     stored = json.loads(plan_path.read_text(encoding='utf-8'))
     if 'raw_input_sha256' in stored and raw_hashes(raw) != stored['raw_input_sha256']:
         raise RuntimeError(f'--raw {raw} differs from the raw input recorded in {plan_path}')
-    code_now = code_hashes(scheme=stored.get('code_hash_scheme', 'sha256-raw'))
-    if code_now != stored['code_sha256']:
-        changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
-        raise RuntimeError(f'Code changed since the plan was frozen: {changed}')
+    require_frozen_code(root)
     RUN_EVENT_FORMS.clear()
     RUN_EVENT_FORMS.update(event_digests(raw) if (Path(raw) / 'events.csv').exists() else ())
     conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash,

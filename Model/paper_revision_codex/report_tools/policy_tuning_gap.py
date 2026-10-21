@@ -12,6 +12,7 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 
@@ -34,15 +35,20 @@ def fold_gap(fold_dir):
     out = {}
     for policy in ('repeat', 'novel'):
         families = {'GNN': ranked(gnn, lambda row: score(row[policy]), selection['gnn']['name'])}
+        sealed = {'ALS': selection['mf']['als'], 'BPR': {**selection['mf']['bpr'], 'epochs': selection['mf']['bpr_epochs']}}
         for family in ('ALS', 'BPR'):
-            part = grid.loc[grid.family == family].sort_values('repeat_score', ascending=False, kind='stable')
+            part = grid.loc[grid.family == family]
+            chosen = part.loc[np.logical_and.reduce([np.isclose(part[k], v) for k, v in sealed[family].items()])]
+            if len(chosen) != 1:
+                raise ValueError(f'{fold_dir.name}: selected {family} {sealed[family]} matches {len(chosen)} grid rows')
             items = [(str(i), {'ndcg': r[f'{policy}_ndcg'], 'recall': r[f'{policy}_recall']})
                      for i, r in zip(part.index, part.to_dict('records'))]
-            families[family] = ranked(items, score, items[0][0])
+            families[family] = ranked(items, score, str(chosen.index[0]))
         alpha = pd.read_csv(fold_dir / f'validation_mf_alpha_{policy}.csv')
         chosen_alpha = selection['policies'][policy]['mf_alpha']
         families['ALS+BPR'] = {'selected': float(alpha.loc[alpha.alpha == chosen_alpha, 'score'].iloc[0]),
-                               'best': float(alpha.score.max())}
+                               'best': float(alpha.score.max()),
+                               'note': 'best varies alpha only; the ALS and BPR inside stay the repeat-selected fits'}
         hybrid = float(selection['policies'][policy]['hybrid']['score'])
         out[policy] = {'hybrid_selected': hybrid, 'families': families,
                        'baselines_whose_best_config_beats_hybrid': [f for f, v in families.items() if v['best'] > hybrid]}

@@ -1,0 +1,51 @@
+{
+  "F4_unseen": {
+    "grids": [
+      {
+        "file": "validation_hybrid_novel_gnn_layers1_embedding_dim256_learning_rate0p0005.csv",
+        "rows": 2808,
+        "rows_changed_by_default_parser": 2808,
+        "round_trip_reserialises_exactly": true,
+        "score_order_differs": false
+      },
+      {
+        "file": "validation_hybrid_novel_gnn_layers1_embedding_dim256_learning_rate0p001.csv",
+        "rows": 2808,
+        "rows_changed_by_default_parser": 2808,
+        "round_trip_reserialises_exactly": true,
+        "score_order_differs": false
+      },
+      {
+        "file": "validation_hybrid_novel_gnn_layers1_embedding_dim256_learning_rate0p003.csv",
+        "rows": 2808,
+        "rows_changed_by_default_parser": 2808,
+        "round_trip_reserialises_exactly": true,
+        "score_order_differs": false
+      },
+      {
+        "file": "validation_hybrid_repeat_gnn_layers1_embedding_dim256_learning_rate0p0005.csv",
+        "rows": 2808,
+        "rows_changed_by_default_parser": 2808,
+        "round_trip_reserialises_exactly": true,
+        "score_order_differs": false
+      },
+      {
+        "file": "validation_hybrid_repeat_gnn_layers1_embedding_dim256_learning_rate0p001.csv",
+        "rows": 2808,
+        "rows_changed_by_default_parser": 2808,
+        "round_trip_reserialises_exactly": true,
+        "score_order_differs": false
+      },
+      {
+        "file": "validation_hybrid_repeat_gnn_layers1_embedding_dim256_learning_rate0p003.csv",
+        "rows": 2808,
+        "rows_changed_by_default_parser": 2808,
+        "round_trip_reserialises_exactly": true,
+        "score_order_differs": false
+      }
+    ],
+    "selection_floats": 48,
+    "found_with_round_trip": 26,
+    "found_with_default": 11
+  }
+}
