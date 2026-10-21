@@ -1,0 +1,7 @@
+fold,policy,evaluation_users,warm_users,users_with_reachable_truth,truth_items,reachable_truth_items,catalog_items
+F1_hist,repeat,854,429,409,2562,1574,58556
+F1_hist,novel,717,342,316,2197,1276,58556
+F2_mid,repeat,897,458,431,2382,1464,47979
+F2_mid,novel,755,372,342,2024,1174,47979
+F3_early,repeat,628,326,305,1880,1153,39284
+F3_early,novel,505,248,225,1619,954,39284

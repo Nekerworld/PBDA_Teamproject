@@ -1,0 +1,31 @@
+{
+  "results_root": "audit/results_v6",
+  "sources": {
+    "F1_hist/report/test_summary.csv": "9a88cb968faee7e456372a4f14120c5f414cee84f5a9dc08f1b42a3c718e15f8",
+    "F2_mid/report/test_summary.csv": "066c086933c3e238802fedce3366f14d3f644ac521845557a2827a676871f2a8",
+    "F3_early/report/test_summary.csv": "847ee57a91b007a1727f4a1719c1e3265ecf67fb8882c987794acb7de2a84324",
+    "F1_hist/report/paired_tests.csv": "bf2d7e0e26e326b5274aac36de885270040a9de109829abb3261b425113f6db4",
+    "F2_mid/report/paired_tests.csv": "b079f520c362d4f0a889a1448a4decc55c361eabfde0cd4078b91c659369af08",
+    "F3_early/report/paired_tests.csv": "b3b658ffe93ddc8dc16896a4c7c9d600333d7a36715b82fe0005839b7cdab417",
+    "F1_hist/report/posthoc_gamma.csv": "59bc4541e8a6ed8d672775f67324e788a91c187beaae225bf3d01ada3fe24961",
+    "F1_hist/report/posthoc_candidate_depth.csv": "3bd8d5ad063ef3be1ae3f9f9cf58de7da6b91e6d997e0d0aec39c4c2e9fd7764",
+    "F1_hist/report/populations.csv": "af47e8479c62dd85f54ce4b6e3dbb5e3827993d8e7832a1d4ded71bdf0edc77e",
+    "F2_mid/report/populations.csv": "f70c99eac6e891509567d191d71c1dab592014d3456a36e6628816b821799bf5",
+    "F3_early/report/populations.csv": "9571c5c256a66afb41d27412005aeb229164b642632134afcccedd4269c85549",
+    "F1_hist/dataset_statistics.csv": "dd3016ad55d050a65581ce72f6544bd9bc41c19f7986ea669dfa58d5ec90637c"
+  },
+  "outputs": [
+    "model_comparison.png/.pdf/.svg",
+    "table_test_k50.csv/.md",
+    "topk_comparison.png/.pdf/.svg",
+    "paired_differences.png/.pdf/.svg",
+    "table_paired_tests.csv/.md",
+    "gamma_sensitivity.png/.pdf/.svg",
+    "table_gamma_posthoc.csv/.md",
+    "candidate_depth.png/.pdf/.svg",
+    "table_candidate_depth.csv/.md",
+    "table_populations.csv/.md",
+    "table_dataset_statistics.csv/.md",
+    "pipeline.png/.pdf/.svg"
+  ]
+}
