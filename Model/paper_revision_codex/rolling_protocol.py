@@ -4,8 +4,9 @@ Every grid, fold, seed and selection rule below is frozen into plan.json before
 any model is trained. Selection reads inner-validation labels only. Each fold's
 outer test is opened once, after selection.json is sealed, and every opening is
 appended to an access log. A changed plan or a re-made selection cannot reopen a
-fold's test in the same root, and no root can open a test window on the same raw
-input that a committed result set (audit/results_*) opened under another plan.
+fold's test in the same root, and no root can open a test window that overlaps one
+already opened on the same raw input in a committed (audit/results_*) or local
+(audit_runs/*) root, unless it is an exact reproduction (same plan and same code).
 
 Usage (from Model/paper_revision_codex):
   python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
@@ -188,6 +189,13 @@ def environment():
 # Line endings are normalised so that a checkout's core.autocrlf cannot change the hash of unchanged code.
 # Plans written before this scheme existed (v6, v7) hashed raw bytes and are checked with 'sha256-raw'.
 CODE_HASH_SCHEME = 'sha256-lf'
+
+
+RAW_FILES = ('events.csv', 'item_properties_part1.csv', 'item_properties_part2.csv', 'category_tree.csv')
+
+
+def raw_hashes(raw):
+    return {name: sha256(Path(raw) / name) for name in RAW_FILES}
 
 
 def code_hashes(root=HERE, scheme=CODE_HASH_SCHEME):
@@ -377,7 +385,11 @@ def mf_validation(fold_dir, val_dir, contexts):
 def fit_mf(directory, selection, seed):
     directory = Path(directory)
     if (directory / 'als_artifacts.json').exists():
-        return json.loads((directory / 'mf_fit.json').read_text(encoding='utf-8'))
+        cached = json.loads((directory / 'mf_fit.json').read_text(encoding='utf-8'))
+        wanted = {'seed': seed, 'als': selection['als'], 'bpr': selection['bpr'], 'bpr_epochs': selection['bpr_epochs']}
+        if {k: cached.get(k) for k in wanted} != wanted:
+            raise RuntimeError(f'Cached MF fit in {directory} was trained with another configuration: {cached}')
+        return cached
     matrix, users, items = interaction_matrix(directory)
     start = time.perf_counter()
     als = train_als(matrix, selection['als'], seed)
@@ -438,6 +450,9 @@ def gnn_job(spec_path):
         'at_cap': bool(spec['mode'] == 'select' and at_cap(chosen, spec['epochs'], spec['fixed']['validation_interval']))})
 
 
+GNN_JOB_IDENTITY = ('config', 'fixed', 'seed', 'mode', 'epochs')
+
+
 def run_gnn_jobs(root, specs):
     pending = [s for s in specs if not (Path(s['job_dir']) / 'job_result.json').exists()]
     running = []
@@ -462,7 +477,11 @@ def run_gnn_jobs(root, specs):
                 if process.returncode != 0 or not (Path(spec['job_dir']) / 'job_result.json').exists():
                     raise RuntimeError(f'GNN job failed: {spec["job_dir"]} (see .log)')
                 log(root, 'gnn_job_done', job=rel(spec['job_dir'], root))
-    return [json.loads((Path(s['job_dir']) / 'job_result.json').read_text(encoding='utf-8')) for s in specs]
+    results = [json.loads((Path(s['job_dir']) / 'job_result.json').read_text(encoding='utf-8')) for s in specs]
+    for spec, result in zip(specs, results):
+        if any(result['spec'].get(k) != spec[k] for k in GNN_JOB_IDENTITY):
+            raise RuntimeError(f'Cached GNN job {spec["job_dir"]} was trained with another specification')
+    return results
 
 
 # ----------------------------------------------------------------------------- hybrid grid
@@ -517,42 +536,81 @@ def model_rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection):
     return rankings
 
 
-def access_log(root, entry):
+def access_log(root, entry, record=True):
+    """Every opening of a fold's test (sealed or post-hoc) must use the plan and selection of the first one.
+
+    record=False only checks, for runs that find the fold's outputs already written."""
     path = Path(root) / 'test_access_log.jsonl'
     previous = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []
     for item in previous:
-        if item['fold'] == entry['fold'] and item['purpose'] == entry['purpose'] and item['plan_sha256'] != entry['plan_sha256']:
+        if item['fold'] != entry['fold']:
+            continue
+        if item['plan_sha256'] != entry['plan_sha256']:
             raise RuntimeError(f'Fold {entry["fold"]} test was already opened under plan {item["plan_sha256"]}; '
                                'a changed plan cannot reopen it.')
-        if (item['fold'] == entry['fold'] and item['purpose'] == entry['purpose']
-                and item.get('selection_sha256') != entry.get('selection_sha256')):
+        if item.get('selection_sha256') != entry.get('selection_sha256'):
             raise RuntimeError(f'Fold {entry["fold"]} test was already opened under selection '
                                f'{item.get("selection_sha256")}; a re-made selection cannot reopen it.')
-    with open(path, 'a', encoding='utf-8') as stream:
-        stream.write(json.dumps(entry) + '\n')
+    if record:
+        with open(path, 'a', encoding='utf-8') as stream:
+            stream.write(json.dumps(entry) + '\n')
 
 
-COMMITTED_RESULTS = HERE / 'audit'
+def open_test(root, fold_name, purpose, plan_hash, done):
+    """Log a test opening, or only check the log when the outputs already exist. Returns True to proceed."""
+    access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold_name, 'purpose': purpose,
+                      'plan_sha256': plan_hash, 'selection_sha256': sha256(Path(root) / fold_name / 'selection.json'),
+                      'git': git_state()['commit']}, record=not done)
+    return not done
+
+
+RESULT_RECORDS = (HERE / 'audit', HERE / 'audit_runs')
+
+
+def outer_test_window(fold):
+    """Outer test window as a share of all events: the last test_size of the first end_fraction."""
+    return fold['end_fraction'] * (1 - fold['test_size']), fold['end_fraction']
+
+
+def code_matches(stored, scheme, root=HERE):
+    """Current code equals a plan's code, whatever line endings either checkout used."""
+    current = code_hashes(root, 'sha256-lf')
+    if set(current) != set(stored):
+        return False
+    for name, digest in stored.items():
+        data = (Path(root) / name).read_bytes().replace(b'\r\n', b'\n')
+        forms = [data] if scheme == 'sha256-lf' else [data, data.replace(b'\n', b'\r\n')]
+        if digest not in {hashlib.sha256(form).hexdigest() for form in forms}:
+            return False
+    return True
 
 
 def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None):
-    """Committed sealed tests on the same raw input and test window that were opened under another plan.
+    """Recorded test openings on the same raw input whose window overlaps one of ``folds``.
 
     The per-root access log cannot see other result roots, so a new root would otherwise be free to
-    reopen a window that a committed protocol already evaluated.
+    reopen a window that another run already evaluated. Only an exact reproduction (same plan and
+    same code as that record) may reopen it. ``records`` are folders holding ``*/plan.json`` with a
+    ``test_access_log.jsonl`` beside it: the committed audit/results_* and local audit_runs/* roots.
     """
+    bases = [records] if isinstance(records, (str, Path)) else (records or RESULT_RECORDS)
     conflicts = []
-    for plan_path in sorted(Path(records or COMMITTED_RESULTS).glob('results_*/plan.json')):
+    for plan_path in sorted(p for base in bases for p in Path(base).glob('*/plan.json')):
         log_path = plan_path.parent / 'test_access_log.jsonl'
-        stored = json.loads(plan_path.read_text(encoding='utf-8'))
-        if (not raw_hashes or not log_path.exists() or stored.get('raw_input_sha256') != raw_hashes
-                or stored['plan_sha256'] == plan_hash):
+        if not raw_hashes or not log_path.exists():
             continue
-        windows = {f['name']: (f['end_fraction'], f['test_size']) for f in stored['plan']['folds']}
+        stored = json.loads(plan_path.read_text(encoding='utf-8'))
+        if stored.get('raw_input_sha256') != raw_hashes:
+            continue
+        if stored['plan_sha256'] == plan_hash and code_matches(stored.get('code_sha256', {}),
+                                                               stored.get('code_hash_scheme', 'sha256-raw')):
+            continue
+        windows = {f['name']: outer_test_window(f) for f in stored['plan']['folds']}
         opened = {json.loads(line)['fold'] for line in log_path.read_text(encoding='utf-8').splitlines() if line.strip()}
         for fold in folds:
-            for name in opened:
-                if windows.get(name) == (fold['end_fraction'], fold['test_size']):
+            low, high = outer_test_window(fold)
+            for name in sorted(opened & set(windows)):
+                if max(low, windows[name][0]) < min(high, windows[name][1]) - 1e-9:
                     conflicts.append({'fold': fold['name'], 'opened_as': name, 'record': str(plan_path.parent)})
     return conflicts
 
@@ -578,11 +636,8 @@ def fold_statistics(policy, details):
 
 def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
     fold_dir = Path(root) / fold['name']
-    if (fold_dir / 'test_metrics.csv').exists():
+    if not open_test(root, fold['name'], 'sealed_test', plan_hash, (fold_dir / 'test_metrics.csv').exists()):
         return
-    access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold['name'], 'purpose': 'sealed_test',
-                      'plan_sha256': plan_hash, 'selection_sha256': sha256(fold_dir / 'selection.json'),
-                      'git': git_state()['commit']})
     metric_rows, stats_rows, dist_rows, populations = [], [], [], []
     for policy in POLICIES:
         details = {}
@@ -629,11 +684,8 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
 def posthoc_candidates(root, fold, selection, refits):
     fold_dir = Path(root) / fold['name']
     out = fold_dir / 'report' / 'posthoc_candidate_depth.csv'
-    if out.exists():
+    if not open_test(root, fold['name'], 'posthoc_candidate_gamma', selection['plan_sha256'], out.exists()):
         return
-    access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold['name'],
-                      'purpose': 'posthoc_candidate_gamma', 'plan_sha256': selection['plan_sha256'],
-                      'selection_sha256': sha256(fold_dir / 'selection.json'), 'git': git_state()['commit']})
     seed = SEEDS[0]
     seed_dir = Path(refits[seed]['mf'])
     context = EvaluationContext(seed_dir, 'repeat')
@@ -690,7 +742,6 @@ def posthoc_candidates(root, fold, selection, refits):
     frame = pd.DataFrame(rows)
     frame['gnn_full_catalog_ms_per_user'] = 1000 * gnn_full / len(context.active)
     frame['note'] = 'Post-hoc on sealed test, seed 42, repeat policy; never used for selection.'
-    frame.to_csv(out, index=False)
     hyb = FactorScores(context, *load_factors(seed_dir, context), load_gnn(gdir, context))
     gamma_rows = []
     for gamma in POSTHOC_GAMMAS:
@@ -700,12 +751,15 @@ def posthoc_candidates(root, fold, selection, refits):
                            'available_share_top50': float(context.available[shown].mean()),
                            'note': 'Post-hoc on sealed test, seed 42; never used for selection.'})
     pd.DataFrame(gamma_rows).to_csv(fold_dir / 'report' / 'posthoc_gamma.csv', index=False)
+    # Written last: its presence marks both post-hoc tables as complete when a run resumes.
+    frame.to_csv(out, index=False)
 
 
 def if_ablation(root, fold, raw, selection, plan_hash):
     fold_dir = Path(root) / fold['name']
     out = fold_dir / 'report' / 'if_ablation.csv'
     if out.exists():
+        open_test(root, fold['name'], 'posthoc_if_ablation', plan_hash, done=True)
         return
     prepared_if, _ = prepare_fold(fold, root, raw, use_if=True)
     stats = pd.read_csv(prepared_if / 'dataset_statistics.csv').set_index('stage')
@@ -725,9 +779,7 @@ def if_ablation(root, fold, raw, selection, plan_hash):
         'if_event_percent_of_prefilter_train': manifest['if_event_percent_of_prefilter_train'],
         'if_event_percent_of_raw_input': manifest['if_event_percent_of_raw_input'],
         'evaluation_users': manifest['evaluation_users'], 'warnings': manifest['data_quality_warnings']})
-    access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold['name'], 'purpose': 'posthoc_if_ablation',
-                      'plan_sha256': plan_hash, 'selection_sha256': sha256(fold_dir / 'selection.json'),
-                      'git': git_state()['commit']})
+    open_test(root, fold['name'], 'posthoc_if_ablation', plan_hash, done=False)
     seed = SEEDS[0]
     mf_dir = fold_dir / 'if_ablation' / f'seed_{seed}'
     if not (mf_dir / 'manifest.json').exists():
@@ -775,12 +827,21 @@ def extend_capped_backbones(gnn_rows, extend):
         gnn_rows.sort(key=lambda r: r['score'], reverse=True)
 
 
-def leakage_gate(prepared, fold_dir):
-    """leakage_check.json is written whether or not the check passes, so a resumed run must read its verdict."""
+def sealed_selection(fold_dir, plan_hash):
+    selection = json.loads((Path(fold_dir) / 'selection.json').read_text(encoding='utf-8'))
+    if selection['plan_sha256'] != plan_hash:
+        raise RuntimeError(f'{Path(fold_dir) / "selection.json"} was sealed under plan {selection["plan_sha256"]}')
+    return selection
+
+
+def leakage_gate(prepared, fold_dir, raw, end_fraction):
+    """Recompute the fold from the full raw input (so the fold truncation is checked too).
+
+    leakage_check.json is written whether or not the check passes, so a resumed run must read its verdict."""
     from audit_tools.leakage_check import main as leakage_main
     path = Path(fold_dir) / 'leakage_check.json'
     if not path.exists():
-        leakage_main(prepared, Path(fold_dir) / 'fold_raw', gnn=True, output=path)
+        leakage_main(prepared, raw, gnn=True, output=path, end_fraction=end_fraction)
     if not json.loads(path.read_text(encoding='utf-8')).get('all_pass'):
         raise RuntimeError(f'Leakage check failed for {Path(fold_dir).name} ({path})')
 
@@ -789,7 +850,7 @@ def run_fold(root, fold, raw, plan_hash):
     fold_dir = Path(root) / fold['name']
     prepared, fold_raw = prepare_fold(fold, root, raw)
     log(root, 'prepared', fold=fold['name'])
-    leakage_gate(prepared, fold_dir)
+    leakage_gate(prepared, fold_dir, raw, fold['end_fraction'])
     val_dir = prepared / 'validation'
     contexts = {p: EvaluationContext(val_dir, p) for p in POLICIES}
     dump_json(fold_dir / 'validation_population.json', [c.population() for c in contexts.values()])
@@ -896,7 +957,7 @@ def run_fold(root, fold, raw, plan_hash):
                             'note': 'Hybrid adds no training fits; it reuses the MF and GNN fits above.'}}
     if not (fold_dir / 'selection.json').exists():
         dump_json(fold_dir / 'selection.json', selection)
-    selection = json.loads((fold_dir / 'selection.json').read_text(encoding='utf-8'))
+    selection = sealed_selection(fold_dir, plan_hash)
     log(root, 'selection_sealed', fold=fold['name'], selection=sha256(fold_dir / 'selection.json'))
     refits, specs = {}, []
     for seed in SEEDS:
@@ -963,11 +1024,12 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
         if state['dirty_files']:
             raise RuntimeError(f'Commit code before a preregistered run; dirty: {state["dirty_files"]}')
         dump_json(plan_path, {'plan_sha256': plan_hash, 'plan': plan, 'git': state, 'environment': environment(),
-                              'raw_input_sha256': {n: sha256(raw / n) for n in ('events.csv', 'item_properties_part1.csv',
-                                                                               'item_properties_part2.csv', 'category_tree.csv')},
+                              'raw_input_sha256': raw_hashes(raw),
                               'created_utc': pd.Timestamp.now(tz='UTC').isoformat(),
                               'code_hash_scheme': CODE_HASH_SCHEME, 'code_sha256': code_hashes()})
     stored = json.loads(plan_path.read_text(encoding='utf-8'))
+    if 'raw_input_sha256' in stored and raw_hashes(raw) != stored['raw_input_sha256']:
+        raise RuntimeError(f'--raw {raw} differs from the raw input recorded in {plan_path}')
     code_now = code_hashes(scheme=stored.get('code_hash_scheme', 'sha256-raw'))
     if code_now != stored['code_sha256']:
         changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
@@ -975,7 +1037,8 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
     conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash,
                                          [f for f in FOLDS if not folds or f['name'] in folds])
     if conflicts:
-        raise RuntimeError(f'These test windows were already opened under another committed plan: {conflicts}')
+        raise RuntimeError(f'These test windows were already opened under another plan or code: {conflicts}')
+    log(root, 'run_started', git=git_state()['commit'], native_threads=native_threads())
     for fold in FOLDS:
         if folds and fold['name'] not in folds:
             continue

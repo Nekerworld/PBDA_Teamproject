@@ -6,8 +6,9 @@ ignored)? Plans before the 'sha256-lf' scheme hashed raw working-tree bytes, so 
 hash differently on two checkouts; this tells "only line endings differ" apart from "code changed".
 
 Usage: python report_tools/verify_plan_code.py --plan audit/results_v6/plan.json --output <json>
-Exit status 1 means a plan hash matches no form of the file at the plan commit. Files changed since the
-plan are only listed (changed_since_plan) unless --require-unchanged is given.
+Exit status 1 means a plan hash matches no form of the file at the plan commit. Files changed or added
+since the plan are only listed (changed_since_plan, added_since_plan) unless --require-unchanged is given;
+rolling_protocol.run refuses a plan in either case.
 """
 import argparse
 import hashlib
@@ -61,5 +62,6 @@ if __name__ == '__main__':
                         help='also fail when a hashed file differs from the plan commit (default: report only)')
     args = parser.parse_args()
     result = main(args.plan, args.output)
-    ok = result['all_plan_hashes_match_commit'] and not (args.require_unchanged and result['changed_since_plan'])
+    changed = result['changed_since_plan'] or result['added_since_plan']
+    ok = result['all_plan_hashes_match_commit'] and not (args.require_unchanged and changed)
     raise SystemExit(0 if ok else 1)

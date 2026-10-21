@@ -8,11 +8,10 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
-
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
-import rolling_protocol as rp  # noqa: E402  (forces single-threaded BLAS before numpy work)
+import rolling_protocol as rp  # noqa: E402  (first: it forces single-threaded BLAS before numpy loads)
+import numpy as np  # noqa: E402
 from policy_evaluation import POLICIES, EvaluationContext, FactorScores  # noqa: E402
 
 

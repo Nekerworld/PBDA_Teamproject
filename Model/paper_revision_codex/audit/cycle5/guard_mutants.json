@@ -1,0 +1,84 @@
+{
+  "unmutated": "23 passed, 1 deselected in 65.14s (0:01:05)",
+  "tests": [
+    "no:cacheprovider",
+    "test_cycle4_guards.py",
+    "test_cycle5_guards.py",
+    "--deselect",
+    "test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked"
+  ],
+  "mutants": [
+    {
+      "mutant": "H1 reproduction exempt by plan hash only",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "5 failed, 18 passed, 1 deselected in 70.49s (0:01:10)"
+    },
+    {
+      "mutant": "H2 exact window match instead of overlap",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "2 failed, 21 passed, 1 deselected in 70.56s (0:01:10)"
+    },
+    {
+      "mutant": "H3 committed records only",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 70.24s (0:01:10)"
+    },
+    {
+      "mutant": "H4 raw input not re-verified",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 65.39s (0:01:05)"
+    },
+    {
+      "mutant": "H5 selection compared within a purpose only",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 65.26s (0:01:05)"
+    },
+    {
+      "mutant": "H6 finished fold skips the log check",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 70.11s (0:01:10)"
+    },
+    {
+      "mutant": "H7 cached MF fit not checked",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 70.83s (0:01:10)"
+    },
+    {
+      "mutant": "H8 cached GNN job not checked",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 76.45s (0:01:16)"
+    },
+    {
+      "mutant": "H9 precision tool imports numpy first",
+      "file": "report_tools/check_score_precision.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 66.07s (0:01:06)"
+    },
+    {
+      "mutant": "H10 leakage gate on fold_raw only",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 79.03s (0:01:19)"
+    },
+    {
+      "mutant": "H11 posthoc marker written first",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 54.17s"
+    },
+    {
+      "mutant": "H12 selection plan hash not checked",
+      "file": "rolling_protocol.py",
+      "result": "killed",
+      "summary": "1 failed, 22 passed, 1 deselected in 66.92s (0:01:06)"
+    }
+  ]
+}

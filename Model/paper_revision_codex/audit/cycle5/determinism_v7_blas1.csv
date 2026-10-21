@@ -1,0 +1,3 @@
+artifact,max_abs_user_factor_diff,mean_top50_overlap,identical_lists_share,users,blas_threads
+F4_unseen/runs/seed_42/als,0.0,1.0,1.0,236,1
+F4_unseen/runs/seed_42/bpr,0.0,1.0,1.0,236,1

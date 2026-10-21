@@ -23,20 +23,24 @@ def test_leakage_gate_reads_the_stored_verdict(tmp_path, monkeypatch):
     monkeypatch.setattr(leakage_check, 'main', must_not_run)
     (tmp_path / 'leakage_check.json').write_text(json.dumps({'all_pass': False}), encoding='utf-8')
     with pytest.raises(RuntimeError, match='Leakage check failed'):
-        rp.leakage_gate(tmp_path / 'prepared', tmp_path)
+        rp.leakage_gate(tmp_path / 'prepared', tmp_path, tmp_path / 'raw', .6)
     (tmp_path / 'leakage_check.json').write_text(json.dumps({'all_pass': True}), encoding='utf-8')
-    rp.leakage_gate(tmp_path / 'prepared', tmp_path)
+    rp.leakage_gate(tmp_path / 'prepared', tmp_path, tmp_path / 'raw', .6)
 
 
 def test_leakage_gate_fails_on_a_fresh_failing_check(tmp_path, monkeypatch):
-    def failing(prepared, raw, gnn, output):
+    calls = []
+
+    def failing(prepared, raw, gnn, output, end_fraction):
+        calls.append((raw, end_fraction))
         Path(output).write_text(json.dumps({'all_pass': False}), encoding='utf-8')
         return False
     monkeypatch.setattr(leakage_check, 'main', failing)
     with pytest.raises(RuntimeError, match='Leakage check failed'):
-        rp.leakage_gate(tmp_path / 'prepared', tmp_path)
+        rp.leakage_gate(tmp_path / 'prepared', tmp_path, tmp_path / 'raw', .6)
     with pytest.raises(RuntimeError, match='Leakage check failed'):  # resuming must not skip it
-        rp.leakage_gate(tmp_path / 'prepared', tmp_path)
+        rp.leakage_gate(tmp_path / 'prepared', tmp_path, tmp_path / 'raw', .6)
+    assert calls == [(tmp_path / 'raw', .6)]  # checked against the full raw input with the fold's end
 
 
 def test_access_log_refuses_reopening_under_another_selection(tmp_path):
@@ -49,11 +53,12 @@ def test_access_log_refuses_reopening_under_another_selection(tmp_path):
     assert len((tmp_path / 'test_access_log.jsonl').read_text().splitlines()) == 3
 
 
-def committed_record(records, raw_hashes, plan_hash, folds, opened):
-    target = records / 'results_vx'
+def committed_record(records, raw_hashes, plan_hash, folds, opened, code=None, name='results_vx'):
+    target = records / name
     target.mkdir(parents=True)
     (target / 'plan.json').write_text(json.dumps({'plan_sha256': plan_hash, 'plan': {'folds': folds},
-                                                  'raw_input_sha256': raw_hashes}), encoding='utf-8')
+                                                  'raw_input_sha256': raw_hashes, 'code_hash_scheme': 'sha256-lf',
+                                                  'code_sha256': code or {}}), encoding='utf-8')
     (target / 'test_access_log.jsonl').write_text(
         ''.join(json.dumps({'fold': name, 'purpose': 'sealed_test', 'plan_sha256': plan_hash}) + '\n' for name in opened),
         encoding='utf-8')
@@ -62,34 +67,49 @@ def committed_record(records, raw_hashes, plan_hash, folds, opened):
 def test_committed_test_conflicts_match_raw_input_and_window(tmp_path):
     raw = {'events.csv': 'r'}
     old = [{'name': 'A', 'end_fraction': .6, 'test_size': .25}, {'name': 'B', 'end_fraction': .8, 'test_size': .25}]
-    committed_record(tmp_path, raw, 'p1', old, opened=['A'])
+    committed_record(tmp_path, raw, 'p1', old, opened=['A'], code=rp.code_hashes())
     same_window = [{'name': 'renamed', 'end_fraction': .6, 'test_size': .25}]
     assert rp.committed_test_conflicts(raw, 'p2', same_window, tmp_path) == [
         {'fold': 'renamed', 'opened_as': 'A', 'record': str(tmp_path / 'results_vx')}]
-    assert rp.committed_test_conflicts(raw, 'p1', same_window, tmp_path) == []  # same plan: reproduction
+    assert rp.committed_test_conflicts(raw, 'p1', same_window, tmp_path) == []  # same plan and code: reproduction
     assert rp.committed_test_conflicts({'events.csv': 'other'}, 'p2', same_window, tmp_path) == []
     assert rp.committed_test_conflicts(None, 'p2', same_window, tmp_path) == []
+    # B's window (.6-.8) only touches A's (.45-.6); B itself was never opened
     assert rp.committed_test_conflicts(raw, 'p2', [{'name': 'B', 'end_fraction': .8, 'test_size': .25}], tmp_path) == []
-    assert rp.committed_test_conflicts(raw, 'p2', [{'name': 'C', 'end_fraction': .6, 'test_size': .2}], tmp_path) == []
+    # a slightly different window that overlaps A's is refused too
+    assert [c['fold'] for c in rp.committed_test_conflicts(
+        raw, 'p2', [{'name': 'C', 'end_fraction': .6, 'test_size': .2}], tmp_path)] == ['C']
 
 
 def test_committed_v6_v7_records_guard_their_windows():
-    """On the real committed records: v7 does not overlap v6's windows, and a new plan cannot reopen F1-F4."""
-    plans = {v: json.loads((HERE / 'audit' / f'results_{v}' / 'plan.json').read_text(encoding='utf-8')) for v in ('v6', 'v7')}
-    for v, plan in plans.items():
-        assert rp.committed_test_conflicts(plan['raw_input_sha256'], plan['plan_sha256'], plan['plan']['folds']) == []
+    """On the real committed records: v7's window does not overlap v6's, a new plan cannot reopen F1-F4,
+    and since the code has changed after both plans, neither plan can be re-run as is."""
+    audit = HERE / 'audit'
+    plans = {v: json.loads((audit / f'results_{v}' / 'plan.json').read_text(encoding='utf-8')) for v in ('v6', 'v7')}
     raw = plans['v6']['raw_input_sha256']
     assert plans['v7']['raw_input_sha256'] == raw
+    v7_conflicts = rp.committed_test_conflicts(raw, 'new-plan', plans['v7']['plan']['folds'], audit)
+    assert {Path(c['record']).name for c in v7_conflicts} == {'results_v7'}
     every_fold = plans['v6']['plan']['folds'] + plans['v7']['plan']['folds']
-    conflicts = rp.committed_test_conflicts(raw, 'new-plan', every_fold)
-    assert sorted(c['fold'] for c in conflicts) == ['F1_hist', 'F2_mid', 'F3_early', 'F4_unseen']
+    conflicts = rp.committed_test_conflicts(raw, 'new-plan', every_fold, audit)
+    assert sorted({c['fold'] for c in conflicts}) == ['F1_hist', 'F2_mid', 'F3_early', 'F4_unseen']
+    for v, plan in plans.items():
+        assert rp.committed_test_conflicts(raw, plan['plan_sha256'], plan['plan']['folds'], audit)
+
+
+def raw_folder(path):
+    path.mkdir(parents=True)
+    for name in rp.RAW_FILES:
+        (path / name).write_text(f'{name}\n', encoding='utf-8')
+    return path
 
 
 def test_run_refuses_a_window_opened_under_another_committed_plan(tmp_path, monkeypatch):
     monkeypatch.setattr(rp, 'write_reports', lambda root: None)
     plan = rp.plan_payload()
     plan_hash = hashlib.sha256(json.dumps(plan, sort_keys=True).encode()).hexdigest()
-    raw = {'events.csv': 'r'}
+    raw_dir = raw_folder(tmp_path / 'raw')
+    raw = rp.raw_hashes(raw_dir)
     root = tmp_path / 'root'
     root.mkdir()
     (root / 'plan.json').write_text(json.dumps({'plan_sha256': plan_hash, 'plan': plan, 'raw_input_sha256': raw,
@@ -98,9 +118,9 @@ def test_run_refuses_a_window_opened_under_another_committed_plan(tmp_path, monk
     records = tmp_path / 'records'
     fold = rp.FOLDS[0]
     committed_record(records, raw, 'older-plan', [dict(fold, name='old')], opened=['old'])
-    monkeypatch.setattr(rp, 'COMMITTED_RESULTS', records)
-    with pytest.raises(RuntimeError, match='already opened under another committed plan'):
-        rp.run(root, tmp_path, folds=[fold['name']])
+    monkeypatch.setattr(rp, 'RESULT_RECORDS', (records,))
+    with pytest.raises(RuntimeError, match='already opened under another plan or code'):
+        rp.run(root, raw_dir, folds=[fold['name']])
 
 
 def test_capped_backbones_are_extended_until_none_is_left(monkeypatch):
