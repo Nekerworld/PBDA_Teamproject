@@ -75,8 +75,13 @@ def model_comparison(o, folds):
             ax.set_title(f'{POLICY_LABEL[policy]}: {METRICS[metric]}')
             ax.set_xticks(x, folds)
             ax.grid(axis='y', alpha=.3)
-    axes[0, 0].legend(ncol=4, fontsize=8, loc='upper left')
-    fig.suptitle('Sealed test, mean of seeds 42/43/44 (error bar = seed SD); F1 window was exposed in v1-v5')
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=len(MODELS), fontsize=8, bbox_to_anchor=(.5, -.03))
+    seeds = sorted(pd.concat([o.read(f'{f}/report/test_metrics.csv') for f in folds]).seed.unique())
+    title = f'Sealed test, mean of seeds {"/".join(map(str, seeds))} (error bar = seed SD)'
+    if 'F1_hist' in folds:
+        title += '; F1 window was exposed in v1-v5'
+    fig.suptitle(title)
     o.figure(fig, 'model_comparison')
     table = k50.loc[k50.model.isin(MODELS)].pivot_table(index=['policy', 'model'], columns='fold',
                                                          values=['ndcg_mean', 'recall_mean'])

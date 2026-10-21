@@ -1,0 +1,216 @@
+{
+  "plan_sha256": "784d0fa97912d79b50665c32c3ebf181daff38ae2e559d79e5e6c961b472dfef",
+  "fold": "F4_unseen",
+  "mf": {
+    "als": {
+      "factors": 1024,
+      "regularization": 0.02,
+      "alpha": 80.0,
+      "iterations": 16
+    },
+    "bpr": {
+      "factors": 256,
+      "learning_rate": 0.005,
+      "regularization": 0.003
+    },
+    "bpr_epochs": 384,
+    "validation": {
+      "ALS": {
+        "family": "ALS",
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 16.0,
+        "repeat_ndcg": 0.17708991986028902,
+        "repeat_recall": 0.2581227729186913,
+        "repeat_precision": 0.007482993197278912,
+        "repeat_hit_rate": 0.30272108843537415,
+        "repeat_hit_users": 89,
+        "repeat_users": 294,
+        "novel_ndcg": 0.03064407350792983,
+        "novel_recall": 0.07747446728029252,
+        "novel_precision": 0.002330097087378641,
+        "novel_hit_rate": 0.10194174757281553,
+        "novel_hit_users": 21,
+        "novel_users": 206,
+        "repeat_score": 0.21760634638949017
+      },
+      "BPR": {
+        "family": "BPR",
+        "factors": 256,
+        "regularization": 0.003,
+        "repeat_ndcg": 0.17848363063412578,
+        "repeat_recall": 0.25225137674117265,
+        "repeat_precision": 0.007278911564625851,
+        "repeat_hit_rate": 0.30272108843537415,
+        "repeat_hit_users": 89,
+        "repeat_users": 294,
+        "novel_ndcg": 0.026925267008161082,
+        "novel_recall": 0.06815975286849073,
+        "novel_precision": 0.0018446601941747574,
+        "novel_hit_rate": 0.0825242718446602,
+        "novel_hit_users": 17,
+        "novel_users": 206,
+        "learning_rate": 0.005,
+        "epochs": 384.0,
+        "repeat_score": 0.21536750368764923
+      }
+    },
+    "fits": {
+      "ALS": 192,
+      "BPR": 24
+    },
+    "evaluated_configs": {
+      "ALS": 192,
+      "BPR": 168
+    },
+    "train_seconds": {
+      "ALS": 3971.0826540000016,
+      "BPR": 1695.6342342999978
+    }
+  },
+  "gnn": {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p003",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v7\\F4_unseen\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p003",
+    "epochs": 90,
+    "at_cap": false,
+    "seconds": 284.14069949999976,
+    "repeat": {
+      "ndcg": 0.1794750830138682,
+      "recall": 0.2542436022027859,
+      "precision": 0.00782312925170068,
+      "hit_rate": 0.30952380952380953,
+      "hit_users": 91,
+      "users": 294
+    },
+    "novel": {
+      "ndcg": 0.030238369859000008,
+      "recall": 0.07495797083175725,
+      "precision": 0.0026213592233009712,
+      "hit_rate": 0.11165048543689321,
+      "hit_users": 23,
+      "users": 206
+    },
+    "score": 0.21685934260832707
+  },
+  "hybrid_backbone": {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p003",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v7\\F4_unseen\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p003",
+    "epochs": 90,
+    "at_cap": false,
+    "seconds": 284.14069949999976,
+    "repeat": {
+      "ndcg": 0.1794750830138682,
+      "recall": 0.2542436022027859,
+      "precision": 0.00782312925170068,
+      "hit_rate": 0.30952380952380953,
+      "hit_users": 91,
+      "users": 294
+    },
+    "novel": {
+      "ndcg": 0.030238369859000008,
+      "recall": 0.07495797083175725,
+      "precision": 0.0026213592233009712,
+      "hit_rate": 0.11165048543689321,
+      "hit_users": 23,
+      "users": 206
+    },
+    "score": 0.21685934260832707
+  },
+  "policies": {
+    "repeat": {
+      "mf_alpha": 0.9,
+      "hybrid": {
+        "backbone": "gnn_layers1_embedding_dim256_learning_rate0p003",
+        "alpha": 0.5,
+        "strategy": "balanced_union",
+        "candidate_k": 500,
+        "fusion": "minmax",
+        "omega": 0.7,
+        "gamma": 1.1,
+        "ndcg": 0.18943147324069307,
+        "recall": 0.2604753806284419,
+        "score": 0.2249534269345675
+      },
+      "unrestricted_best_backbone": "gnn_layers1_embedding_dim256_learning_rate0p003",
+      "hybrid_at_grid_boundary": {
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "novel": {
+      "mf_alpha": 0.7,
+      "hybrid": {
+        "backbone": "gnn_layers1_embedding_dim256_learning_rate0p003",
+        "alpha": 0.75,
+        "strategy": "balanced_union",
+        "candidate_k": 20000,
+        "fusion": "rrf",
+        "omega": 0.5,
+        "gamma": 1.25,
+        "ndcg": 0.0328211144103102,
+        "recall": 0.08950951960660698,
+        "score": 0.06116531700845859
+      },
+      "unrestricted_best_backbone": "gnn_layers1_embedding_dim256_learning_rate0p0005",
+      "hybrid_at_grid_boundary": {
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      }
+    }
+  },
+  "locked_utc": "2026-10-21T13:04:26.517451+00:00",
+  "outer_test_used_for_selection": false,
+  "grid_edges": {
+    "ALS": {
+      "factors": "max",
+      "alpha": "max"
+    },
+    "BPR": {
+      "factors": "max"
+    },
+    "GNN": {
+      "layers": "min",
+      "embedding_dim": "max",
+      "learning_rate": "max"
+    },
+    "Hybrid_backbone": {
+      "layers": "min",
+      "embedding_dim": "max",
+      "learning_rate": "max"
+    }
+  },
+  "budget": {
+    "fits": {
+      "ALS": 192,
+      "BPR": 24,
+      "GNN": 36,
+      "Hybrid": 0
+    },
+    "evaluated_configs": {
+      "ALS": 192,
+      "BPR": 168,
+      "ALS+BPR": 11,
+      "GNN": 952,
+      "Hybrid": 8424
+    },
+    "train_seconds": {
+      "ALS": 3971.0826540000016,
+      "BPR": 1695.6342342999978,
+      "GNN": 16975.2979277
+    },
+    "note": "Hybrid adds no training fits; it reuses the MF and GNN fits above."
+  }
+}

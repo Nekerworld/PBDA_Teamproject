@@ -1,0 +1,20 @@
+{
+  "results_root": "audit/results_v7",
+  "sources": {
+    "F4_unseen/report/test_summary.csv": "7cd469add9d9def4b924304de36f492fa952498f249596441c130b371b70b1e0",
+    "F4_unseen/report/test_metrics.csv": "e6d418a0ae882d8e00abdb746fd9a0b66d3feaf42900351b784c716dcf430788",
+    "F4_unseen/report/paired_tests.csv": "80b92aeecc3505391184c16aafde3bbb1f3ba7b9d63d7bea59fb24c12b4c7af3",
+    "F4_unseen/report/populations.csv": "2f1e70b3741ebd856c7a00da3fda345b6c92e33a8ad39aac070124af758bf22d",
+    "F4_unseen/dataset_statistics.csv": "d86bae62d329351a41afabcbf75394db492407e72ab2ea9457b4eb1c1b553b41"
+  },
+  "outputs": [
+    "model_comparison.png/.pdf/.svg",
+    "table_test_k50.csv/.md",
+    "topk_comparison.png/.pdf/.svg",
+    "paired_differences.png/.pdf/.svg",
+    "table_paired_tests.csv/.md",
+    "table_populations.csv/.md",
+    "table_dataset_statistics.csv/.md",
+    "pipeline.png/.pdf/.svg"
+  ]
+}

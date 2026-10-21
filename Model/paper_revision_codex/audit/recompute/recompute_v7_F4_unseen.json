@@ -1,0 +1,14 @@
+{
+  "fold": "F4_unseen",
+  "raw_test_cutoff": 1433760149796,
+  "compared_rows": 270,
+  "population_matches": true,
+  "max_abs_diff": {
+    "ndcg": 9.75781955236954e-17,
+    "recall": 9.71445146547012e-17,
+    "precision": 9.974659986866641e-17
+  },
+  "novel_seen_items": 0,
+  "duplicates": 0,
+  "listed_items": 487749
+}
