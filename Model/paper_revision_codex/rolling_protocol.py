@@ -533,6 +533,15 @@ def hybrid_grid(context, als, bpr, gnn, backbone):
     return rows
 
 
+def write_csv_atomic(frame, path):
+    """Write a CSV under a temporary name and rename it, so an interrupted write never leaves a cut file
+    under the final name (several outputs mark a step as complete by their presence)."""
+    path = Path(path)
+    partial = path.with_name(path.name + '.partial')
+    frame.to_csv(partial, index=False)
+    os.replace(partial, path)
+
+
 def cached_grid(path, compute):
     """Reuse a Hybrid validation grid only when it has a row for every configuration; write it atomically.
 
@@ -545,9 +554,7 @@ def cached_grid(path, compute):
         if len(rows) == len(HYBRID_GRID):
             return rows, True
     rows = compute()
-    partial = path.with_name(path.name + '.partial')
-    pd.DataFrame(rows).to_csv(partial, index=False)
-    os.replace(partial, path)
+    write_csv_atomic(pd.DataFrame(rows), path)
     return rows, False
 
 
@@ -580,6 +587,8 @@ def access_log(root, entry, record=True):
     path = Path(root) / 'test_access_log.jsonl'
     try:
         previous = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []
+        if not all(isinstance(item, dict) and 'fold' in item for item in previous):
+            raise ValueError('an entry is not an opening record')
     except ValueError as error:
         raise RuntimeError(f'{path} has a line that cannot be read ({error}); the earlier openings cannot be checked.') from error
     for item in previous:
@@ -607,7 +616,8 @@ def open_test(root, fold_name, purpose, plan_hash, done):
         stored = json.loads((Path(root) / 'plan.json').read_text(encoding='utf-8'))
         fold = next(f for f in FOLDS if f['name'] == fold_name)
         conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS,
-                                             exclude=root)
+                                             exclude=root, selections={fold_name: sha256(Path(root) / fold_name / 'selection.json')},
+                                             test_windows={fold_name: recorded_test_window(Path(root) / fold_name)})
         if conflicts:
             raise RuntimeError(f'Another run opened an overlapping test window after this run started: {conflicts}')
     access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold_name, 'purpose': purpose,
@@ -638,17 +648,40 @@ def code_matches(stored, scheme, root=HERE):
     return True
 
 
-def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_forms=None, exclude=None):
+def recorded_test_window(fold_dir):
+    """A fold's actual outer test window [start, end) in event timestamps, read from its recorded split, or None.
+
+    The split cuts at an event index, so the window can differ from the nominal shares by a boundary event."""
+    fold_dir = Path(fold_dir)
+    try:
+        end = json.loads((fold_dir / 'fold_raw' / 'fold_raw.json').read_text(encoding='utf-8'))['end_cutoff_timestamp']
+        manifest = fold_dir / 'prepared' / 'manifest.json'
+        if manifest.exists():
+            start = json.loads(manifest.read_text(encoding='utf-8'))['cutoff_timestamp']
+        else:
+            checks = json.loads((fold_dir / 'leakage_check.json').read_text(encoding='utf-8'))['checks']
+            start = next(c['manifest'] for c in checks
+                         if c['partition'] == 'outer' and c['check'] == 'cutoff_matches_independent_recompute')
+    except (OSError, ValueError, KeyError, TypeError, StopIteration):
+        return None
+    return int(start), (int(end) if end is not None else float('inf'))
+
+
+def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_forms=None, exclude=None,
+                             selections=None, test_windows=None):
     """Recorded test openings on the same events whose window overlaps one of ``folds``.
 
     The per-root access log cannot see other result roots, so a new root would otherwise be free to
     reopen a window that another run already evaluated. Only an exact reproduction (same plan,
-    code and raw files as that record) may reopen it. ``records`` are folders holding ``*/plan.json`` with a
+    code and raw files as that record) may reopen it, and once ``selections`` (fold -> selection.json hash) is
+    known, only a fold that record opened with the same selection. ``records`` are folders holding ``*/plan.json`` with a
     ``test_access_log.jsonl`` beside it: the committed audit/results_* and local audit_runs/* roots.
     Windows are cut from events.csv alone, so records are matched on its hash; ``event_forms``
     (from ``event_digests``) also matches a copy that differs only in line endings. ``exclude`` is a root
     left out (the running root itself). A log line that cannot be read (a write cut off) counts as an
-    opening of every fold in that record.
+    opening of every fold in that record, with an unknown selection. ``test_windows`` (fold -> actual window
+    from ``recorded_test_window``) compares event timestamps instead of the nominal shares, which can miss a
+    shared boundary event; a record without a recorded window then counts as overlapping when it only touches.
     """
     bases = [records] if isinstance(records, (str, Path)) else (records or RESULT_RECORDS)
     forms = set(event_forms or ()) | ({raw_hashes['events.csv']} if raw_hashes else set())
@@ -667,21 +700,33 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
             continue
         exact_reproduction = (stored['plan_sha256'] == plan_hash and stored.get('raw_input_sha256') == raw_hashes
                               and code_matches(stored.get('code_sha256', {}), stored.get('code_hash_scheme', 'sha256-raw')))
-        if exact_reproduction:
+        if exact_reproduction and selections is None:
             continue
         windows = {f['name']: outer_test_window(f) for f in stored['plan']['folds']}
-        opened = set()
+        opened = {}
         for line in log_path.read_text(encoding='utf-8').splitlines():
             if not line.strip():
                 continue
             try:
-                opened.add(json.loads(line)['fold'])
+                entry = json.loads(line)
+                opened.setdefault(entry['fold'], set()).add(entry.get('selection_sha256'))
             except (ValueError, KeyError, TypeError):
-                opened |= set(windows)
+                for name in windows:
+                    opened.setdefault(name, set()).add(None)
         for fold in folds:
             low, high = outer_test_window(fold)
-            for name in sorted(opened & set(windows)):
-                if max(low, windows[name][0]) < min(high, windows[name][1]) - 1e-9:
+            own = (test_windows or {}).get(fold['name'])
+            for name in sorted(set(opened) & set(windows)):
+                if exact_reproduction and (name != fold['name'] or opened[name] <= {selections.get(fold['name'])}):
+                    continue
+                theirs = recorded_test_window(plan_path.parent / name) if own else None
+                if own and theirs:
+                    overlap = max(own[0], theirs[0]) < min(own[1], theirs[1])
+                elif own:
+                    overlap = max(low, windows[name][0]) <= min(high, windows[name][1]) + 1e-9
+                else:
+                    overlap = max(low, windows[name][0]) < min(high, windows[name][1]) - 1e-9
+                if overlap:
                     conflicts.append({'fold': fold['name'], 'opened_as': name, 'record': str(plan_path.parent)})
     return conflicts
 
@@ -748,7 +793,7 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
     pd.concat(dist_rows).to_csv(report / 'per_user_distribution.csv', index=False)
     pd.DataFrame(populations).to_csv(report / 'populations.csv', index=False)
     # Written last: its presence marks the fold's test as complete when a run resumes.
-    metrics.to_csv(fold_dir / 'test_metrics.csv', index=False)
+    write_csv_atomic(metrics, fold_dir / 'test_metrics.csv')
 
 
 # ----------------------------------------------------------------------------- post-hoc analyses (F1)
@@ -823,7 +868,7 @@ def posthoc_candidates(root, fold, selection, refits):
                            'note': 'Post-hoc on sealed test, seed 42; never used for selection.'})
     pd.DataFrame(gamma_rows).to_csv(fold_dir / 'report' / 'posthoc_gamma.csv', index=False)
     # Written last: its presence marks both post-hoc tables as complete when a run resumes.
-    frame.to_csv(out, index=False)
+    write_csv_atomic(frame, out)
 
 
 def if_ablation(root, fold, raw, selection, plan_hash):
@@ -876,7 +921,7 @@ def if_ablation(root, fold, raw, selection, plan_hash):
                      'precision': r.precision, 'hit_rate': r.hit_rate, 'hit_users': r.hit_users, 'users': r.users})
     frame = pd.DataFrame(rows)
     frame['note'] = 'Seed 42, repeat policy, configurations sealed on no-IF validation.'
-    frame.to_csv(out, index=False)
+    write_csv_atomic(frame, out)
 
 
 # ----------------------------------------------------------------------------- fold driver
@@ -917,6 +962,27 @@ def leakage_gate(prepared, fold_dir, raw, end_fraction):
         raise RuntimeError(f'Leakage check failed for {Path(fold_dir).name} ({path})')
 
 
+def start_background(target):
+    """Run target() in a thread. The returned function waits for it and re-raises its error with the cause."""
+    import threading
+    box = {}
+
+    def worker():
+        try:
+            box['value'] = target()
+        except Exception as error:  # surfaced by the returned function
+            box['error'] = error
+    thread = threading.Thread(target=worker)
+    thread.start()
+
+    def wait():
+        thread.join()
+        if 'error' in box:
+            raise box['error']
+        return box['value']
+    return wait
+
+
 def run_fold(root, fold, raw, plan_hash):
     fold_dir = Path(root) / fold['name']
     prepared, fold_raw = prepare_fold(fold, root, raw)
@@ -928,21 +994,10 @@ def run_fold(root, fold, raw, plan_hash):
     # GNN validation jobs start first (GPU); MF grid runs in this process meanwhile.
     specs = [gnn_spec(fold_dir / 'gnn_val' / config_name('gnn', c), val_dir, c, SELECTION_SEED, 'select', GNN_MAX_EPOCHS)
              for c in GNN_GRID]
-    import threading
-    results, errors = {}, []
-
-    def worker():
-        try:
-            results['gnn'] = run_gnn_jobs(root, specs)
-        except Exception as error:  # surfaced after join
-            errors.append(error)
-    thread = threading.Thread(target=worker)
-    thread.start()
+    wait_gnn = start_background(lambda: run_gnn_jobs(root, specs))
     mf = mf_validation(fold_dir, val_dir, contexts)
     log(root, 'mf_selected', fold=fold['name'], als=mf['als'], bpr=mf['bpr'], bpr_epochs=mf['bpr_epochs'])
-    thread.join()
-    if errors:
-        raise errors[0]
+    results = {'gnn': wait_gnn()}
     val_mf = fold_dir / 'val_mf'
     if not (val_mf / 'manifest.json').exists():
         clone_protocol(val_dir, val_mf)
@@ -1041,13 +1096,10 @@ def run_fold(root, fold, raw, plan_hash):
             specs.append(gnn_spec(hybrid_dir, prepared, selection['hybrid_backbone']['config'], seed, 'refit',
                                   selection['hybrid_backbone']['epochs']))
         refits[seed] = {'mf': str(seed_dir), 'gnn': str(gnn_dir), 'hybrid_gnn': str(hybrid_dir)}
-    thread = threading.Thread(target=lambda: results.__setitem__('refit', run_gnn_jobs(root, specs)))
-    thread.start()
+    wait_refits = start_background(lambda: run_gnn_jobs(root, specs))
     for seed in SEEDS:
         fit_mf(refits[seed]['mf'], selection['mf'], seed)
-    thread.join()
-    if 'refit' not in results:
-        raise RuntimeError('GNN refit jobs failed')
+    wait_refits()
     dump_json(fold_dir / 'refits.json', {s: {k: rel(v, root) for k, v in d.items()} for s, d in refits.items()})
     evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash)
     log(root, 'test_evaluated', fold=fold['name'])

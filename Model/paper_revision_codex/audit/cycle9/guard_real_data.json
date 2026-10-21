@@ -1,0 +1,193 @@
+{
+  "raw_equals_plan_record": {
+    "v6": true,
+    "v7": true
+  },
+  "plan_events_hash_in_event_forms": {
+    "v6": true,
+    "v7": true
+  },
+  "records": [
+    "audit/results_v6",
+    "audit/results_v7",
+    "audit_runs/v7"
+  ],
+  "conflicts": {
+    "v6_folds/v6_plan": [
+      {
+        "fold": "F1_hist",
+        "opened_as": "F1_hist",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F2_mid",
+        "opened_as": "F2_mid",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F3_early",
+        "opened_as": "F3_early",
+        "record": "audit/results_v6"
+      }
+    ],
+    "v6_folds/v7_plan": [
+      {
+        "fold": "F1_hist",
+        "opened_as": "F1_hist",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F2_mid",
+        "opened_as": "F2_mid",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F3_early",
+        "opened_as": "F3_early",
+        "record": "audit/results_v6"
+      }
+    ],
+    "v6_folds/new_plan": [
+      {
+        "fold": "F1_hist",
+        "opened_as": "F1_hist",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F2_mid",
+        "opened_as": "F2_mid",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F3_early",
+        "opened_as": "F3_early",
+        "record": "audit/results_v6"
+      }
+    ],
+    "v7_folds/v6_plan": [
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit/results_v7"
+      },
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit_runs/v7"
+      }
+    ],
+    "v7_folds/v7_plan": [
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit/results_v7"
+      },
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit_runs/v7"
+      }
+    ],
+    "v7_folds/new_plan": [
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit/results_v7"
+      },
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit_runs/v7"
+      }
+    ]
+  },
+  "windows": {
+    "v6/F1_hist": {
+      "recorded": [
+        "1439871811966",
+        "inf"
+      ],
+      "split_rule_on_raw": [
+        "1439871811966",
+        "inf"
+      ]
+    },
+    "v6/F2_mid": {
+      "recorded": [
+        "1437510749671",
+        "1439871811966"
+      ],
+      "split_rule_on_raw": [
+        "1437510749671",
+        "1439871811966"
+      ]
+    },
+    "v6/F3_early": {
+      "recorded": [
+        "1435873404707",
+        "1437510749671"
+      ],
+      "split_rule_on_raw": [
+        "1435873404707",
+        "1437510749671"
+      ]
+    },
+    "v7/F4_unseen": {
+      "recorded": [
+        "1433760149796",
+        "1434817031045"
+      ],
+      "split_rule_on_raw": [
+        "1433760149796",
+        "1434817031045"
+      ]
+    }
+  },
+  "boundary": {
+    "N0.39": {
+      "window": [
+        "1434817025596",
+        "1435167537288"
+      ],
+      "events_shared_with_F4": 1,
+      "start_check_conflicts": 0,
+      "opening_check_conflicts": 2
+    },
+    "N0.4": {
+      "window": [
+        "1434817025596",
+        "1435272067967"
+      ],
+      "events_shared_with_F4": 1,
+      "start_check_conflicts": 0,
+      "opening_check_conflicts": 2
+    },
+    "N0.43": {
+      "window": [
+        "1434817025596",
+        "1435638746219"
+      ],
+      "events_shared_with_F4": 1,
+      "start_check_conflicts": 0,
+      "opening_check_conflicts": 2
+    },
+    "N0.44": {
+      "window": [
+        "1434817025596",
+        "1435770934410"
+      ],
+      "events_shared_with_F4": 1,
+      "start_check_conflicts": 0,
+      "opening_check_conflicts": 2
+    },
+    "N0.45": {
+      "window": [
+        "1434817025596",
+        "1435873404707"
+      ],
+      "events_shared_with_F4": 1,
+      "start_check_conflicts": 0,
+      "opening_check_conflicts": 2
+    }
+  }
+}

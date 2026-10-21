@@ -4,6 +4,10 @@ For the v6 and v7 fold sets, asks which windows would be refused for the v6 plan
 plan, with the current code. Also reports whether the raw files equal what each plan recorded. Nothing
 is trained, no test file is read, and no access log is written.
 
+The test-opening check compares actual windows (event timestamps). ``windows`` applies the split rule to the raw
+events and compares it with each recorded window; ``boundary`` takes new folds whose nominal window only touches
+F4's and reports what the start check (nominal shares) and the opening check (timestamps) say.
+
 Usage: python report_tools/guard_real_data_check.py --raw ../../data --output audit/cycle7/guard_real_data.json
 """
 import argparse
@@ -11,9 +15,21 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 import rolling_protocol as rp  # noqa: E402
+
+
+def split_window(ts, fold):
+    """[start, end) timestamps the pipeline's split rule gives on these raw events (cleaning removing none)."""
+    n = len(ts)
+    end = None if fold['end_fraction'] >= 1 else int(ts[int(n * fold['end_fraction'])])
+    m = n if end is None else int(np.searchsorted(ts, end, 'left'))
+    start = int(ts[min(max(int(m * (1 - fold['test_size'])), 1), m - 1)])
+    return start, (end if end is not None else float('inf'))
 
 
 def main(raw, output):
@@ -26,6 +42,24 @@ def main(raw, output):
               'records': sorted(str(p.parent.relative_to(HERE).as_posix()) for base in rp.RESULT_RECORDS
                                 for p in Path(base).glob('*/plan.json')),
               'conflicts': {}}
+    ts = np.sort(pd.read_csv(Path(raw) / 'events.csv', usecols=['timestamp']).timestamp.to_numpy())
+    result['windows'] = {}
+    for v, plan in plans.items():
+        for fold in plan['plan']['folds']:
+            recorded = rp.recorded_test_window(HERE / 'audit' / f'results_{v}' / fold['name'])
+            result['windows'][f'{v}/{fold["name"]}'] = {'recorded': [str(x) for x in recorded],
+                                                       'split_rule_on_raw': [str(x) for x in split_window(ts, fold)]}
+    result['boundary'] = {}
+    for end in (.39, .40, .43, .44, .45):
+        fold = {'name': f'N{end}', 'end_fraction': end, 'test_size': 1 - .36 / end}
+        own = split_window(ts, fold)
+        start_check = rp.committed_test_conflicts(hashes, 'new', [fold], event_forms=forms)
+        opening_check = rp.committed_test_conflicts(hashes, 'new', [fold], event_forms=forms,
+                                                    selections={fold['name']: 'new'}, test_windows={fold['name']: own})
+        result['boundary'][fold['name']] = {
+            'window': [str(x) for x in own], 'events_shared_with_F4': int(max(0, np.searchsorted(ts, 1434817031045, 'left')
+                                                                            - np.searchsorted(ts, own[0], 'left'))),
+            'start_check_conflicts': len(start_check), 'opening_check_conflicts': len(opening_check)}
     for protocol in ('v6', 'v7'):
         rp.use_protocol(protocol)
         for name, plan_hash in (('v6_plan', plans['v6']['plan_sha256']), ('v7_plan', plans['v7']['plan_sha256']),
