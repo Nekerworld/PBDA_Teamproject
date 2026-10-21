@@ -18,9 +18,12 @@
 | numpy | 2.4.6 | 2.1.3 |
 | pandas | 3.0.6 | 2.3.0 |
 | scikit-learn | 1.9.0 | 1.6.1 |
-| torch / CUDA / GPU | `audit_runs/v6/plan.json` → `environment` | v5 `experiment_plan.json` |
+| scipy / implicit | 1.17.1 / 0.7.3 | v5 `experiment_plan.json` |
+| torch / CUDA / GPU | 2.15.0.dev20260921+cu132 / 13.2 / RTX 5060 Ti | v5 `experiment_plan.json` |
 
-v6 실행 환경 전체(torch, implicit, scipy, CUDA, GPU 이름)는 `plan.json`에 자동으로 기록됨.
+v6 실행 환경 전체는 `audit/results_v6/plan.json`의 `environment`에 기록됨.
+
+- torch는 개발 빌드(nightly)임. RTX 50 시리즈를 지원하는 정식 버전으로 재현할 때는 GNN 결과가 소수점 아래에서 달라질 수 있음.
 
 ## 3. 처음부터 실행하는 방법
 
@@ -46,6 +49,13 @@ python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
 - 하이퍼파라미터 선택에는 seed 42만 씀 (`selection_seed`). 시험 보고에는 세 seed의 평균과 표준편차를 씀.
 - BPR 체크포인트 콜백이 학습 결과를 바꾸지 않음을 확인함 (CPU, 비트 단위 동일: `test_bpr_checkpoints_do_not_change_training`).
 - GPU의 sparse 행렬곱은 결정성이 보장되지 않음. 같은 seed로 두 번 학습한 결과 차이는 `validation_report.md`의 결정성 절에 기록함.
+- **ALS는 BLAS 스레드 수에 따라 결과가 달라짐** (I-24). `rolling_protocol.py`와 `report_tools/*.py`는 numpy를 import하기 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS`를 1로 설정함. 이 변수가 이미 다른 값으로 설정돼 있으면 그 값이 우선하므로, 실행 전에 1로 맞춰야 함.
+  - 1스레드: 같은 설정으로 다시 학습한 ALS 인자가 비트 단위로 같음.
+  - 24스레드: validation 점수가 최대 0.0013 달라짐.
+
+```powershell
+python report_tools/determinism_check.py --root audit_runs/v6 --fold F3_early --output <dir>
+```
 
 ## 5. 산출물과 설정의 연결 (provenance)
 
@@ -60,7 +70,8 @@ python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
 ## 6. 저장소에 넣지 않는 것
 
 - 모델, 임베딩, 분할 CSV (수 GB): `audit_runs/` 전체가 gitignore 대상.
-- 요약 표는 `audit/results_v6/`에 복사해 추적하고, SHA256을 `experiment_provenance.md`에 기록함.
+- 요약 표는 `audit/results_v6/`에 복사해 추적하고, SHA256을 `audit/results_v6/SHA256SUMS.txt`에 기록함.
+- 확인: `audit/results_v6`에서 각 파일의 `Get-FileHash -Algorithm SHA256` 값을 `SHA256SUMS.txt`와 비교.
 
 ## 7. 알려진 재현성 한계
 

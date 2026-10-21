@@ -4,36 +4,40 @@
 상태: `해결·검증` / `수정·검증 대기(실험 필요)` / `환경 제약` / `원고 수정 필요` / `미해결`.
 "검증"은 이 PC에서 실제로 실행한 테스트·스크립트만 가리킨다. 결과 JSON을 읽은 것만으로는 검증으로 치지 않는다.
 
-> **현재 상태 (2026-10-20 17:35 KST)**: v6 실제 데이터 실행은 사용자 요청으로 F1 내부 validation 단계에서 중단됨.
-> - 완료: MF grid 선택, GNN validation 4/8.
-> - 시험 데이터: 열리지 않음 (`test_access_log.jsonl` 없음).
-> - 아래 표에서 "v6 결과로 검증"이라고 적은 항목은 **코드 수정과 회귀 테스트만 끝났고, 실제 데이터 결과는 아직 없음**.
-> - 같은 명령으로 다시 실행하면 이어서 진행됨 (plan과 코드 해시가 같을 때).
+> **현재 상태 (2026-10-21 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (exit 0).
+> - 시험 열람: fold당 1회, 사후 분석은 F1만 (`audit/results_v6/test_access_log.jsonl`).
+> - 결과와 검증: `validation_report.md`.
+> - Cycle 2 재감사에서 I-23 – I-26을 새로 찾음.
 
 | ID | 등급 | 문제 | 상태 | 커밋 |
 |---|---|---|---|---|
-| I-01 | P0 | v3 시험 실패 후 v4/v5 설계 변경 (시험 재사용) | 수정 → v6 실행 결과로 검증 | 29ba891, 63145d7 |
-| I-02 | P0 | 데이터 누수 (원래 validation→training, 기타 경로) | 해결·검증 (누수 없음 확인) | 46fe0e0 |
-| I-03 | P1 | 단순 baseline 부재 (Recent, Popularity) | 수정 → v6 결과로 검증 | 29ba891 |
-| I-04 | P1 | 튜닝 예산 비대칭 (ALS/BPR 고정, Hybrid 576×3) | 수정 → v6 결과로 검증 | 0af9a3c, 29ba891 |
-| I-05 | P1 | GNN epoch가 상한에 걸림 (190/200) | 수정 → v6 결과로 검증 | 0af9a3c, 29ba891 |
-| I-06 | P1 | 통계: 다중비교 보정 없음, Hybrid vs GNN Recall 비유의 | 수정 → v6 결과로 검증 | 29ba891 |
-| I-07 | P1 | 반복 추천 허용 평가만 존재 | 수정 → v6 결과로 검증 | 29ba891 |
-| I-08 | P1 | 모델군별 선택 기준 불일치 | 수정 → v6 결과로 검증 | 0af9a3c, 29ba891 |
-| I-09 | P1 | 후보 수가 grid 상한(20,000 = 카탈로그 34%), 효율성 주장 근거 없음 | 수정 → v6 사후 분석 | 29ba891 |
+| I-01 | P0 | v3 시험 실패 후 v4/v5 설계 변경 (시험 재사용) | 해결·검증: 사전등록 v6 완료, fold당 1회 열람. F1 구간이 과거에 노출된 사실은 되돌릴 수 없어 공개 사항으로 남김 | 29ba891, 63145d7 |
+| I-02 | P0 | 데이터 누수 (원래 validation→training, 기타 경로) | 해결·검증: 3 fold × 28 검사 통과 | 46fe0e0 |
+| I-03 | P1 | 단순 baseline 부재 (Recent, Popularity) | 해결·검증: v6 결과에 포함 | 29ba891 |
+| I-04 | P1 | 튜닝 예산 비대칭 (ALS/BPR 고정, Hybrid 576×3) | 부분 해결: grid는 확장했지만 MF가 경계에서 선택됨 → I-23 | 0af9a3c, 29ba891 |
+| I-05 | P1 | GNN epoch가 상한에 걸림 (190/200) | 해결·검증: validation 학습 24회(3 fold × 8 설정) 모두 50–290/400 epoch에서 멈춤, 상한 도달 0회 | 0af9a3c, 29ba891 |
+| I-06 | P1 | 통계: 다중비교 보정 없음, Hybrid vs GNN Recall 비유의 | 해결·검증: Holm 보정 결과 보고 | 29ba891 |
+| I-07 | P1 | 반복 추천 허용 평가만 존재 | 해결·검증: novel 정책을 분리 보고. 원본 데이터로 독립 검사 0건 위반 | 29ba891 |
+| I-08 | P1 | 모델군별 선택 기준 불일치 | 해결·검증 | 0af9a3c, 29ba891 |
+| I-09 | P1 | 후보 수가 grid 상한(20,000 = 카탈로그 34%), 효율성 주장 근거 없음 | 해결·검증: 사후 분석 완료. 효율성 주장은 근거 없음 (원고 수정 필요) | 29ba891 |
 | I-10 | P2 | `robust_hybrid.py` backbone 하드코딩 | 해결·검증 | 63145d7 |
 | I-11 | P2 | `load_state_dict(strict=False)`가 키 불일치를 숨김 | 해결·검증 | 0af9a3c |
-| I-12 | P2 | v5가 v3 학습 산출물 재사용, 원본부터의 일괄 재실행 없음 | 수정 → v6 실행 | 29ba891 |
-| I-13 | P2 | 지표 CSV가 gitignore, 결과 JSON에 다른 PC 절대경로 | 부분 해결 (audit/ 요약 추적) | 본 문서 커밋 |
-| I-14 | P2 | IF 제거 근거(ablation) 부재 | 수정 → v6 F1 사후 분석 | 29ba891 |
-| I-15 | P2 | gamma·재고 효과 근거 부족 | 수정 → v6 F1 사후 분석 | 29ba891 |
-| I-16 | P2 | seed가 초기화만 바꿈 (분할 고정) | 수정 (3개 시간 fold) | 29ba891 |
+| I-12 | P2 | v5가 v3 학습 산출물 재사용, 원본부터의 일괄 재실행 없음 | 해결·검증: v6는 원본부터 일괄 실행 | 29ba891 |
+| I-13 | P2 | 지표 CSV가 gitignore, 결과 JSON에 다른 PC 절대경로 | 해결: `audit/results_v6` 요약 + SHA256 | Cycle 2 커밋 |
+| I-14 | P2 | IF 제거 근거(ablation) 부재 | 해결·검증: 구매 100% 제거, 모든 모델 성능 붕괴 | 29ba891 |
+| I-15 | P2 | gamma·재고 효과 근거 부족 | 해결·검증: 효과 작음 (원고 수정 필요) | 29ba891 |
+| I-16 | P2 | seed가 초기화만 바꿈 (분할 고정) | 해결·검증: 시간 fold 3개 | 29ba891 |
 | I-17 | P2 | 라이브러리 버전 차이로 `if_feature_distributions.csv` 해시 불일치 | 환경 제약 (원인 추정만 가능) | - |
 | I-18 | P2 | novel 정책에서 사용자가 카탈로그 전체를 본 경우 후보 0개 → 예외 | 해결·검증 (커밋 전 발견) | 29ba891 |
-| I-19 | P3 | CUDA sparse 연산 결정성 미보장 | 검증 예정 (같은 seed 2회) | - |
-| I-20 | P3 | v6 `selection.json`의 `job_dir`가 절대경로 | 미해결 (실행 중 코드 변경 불가) | - |
-| I-21 | P3 | v5 성공 기준이 "평균이 모든 baseline보다 높음" (유의성 아님) | 원고 수정 필요 | - |
+| I-19 | P3 | CUDA sparse 연산 결정성 미보장 | 검증함: GNN 임베딩 차이 1.1e-4, 목록 99.7% 동일. ALS/BPR은 비트 단위 동일 | Cycle 2 커밋 |
+| I-20 | P3 | v6 `selection.json`의 `job_dir`가 절대경로 | 미해결 (봉인된 산출물이라 고치지 않음. 다른 PC에서는 `refits.json`의 상대경로를 씀) | - |
+| I-21 | P3 | v5 성공 기준이 "평균이 모든 baseline보다 높음" (유의성 아님) | 원고 수정 필요 (`manuscript_alignment.md`) | - |
 | I-22 | P3 | 원고 파일이 저장소에 없음 | 원고 수정 필요 (대조표 제공) | - |
+| I-23 | P1 | v6의 ALS/BPR이 grid 경계에서 선택됨. 경계 밖에서 ALS validation이 +0.011 – +0.027 | **미해결 (실험 필요, 사용자 결정 필요)** | Cycle 2 커밋 |
+| I-24 | P3 | ALS 결과가 BLAS 스레드 수에 따라 달라짐 | 문서화: v6는 1스레드로 고정. 다른 환경변수가 이미 있으면 그 값이 우선 | Cycle 2 커밋 |
+| I-25 | P2 | `determinism_check.py`가 numpy를 import한 뒤 스레드 환경변수를 설정함 (거짓 비결정성 보고) | 해결·검증 | Cycle 2 커밋 |
+| I-26 | P2 | Hybrid 후보 수가 fold마다 다름 (20000 / 500 / all) | 해석 사항: validation 곡선이 평평함. 원고에서 후보 수를 핵심 설계로 주장하지 않음 | - |
+| I-27 | P2 | 커밋된 결과 파일이 `SHA256SUMS.txt`와 불일치 (줄바꿈 자동 변환) | 해결·검증 (커밋 후 검증에서 발견) | 418e7dd |
 
 ---
 
@@ -119,7 +123,7 @@ v6는 원본 CSV에서 시작함. 학습 산출물을 재사용하지 않고 전
 
 ## I-13 (P2) 추적 가능한 결과
 
-`audit_runs/`는 gitignore 대상 (모델·임베딩·분할 수 GB). 검증된 요약 표만 `audit/results_v6/`로 복사하고, `.gitignore` 예외로 추적함. 각 파일의 SHA256은 `audit/experiment_provenance.md`에 기록.
+`audit_runs/`는 gitignore 대상 (모델·임베딩·분할 수 GB). 검증된 요약 표만 `audit/results_v6/`로 복사하고, `.gitignore` 예외로 추적함. 각 파일의 SHA256은 `audit/results_v6/SHA256SUMS.txt`에 기록.
 
 ## I-17 (P2) 라이브러리 버전 차이
 
@@ -143,3 +147,54 @@ v6 `selection.json`과 `validation_gnn.json`의 `job_dir`는 실행 PC의 절대
 ## I-21, I-22 (P3) 원고
 
 원고 파일이 저장소에 없음. `audit/manuscript_alignment.md`에 원고에서 고쳐야 할 주장과 그 근거 파일을 대조표로 정리함.
+
+## I-23 (P1) MF baseline의 grid 경계 선택
+
+v6 사전등록 ALS grid는 축마다 값이 2–3개뿐임 (factors {64, 128, 256}, reg {.02, .2}, α {2, 10}, iterations {32, 256}).
+- ALS는 세 fold 모두 factors 256(최대), α 10(최대), iterations 32(최소)를 고름. reg는 F1/F3 .02, F2 .2.
+- BPR은 lr .005(최대), reg .003(최소), 256 epoch(최대 체크포인트)를 고름.
+
+Cycle 2에서 `report_tools/mf_boundary_probe.py`로 **validation 구간만** 써서, 각 fold의 봉인된 설정을 경계 밖으로 한 축씩 바꿔 봄 (시험 데이터는 읽지 않음):
+
+| fold | 봉인된 ALS | 경계 밖 최고 ALS (factors 512, α 40, iter 16) | 최고 GNN | 최고 Hybrid |
+|---|---|---|---|---|
+| F1 | .1459 | .1669 | .1678 | .1759 |
+| F2 | .1673 | .1782 | .1912 | .1966 |
+| F3 | .1818 | .2090 | .2119 | .2171 |
+
+(값은 validation 선택 점수 = mean(NDCG@50, Recall@50), seed 42. 봉인된 설정을 다시 학습한 행은 봉인 점수를 차이 0으로 재현함.)
+
+- ALS는 경계 밖에서 크게 좋아지고 (+0.011 – +0.027), F1/F3에서는 GNN에 가까워짐. BPR의 증가폭은 작음 (+0.0002 – +0.0044).
+- 이 grid 결정은 Hybrid의 ALS+BPR 구성 요소에도 들어가므로, 확장하면 Hybrid도 바뀔 수 있음.
+- 따라서 "Hybrid ≥ ALS+BPR" 비교는 baseline이 덜 튜닝된 조건일 수 있음. 현재 결과에서도 이미 유의한 차이는 없음.
+- 고치려면 grid를 넓혀 사전등록을 다시 하고 세 fold를 다시 실행해야 함. 이는 같은 시험 구간을 두 번째로 여는 것이고, 시험 결과를 본 뒤의 재실행임. 그래서 감사자가 임의로 하지 않고 사용자 결정으로 남김.
+- 산출물: `audit/results_v6/mf_boundary_probe.csv`.
+
+## I-24 (P3) BLAS 스레드 수
+
+`implicit` ALS는 OpenBLAS 스레드 수에 따라 부동소수점 누적 순서가 달라짐. 24스레드와 1스레드의 결과가 달랐음.
+
+- `rolling_protocol.py`는 numpy import 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS=1`을 `setdefault`로 설정함. 따라서 v6는 1스레드에서 실행됨.
+- 사용자 환경에 이 변수들이 다른 값으로 이미 있으면 그 값이 우선함. 재현할 때는 1로 설정해야 함 (`reproducibility.md`).
+
+## I-25 (P2) 결정성 검사 스크립트의 import 순서
+
+`report_tools/determinism_check.py` 첫 버전은 numpy를 먼저 import한 뒤 스레드를 설정해 24스레드로 실행됨. 그 결과 ALS가 "비결정적"이라고 잘못 보고함.
+
+- 고친 뒤 같은 검사를 다시 실행: ALS·BPR 인자 차이 0.0, 목록 100% 동일.
+- 첫 실행 결과는 `determinism_run1_blas24.csv`로 이름을 바꿔 보존함.
+- 재감사에서 `report_tools/mf_boundary_probe.py`에도 같은 결함이 있음을 발견함. 봉인된 ALS 설정을 다시 학습한 점수가 봉인 점수와 달랐음 (F3 −0.0013).
+  - 같은 방식으로 고치고, ALS 설정을 fold별 `selection_mf.json`에서 읽게 함 (원래는 하드코딩되어 F2에서 봉인 설정이 아닌 reg .02를 썼음).
+  - 다시 실행한 결과, 세 fold의 봉인 ALS·BPR 행이 모두 차이 0으로 재현됨.
+  - 첫 결과는 `mf_boundary_probe_run1_blas24.csv`로 보존함.
+
+## I-27 (P2) 결과 파일 해시와 줄바꿈 변환
+
+Windows에서 쓴 결과 파일은 CRLF 줄바꿈임. 이 저장소는 `core.autocrlf=true`라서 git이 LF로 바꿔 저장함. 그래서 커밋된 60개 파일이 모두 `SHA256SUMS.txt`와 달랐음 (Linux/macOS에서 받으면 검증 실패).
+
+- `audit/results_v6/.gitattributes`에 `* -text`를 넣고 다시 저장함.
+- 저장소에 저장된 60개 파일 모두 기록된 해시와 일치함을 확인함.
+
+## I-26 (P2) 후보 수의 fold 간 불안정
+
+Hybrid validation에서 선택된 후보 수가 F1 20000, F2 500, F3 all로 다름. 같은 fold에서 후보 수별 validation 점수 차이가 매우 작음 (곡선이 평평함). 그래서 후보 수는 성능의 핵심 요인이 아니며, 원고에서 "retrieve-then-rank로 효율과 정확도를 함께 얻는다"는 주장을 하지 않아야 함.
