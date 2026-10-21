@@ -70,6 +70,27 @@ def test_v7_window_ends_before_any_v6_evaluation_window(v7):
     assert all(f['end_fraction'] <= earliest + 1e-12 for f in rp.FOLDS)
 
 
+RAW_EVENTS = HERE.parent.parent / 'data' / 'events.csv'
+
+
+@pytest.mark.skipif(not RAW_EVENTS.exists(), reason='raw RetailRocket events.csv not available')
+def test_v7_window_ends_at_or_before_v6_inner_validation_timestamps(v7):
+    """Fractions are taken on event counts after cleaning, so check the actual timestamps too."""
+    import numpy as np
+    import pandas as pd
+    events = pd.read_csv(RAW_EVENTS, usecols=['timestamp'])
+    ts = events.timestamp.to_numpy()
+    order = np.lexsort((np.arange(len(ts)), ts))
+    for fold in rp.FOLDS:
+        end = int(ts[order[int(len(ts) * fold['end_fraction'])]])
+        for v6_fold in ('F1_hist', 'F2_mid', 'F3_early'):
+            checks = json.loads((HERE / 'audit' / 'results_v6' / v6_fold / 'leakage_check.json')
+                                .read_text(encoding='utf-8'))['checks']
+            inner = next(c['manifest'] for c in checks
+                         if c['partition'] == 'inner' and c['check'] == 'cutoff_matches_independent_recompute')
+            assert end <= inner, (fold['name'], v6_fold)
+
+
 def test_grid_edges():
     grid = [dict(a=a, b=b) for a in (1, 2, 3) for b in (.1, .2)]
     assert rp.grid_edges(dict(a=2, b=.1), grid) == {'b': 'min'}
