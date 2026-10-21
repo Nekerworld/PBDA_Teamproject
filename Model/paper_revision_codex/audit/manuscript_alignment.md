@@ -25,7 +25,7 @@
 
 | 기존 서술 (v5 / briefing) | 문제 | 검증된 대체 서술 |
 |---|---|---|
-| "Hybrid가 두 지표의 세 seed 평균 모두 가장 높았다" (F1 = v5 시험 구간) | v6 F1에서 Recall은 GNN이 더 높음 (0.1681 vs 0.1668). F3 NDCG는 ALS+BPR이 더 높음 | "baseline 7종과 비교하면 Hybrid는 12개 칸(3 fold × 2 정책 × 2 지표) 중 9개에서 평균 1위였고, 가장 강한 baseline(GNN, ALS+BPR)보다 세 fold 모두에서 유의하게 높은 지표는 없었다". 같은 후보에서 결합 점수의 MF 부분만 ALS로 바꾼 ablation(`Hybrid_ALS_only`, 후보 생성에는 BPR이 남음, 검정 안 함)은 F3 novel에서 Hybrid보다 평균이 높았다 |
+| "Hybrid가 두 지표의 세 seed 평균 모두 가장 높았다" (F1 = v5 시험 구간) | v6 F1에서 Recall은 GNN이 더 높음 (0.1681 vs 0.1668). F3 NDCG는 ALS+BPR이 더 높음 | "baseline 7종과 비교하면 Hybrid는 12개 칸(3 fold × 2 정책 × 2 지표) 중 9개에서 평균 1위였고, 가장 강한 baseline(GNN, ALS+BPR)보다 세 fold 모두에서 유의하게 높은 지표는 없었다". 같은 후보에서 결합 점수의 MF 부분만 ALS로 바꾼 ablation(`Hybrid_ALS_only`, 후보 생성에는 BPR이 남음, 검정 안 함)은 F3 novel(두 지표)과 F1 repeat Recall에서 Hybrid보다 평균이 높았다 |
 | "가장 강한 비교 모델 대비 NDCG +10.83%" | v5는 시험을 본 뒤 설계를 바꾼 결과임. 상대 개선율은 비유의한 차이를 과장함 | GNN·ALS+BPR 대비 차이, 95% CI(보정 안 함), Holm 보정 p값을 그대로 보고 (`validation_report.md` §4.3). 유의성은 p_holm으로만 판정함 (CI가 0을 포함하지 않아도 Holm 기준 비유의한 칸이 있음). 세 fold 모두에서 유의한 우위는 없음 |
 | Recall 우위 | v5에서도 CI가 0을 포함함 | Recall 우위를 주장하지 않음 |
 | 계산 효율 (retrieve-then-rank) | 후보 수는 fold마다 500–전체로 바뀌고, Hybrid 경로는 GNN 단독 전체 카탈로그 점수 계산보다 10배 이상 느림 | 효율성 주장을 삭제하거나 "후보 500개에서도 정확도 유지"로 한정 |
@@ -42,15 +42,17 @@
 1. v1–v5의 개발 이력: v3 시험 결과를 본 뒤 탐색 공간을 바꿨다. v6는 사전등록 프로토콜로 다시 평가했다 (`experiment_provenance.md`).
 2. 평가 모집단: 원본 학습 기간에 관측된 사용자 중 시험 양성 상품이 학습 카탈로그에 있는 사람만 평가한다. 전체 서비스 이용자에 대한 결과가 아니다.
 3. 반복 추천 허용 평가와 신규 상품 평가를 따로 보고한다.
-4. 투고본의 수치(NDCG 0.3710, Recall 0.7113)와 v6 수치는 분할, 후보 처리, 분모가 달라 직접 비교할 수 없다.
+4. 투고본의 수치(NDCG 0.3710, Recall 0.7113. 원고 그림 스크립트 `Model/paper/viz.py` 7–8행의 "5. ALS+GNN" 값)와 v6 수치는 분할, 후보 처리, 분모가 달라 직접 비교할 수 없다.
 5. 통계 방법: 사용자 단위 paired bootstrap 95% CI, sign-flip 검정, Holm 보정(비교 7개 × 지표 2개, 정책·fold별), seed 3개.
 6. v7은 v6의 시험 결과를 본 뒤에 설계했다. 설계의 근거는 validation 전용 경계 탐색(I-23)이었고, F4의 시험·validation 점수는 설계 전에 본 적이 없다. v7은 한 번만 실행했고 결과를 보고 다시 실행하지 않았다. v7 수치는 v6 fold와 평균하지 않고 따로 보고한다.
 7. v6와 v7은 서로 다른 PC·GPU에서 실행했다 (RTX 5060 Ti / RTX 3090 Ti). BPR·GNN은 GPU·torch 빌드에 따라 소수점 아래 값이 달라진다 (`reproducibility.md` §4).
+8. 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, novel에서는 추론 설정(Hybrid 결합, ALS+BPR α)만 다시 골랐다. 그래서 novel의 ALS·GNN 단독은 novel로 튜닝되지 않았다. 같은 grid에서 novel로 골랐다면 GNN의 validation 점수가 F2·F3·F4에서 높아지고, F4에서는 Hybrid보다 높았다 (`validation_report.md` §8 항목 5). novel의 Hybrid − GNN, Hybrid − ALS 유의 결과는 이 조건과 함께 보고한다.
 
 ## 4. 원고에 쓰면 안 되는 표현
 
 - "state-of-the-art" 또는 "모든 baseline을 능가".
 - 비유의한 차이에 대한 "우수", "개선".
+- novel 정책에서 Hybrid가 GNN·ALS보다 "우수"하다는 표현 (비교 대상이 novel로 튜닝되지 않음, 위 공개 사항 8).
 - "봇 제거", "이상 사용자 정제" (최종 모델에 IF가 없음).
 - "계산 비용 절감" (GNN 단독 대비 근거 없음).
 - "cold-start 해결".

@@ -1,6 +1,6 @@
 # Hybrid 개정 실험 최종 자료
 
-> **감사 후 안내 (2026-10-21)**: 아래 내용은 v5 실험 기준이며, v5는 v3 시험 결과를 본 뒤 설계를 바꾼 결과다 (시험 재사용, `audit/issue_register.md` I-01). 사전등록 재평가(v6: 3 fold, v7: 확장 grid)에서는 Hybrid가 가장 강한 baseline보다 모든 fold에서 유의하게 높지 않았다. 검증된 결과는 `audit/validation_report.md`, 재현 절차는 `audit/reproducibility.md`, 원고 수정 대조표는 `audit/manuscript_alignment.md`를 본다. 아래 원문은 이력으로 보존한다.
+> **감사 후 안내 (2026-10-21)**: 아래 내용은 v5 실험 기준이며, v5는 v3 시험 결과를 본 뒤 설계를 바꾼 결과다 (시험 재사용, `audit/issue_register.md` I-01). 사전등록 재평가(v6: 3 fold, v7: 확장 grid)에서는 Hybrid가 가장 강한 baseline보다 일관되게 유의하게 높지는 않았다 (일부 fold·지표에서만 유의). 검증된 결과는 `audit/validation_report.md`, 재현 절차는 `audit/reproducibility.md`, 원고 수정 대조표는 `audit/manuscript_alignment.md`를 본다. 아래 원문은 이력으로 보존한다.
 
 실제 코드 수정, RetailRocket 재실험, 시각화, 교수님 설명 자료를 생성하고 검산·시각 검수를 마쳤다. 두 지표의 세 seed 평균이 모든 비교 모델보다 높았다.
 
