@@ -30,10 +30,7 @@ def make_raw(folder, users=40, items=30, events=6000, seed=0):
     pd.DataFrame({'categoryid': [1], 'parentid': [np.nan]}).to_csv(folder / 'category_tree.csv', index=False)
 
 
-def test_rolling_protocol_end_to_end(tmp_path, monkeypatch):
-    raw = tmp_path / 'raw'
-    make_raw(raw)
-    monkeypatch.setattr(rp, 'FOLDS', rp.FOLDS[:2])
+def tiny_settings(monkeypatch):
     monkeypatch.setattr(rp, 'SEEDS', [42, 43])
     monkeypatch.setattr(rp, 'ALS_GRID', [dict(factors=4, regularization=.02, alpha=2., iterations=3)])
     monkeypatch.setattr(rp, 'BPR_GRID', [dict(factors=4, learning_rate=1e-2, regularization=.03)])
@@ -51,6 +48,13 @@ def test_rolling_protocol_end_to_end(tmp_path, monkeypatch):
                                             for w in (.3, .7)])
     monkeypatch.setattr(rp, 'POSTHOC_CANDIDATE_KS', [3, 'all'])
     monkeypatch.setattr(rp, 'git_state', lambda: {'commit': 'test', 'branch': 'test', 'dirty_files': []})
+
+
+def test_rolling_protocol_end_to_end(tmp_path, monkeypatch):
+    raw = tmp_path / 'raw'
+    make_raw(raw)
+    tiny_settings(monkeypatch)
+    monkeypatch.setattr(rp, 'FOLDS', rp.FOLDS[:2])
     root = tmp_path / 'run'
     rp.run(root, raw)
     for fold in rp.FOLDS:
@@ -73,3 +77,23 @@ def test_rolling_protocol_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(rp, 'MF_ALPHAS', [0., 1.])
     with pytest.raises(RuntimeError):
         rp.run(root, raw)
+
+
+def test_v7_fold_runs_without_posthoc_and_records_grid_edges(tmp_path, monkeypatch):
+    raw = tmp_path / 'raw'
+    make_raw(raw, events=12000)
+    for name in ('PROTOCOL', 'FOLDS', 'POSTHOC', 'PLAN_EXTRA'):
+        monkeypatch.setattr(rp, name, rp.V7[name])
+    tiny_settings(monkeypatch)
+    root = tmp_path / 'run'
+    rp.run(root, raw)
+    fold_dir = root / 'F4_unseen'
+    plan = json.loads((root / 'plan.json').read_text(encoding='utf-8'))['plan']
+    assert plan['protocol'] == 'rolling-origin-v7' and 'grid_edge_rule' in plan
+    selection = json.loads((fold_dir / 'selection.json').read_text(encoding='utf-8'))
+    assert set(selection['grid_edges']) == {'ALS', 'BPR', 'GNN', 'Hybrid_backbone'}
+    assert selection['grid_edges']['GNN'] == {'layers': selection['gnn']['config']['layers'] == 1 and 'min' or 'max'}
+    assert not (fold_dir / 'report' / 'posthoc_candidate_depth.csv').exists()
+    assert not (fold_dir / 'report' / 'if_ablation.csv').exists()
+    log = [json.loads(l) for l in (root / 'test_access_log.jsonl').read_text(encoding='utf-8').splitlines()]
+    assert [e['purpose'] for e in log] == ['sealed_test']

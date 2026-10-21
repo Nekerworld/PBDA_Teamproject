@@ -1,4 +1,4 @@
-"""Preregistered single-pass rolling-origin evaluation (protocol v6).
+"""Preregistered single-pass rolling-origin evaluation (protocols v6 and v7).
 
 Every grid, fold, seed and selection rule below is frozen into plan.json before
 any model is trained. Selection reads inner-validation labels only. Each fold's
@@ -7,6 +7,7 @@ appended to an access log. A changed plan cannot reopen a fold's test.
 
 Usage (from Model/paper_revision_codex):
   python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
+  python rolling_protocol.py run --root audit_runs/v7 --raw ../../data --protocol v7
   python rolling_protocol.py gnn-job <spec.json>      (internal worker)
 """
 import os
@@ -74,11 +75,56 @@ BASELINES = ['ALS', 'BPR', 'ALS+BPR', 'GNN', 'Popularity', 'Recent', 'RecentPop'
 POSTHOC_CANDIDATE_KS = [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 'all']
 POSTHOC_GAMMAS = [1., 1.1, 1.25, 1.5, 2.]
 MAX_PARALLEL_GNN = 4
+PROTOCOL = 'rolling-origin-v6'
+POSTHOC = True
+PLAN_EXTRA = {}
+
+# v7: one fold on the only window never evaluated or used for selection in v1-v6
+# (v6 opened 0.45-1.0 as tests and 0.36-0.45 as F3 inner validation), and every
+# trained family's grid widened past the edges v6 selected (I-23).
+V7 = dict(
+    PROTOCOL='rolling-origin-v7',
+    FOLDS=[{'name': 'F4_unseen', 'end_fraction': 0.36, 'test_size': 0.25, 'validation_size': 0.2,
+            'test_window': 'First 36% of events: training-only in v1-v6, never evaluated or used for selection.'}],
+    ALS_GRID=[dict(factors=f, regularization=r, alpha=a, iterations=i)
+              for f in (128, 256, 512, 1024) for r in (.002, .02, .2, 2.) for a in (10., 20., 40., 80.)
+              for i in (8, 16, 32)],
+    BPR_GRID=[dict(factors=f, learning_rate=lr, regularization=r)
+              for f in (128, 256) for lr in (2.5e-3, 5e-3, 1e-2, 2e-2) for r in (3e-4, 3e-3, 3e-2)],
+    BPR_EPOCH_CHECKPOINTS=(64, 128, 256, 384, 512, 768, 1024),
+    GNN_GRID=[dict(layers=l, embedding_dim=d, learning_rate=lr)
+              for l in (1, 2, 3, 4) for d in (64, 128, 256) for lr in (5e-4, 1e-3, 3e-3)],
+    POSTHOC=False,
+    PLAN_EXTRA={
+        'purpose': ('Check whether v6 conclusions hold when ALS, BPR and GNN grids extend past the edges v6 '
+                    'selected (issue I-23), on a window whose test was never opened.'),
+        'grid_edge_rule': ('Grids are not widened again. A selection on an edge of a widened axis is recorded in '
+                           'selection.json (grid_edges) and reported as a limitation.'),
+        'power_note': ('About 413 test users: estimated unadjusted 95% CI half-widths 0.005-0.014 for Hybrid vs '
+                       'GNN or ALS+BPR, larger than most v6 differences; non-significance is the expected outcome '
+                       'for differences of v6 size.'),
+        'posthoc_test_analyses': 'none'},
+)
+PROTOCOLS = {'v6': {}, 'v7': V7}
+
+
+def use_protocol(name):
+    globals().update(PROTOCOLS[name])
+
+
+def grid_edges(selected, grid):
+    """Axes (with more than one grid value) where the selected value is the grid minimum or maximum."""
+    edges = {}
+    for key, value in selected.items():
+        values = sorted({c[key] for c in grid if key in c})
+        if len(values) > 1 and value in (values[0], values[-1]):
+            edges[key] = 'min' if value == values[0] else 'max'
+    return edges
 
 
 def plan_payload():
     return {
-        'protocol': 'rolling-origin-v6', 'folds': FOLDS, 'seeds': SEEDS, 'selection_seed': SELECTION_SEED,
+        'protocol': PROTOCOL, 'folds': FOLDS, 'seeds': SEEDS, 'selection_seed': SELECTION_SEED,
         'selection_rule': 'maximize mean(NDCG@50, Recall@50) on inner validation, identical for every model family',
         'policy_rule': ('Trained model configurations are selected under the repeat policy. Inference-time '
                         'parameters (ALS+BPR alpha, all Hybrid fusion parameters) are re-selected per policy.'),
@@ -102,6 +148,7 @@ def plan_payload():
                                   f'{POSTHOC_GAMMAS}, and an IF preprocessing ablation with the sealed configs.'),
         'preprocessing': dict(use_if=False, core_mode='events', min_user_events=3, min_item_events=3,
                               random_state=42),
+        **PLAN_EXTRA,
     }
 
 
@@ -751,6 +798,13 @@ def run_fold(root, fold, raw, plan_hash):
                  'hybrid_backbone': next(r for r in gnn_rows if r['name'] == repeat_backbone),
                  'policies': policies, 'locked_utc': pd.Timestamp.now(tz='UTC').isoformat(),
                  'outer_test_used_for_selection': False,
+                 'grid_edges': {
+                     'ALS': grid_edges(mf['als'], ALS_GRID),
+                     'BPR': grid_edges({**mf['bpr'], 'epochs': mf['bpr_epochs']},
+                                       [dict(c, epochs=e) for c in BPR_GRID for e in BPR_EPOCH_CHECKPOINTS]),
+                     'GNN': grid_edges(gnn_rows[0]['config'], GNN_GRID),
+                     'Hybrid_backbone': grid_edges(next(r for r in gnn_rows if r['name'] == repeat_backbone)['config'],
+                                                   GNN_GRID)},
                  'budget': {'fits': {'ALS': mf['fits']['ALS'], 'BPR': mf['fits']['BPR'],
                                      'GNN': len(gnn_results), 'Hybrid': 0},
                             'evaluated_configs': {'ALS': mf['evaluated_configs']['ALS'],
@@ -812,7 +866,9 @@ def write_reports(root):
         pd.concat(tests).to_csv(root / 'report_paired_tests_all_folds.csv', index=False)
 
 
-def run(root, raw, folds=None, posthoc=True):
+def run(root, raw, folds=None, posthoc=True, protocol=None):
+    if protocol:
+        use_protocol(protocol)
     root, raw = Path(root), Path(raw).resolve()
     root.mkdir(parents=True, exist_ok=True)
     plan = plan_payload()
@@ -841,7 +897,7 @@ def run(root, raw, folds=None, posthoc=True):
         if folds and fold['name'] not in folds:
             continue
         selection, refits = run_fold(root, fold, raw, plan_hash)
-        if posthoc and fold['name'] == FOLDS[0]['name']:
+        if posthoc and POSTHOC and fold['name'] == FOLDS[0]['name']:
             posthoc_candidates(root, fold, selection, refits)
             if_ablation(root, fold, raw, selection, plan_hash)
             log(root, 'posthoc_done', fold=fold['name'])
@@ -857,10 +913,11 @@ if __name__ == '__main__':
     r.add_argument('--raw', type=Path, required=True)
     r.add_argument('--folds', nargs='*')
     r.add_argument('--no-posthoc', action='store_true')
+    r.add_argument('--protocol', choices=sorted(PROTOCOLS), default='v6')
     j = sub.add_parser('gnn-job')
     j.add_argument('spec', type=Path)
     args = parser.parse_args()
     if args.command == 'run':
-        run(args.root, args.raw, args.folds, not args.no_posthoc)
+        run(args.root, args.raw, args.folds, not args.no_posthoc, args.protocol)
     else:
         gnn_job(args.spec)
