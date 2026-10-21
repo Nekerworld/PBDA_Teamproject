@@ -1,5 +1,7 @@
 # Hybrid 개선 실험 사용 안내
 
+> **감사 후 안내 (2026-10-21)**: 이 문서는 v3–v5 실험 경로(`improve_hybrid.py`, `robust_hybrid.py`)를 설명한다. 이 경로는 같은 시험 구간을 반복해서 열었다 (`audit/issue_register.md` I-01). 사전등록 평가(`rolling_protocol.py`, v6/v7)의 실행 방법은 `audit/reproducibility.md`를 본다.
+
 새 PC에서 처음 설치하고 데이터부터 준비할 때는 [REPRODUCE_KO.md](REPRODUCE_KO.md)를 먼저 따른다. 아래 명령은 이미 준비된 데이터가 있는 환경의 실행 예시다.
 
 ## 먼저 볼 파일

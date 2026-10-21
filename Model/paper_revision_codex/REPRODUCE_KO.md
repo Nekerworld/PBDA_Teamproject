@@ -1,5 +1,7 @@
 # 새 컴퓨터에서 최종 Hybrid 실험 실행
 
+> **감사 후 안내 (2026-10-21)**: 이 문서는 v5 실험(`improve_hybrid.py` → `robust_hybrid.py`)의 재실행 방법이다. 사전등록 평가 v6/v7의 재현 절차와 정확한 패키지 버전(`requirements-v7-lock.txt`; `requirements.txt`의 scikit-learn 1.9.1과 달리 v6/v7은 1.9.0으로 실행됨)은 `audit/reproducibility.md`를 본다.
+
 대상은 이 폴더의 improve_hybrid.py → robust_hybrid.py 실험이다. 과거 Model/paper 또는 Model/paper_revision 실행 환경과 분리한다. 학습 소스는 이번 의존성 정리에서 변경하지 않았다.
 
 ## 환경 조건
