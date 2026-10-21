@@ -42,7 +42,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 94개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 106개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -56,6 +56,10 @@ python report_tools/launch_detached.py --log audit_runs/v7_run.log -- python -u 
 python report_tools/plot_rolling_results.py --results audit/results_v7 --output audit/figures_v7
 # 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서, 다른 GPU 작업이 없을 때 실행)
 python report_tools/mutation_check.py
+# 6) 가드 변이 테스트 (Cycle 5 가드의 옛 동작 12개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 약 15분)
+python report_tools/guard_mutation_check.py
+# 7) 끝난 root의 캐시가 재개 규칙(설정 일치)을 만족하는지 (학습·정답 읽기 없음)
+python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit/cycle5/cache_identity_v7.json
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.
@@ -69,10 +73,12 @@ python report_tools/mutation_check.py
 python report_tools/verify_plan_code.py --plan audit/results_v7/plan.json --output audit/plan_code/plan_code_v7.json
 ```
   - 종료 코드 0은 "plan 해시가 plan commit의 내용과 맞음"이라는 뜻이다. 그 뒤 코드가 바뀌었는지는 `changed_since_plan`에만 나온다. 바뀐 경우도 실패로 처리하려면 `--require-unchanged`를 붙인다 (현재 v6·v7 모두 `rolling_protocol.py`가 바뀌어 실패함).
-- 시험 열람 가드 (Cycle 4, I-40):
-  - 같은 `--root`에서는 plan이 바뀌었거나 `selection.json`이 다시 만들어졌으면(해시가 다르면) 이미 연 fold의 시험을 다시 열 수 없다.
-  - 다른 `--root`에서도, 커밋된 `audit/results_*`에 같은 원본 데이터(해시)·같은 시험 구간(`end_fraction`, `test_size`)을 다른 plan으로 연 기록이 있으면 실행을 시작하지 않는다. 같은 plan으로 다시 실행하는 재현은 허용한다.
-  - 커밋되지 않은 다른 root의 기록은 볼 수 없다. 결과를 커밋해야 가드가 적용된다.
+- 시험 열람 가드 (Cycle 4 I-40, Cycle 5 I-48 – I-52):
+  - 같은 `--root`에서는 plan이 바뀌었거나 `selection.json`이 다시 만들어졌으면(해시가 다르면) 이미 연 fold의 시험을 다시 열 수 없다. 시험 평가와 사후 분석 모두 같은 plan·selection이어야 하고, 이미 끝난 단계도 재개할 때 이 검사를 거친다. `selection.json`을 만든 plan이 현재 plan과 다르면 멈춘다.
+  - 다른 `--root`에서도, `audit/`(커밋된 결과)와 `audit_runs/`(이 PC의 실행 폴더) 아래의 plan·접근 로그 중 같은 원본 데이터(해시)로 겹치는 시험 구간(바깥 시험 구간 (end·(1−test_size), end)이 겹침, 맞닿기만 하면 아님)을 연 기록이 있으면 실행을 시작하지 않는다. 예외는 plan 해시와 코드 해시가 모두 같은 재현뿐이다. 그래서 v6·v7은 현재 코드로는 다시 열 수 없고, 각 plan commit을 checkout해야 한다.
+  - 다른 PC의 커밋되지 않은 기록은 볼 수 없다.
+  - 재개할 때마다 원본 4개 파일을 다시 해시해 plan의 `raw_input_sha256`과 다르면 멈춘다. 캐시된 MF 학습과 GNN 작업은 설정(seed, 하이퍼파라미터, epoch)이 요청과 같을 때만 재사용한다.
+  - 실행 중 누수 검사는 fold의 잘린 원본이 아니라 원본 전체 + fold `end_fraction`으로 한다 (fold 자르기도 독립적으로 확인).
 - `launch_detached.py`가 필요한 이유 (Windows): 셸의 Ctrl+C·창 닫기 이벤트가 v6 실행을 두 번 끊었고, `DETACHED_PROCESS`로 띄우면 BLAS 안의 Intel Fortran 런타임이 `forrtl: error (200)`으로 중단됨 (I-31). launcher는 별도 프로세스 그룹, job 분리, 숨은 자체 콘솔을 쓰고 `FOR_DISABLE_CONSOLE_CTRL_HANDLER=1`, BLAS 스레드 1을 설정함.
 
 ## 4. 결정성과 seed
@@ -81,14 +87,19 @@ python report_tools/verify_plan_code.py --plan audit/results_v7/plan.json --outp
 - 하이퍼파라미터 선택에는 seed 42만 씀 (`selection_seed`). 시험 보고에는 세 seed의 평균과 표준편차를 씀.
 - BPR 체크포인트 콜백이 학습 결과를 바꾸지 않음을 확인함 (CPU, 비트 단위 동일: `test_bpr_checkpoints_do_not_change_training`).
 - GPU의 sparse 행렬곱은 결정성이 보장되지 않음. 같은 seed로 두 번 학습한 결과 차이는 `validation_report.md`의 결정성 절에 기록함.
-- **ALS는 BLAS 스레드 수에 따라 결과가 달라짐** (I-24). `rolling_protocol.py`와 `report_tools/*.py`는 numpy를 import하기 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS`를 1로 설정함.
-  - v6·v7 실행 시점의 `rolling_protocol.py`는 `setdefault`를 써서, 이 변수가 이미 다른 값이면 그 값이 우선했다. 이 경우 나중에 import되는 `experiments.py`가 변수를 1로 다시 쓰지만 BLAS는 이미 로드된 뒤라, 변수 값만 보고는 실제 스레드 수를 알 수 없다 (I-41). v7은 `launch_detached.py`(1로 고정)로 실행했다. v6의 실행 스레드는 기록되지 않았지만, 다른 PC에서 1스레드로 다시 학습한 F3 ALS grid 24행이 v6 값과 비트 단위로 같아(`validation_report.md` §9) 1스레드였음을 뒷받침한다.
-  - Cycle 4부터 `rolling_protocol.py`는 값을 강제로 1로 설정하고, plan의 `environment`에 변수 값, 로드된 BLAS/OpenMP 라이브러리의 실제 스레드 수(`native_threads`), torch 스레드 수, 장치를 기록한다.
+- **ALS는 BLAS 스레드 수에 따라 결과가 달라짐** (I-24). `rolling_protocol.py`는 numpy를 import하기 전에 `OPENBLAS/OMP/MKL/NUMEXPR_NUM_THREADS`를 1로 강제한다.
+  - 모델을 학습하거나 점수를 계산하는 보조 스크립트 9개(`benchmark_inference`, `check_fast_validation`, `check_score_precision`, `component_ablation`, `cross_machine_repro`, `determinism_check`, `device_check`, `mf_boundary_probe`, `plot_hybrid_results`)도 numpy보다 먼저 1로 강제한다 (I-55). `launch_detached`·`mutation_check`는 자식 프로세스에 1을 준다. 나머지(그림, 저장된 목록으로 지표 재계산, 해시 확인 등)는 ALS를 학습하지 않아 설정하지 않는다.
+  - v6·v7 실행 시점의 `rolling_protocol.py`는 `setdefault`를 써서, 이 변수가 이미 다른 값이면 그 값이 우선했다. 나중에 import되는 `experiments.py`가 변수를 1로 다시 쓰지만 BLAS는 이미 로드된 뒤라, 변수 값만 보고는 실제 스레드 수를 알 수 없다 (I-41). v6·v7 모두 실제 스레드 수는 기록되지 않았다.
+  - v7은 커밋되기 전의 분리 실행 launcher(gitignore 대상인 `audit_runs/`에만 있었고 지금은 없음)로 실행했다. `launch_detached.py`는 v7이 끝난 뒤 그 동작을 옮겨 커밋한 것이다 (e9538c8). 대신 결과로 확인했다: v7 F4 seed 42의 ALS를 같은 설정으로 다시 학습하면 BLAS 1스레드에서는 저장된 v7 인자와 비트 단위로 같고, 24스레드에서는 최대 차이 0.49, Top-50 목록 완전 일치 1.3%(평균 겹침 98.6%)로 다르다 (`audit/cycle5/determinism_v7_blas1.csv`, `determinism_v7_blas24.csv`). 따라서 v7 ALS는 1스레드 결과와 일치한다(2–23스레드는 검사 안 함).
+  - v6의 실행 스레드도 기록되지 않았다. 다른 PC에서 1스레드로 다시 학습한 F3 ALS grid 24행이 v6 값과 비트 단위로 같아(`validation_report.md` §9) 1스레드였음을 뒷받침한다.
+  - Cycle 4부터 `rolling_protocol.py`는 plan의 `environment`에 변수 값, 로드된 BLAS/OpenMP 라이브러리의 실제 스레드 수(`native_threads`), torch 스레드 수, 장치를 기록한다. Cycle 5부터는 실행을 시작할 때마다 `run_started` 로그에도 실제 스레드 수를 남긴다.
   - 1스레드: 같은 설정으로 다시 학습한 ALS 인자가 비트 단위로 같음.
   - 24스레드: validation 점수가 최대 0.0013 달라짐.
 
 ```powershell
 python report_tools/determinism_check.py --root audit_runs/v6 --fold F3_early --output <dir>
+# v7 ALS가 몇 스레드 결과와 맞는지 (GNN 제외, BLAS 스레드 지정)
+python report_tools/determinism_check.py --root audit_runs/v7 --fold F4_unseen --skip-gnn --blas-threads 24 --output <dir>
 ```
 
 - **다른 PC** (I-33, `validation_report.md` §9): 새 clone과 새 venv로 v6 F3 전처리·누수 검사·MF validation grid를 다시 실행함. 전처리와 ALS는 비트 단위로 같고, BPR(GPU)은 GPU·torch 빌드 차이로 선택 점수가 최대 0.0047 다름 (선택 결과는 같음).

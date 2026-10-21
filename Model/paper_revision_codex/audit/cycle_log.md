@@ -89,7 +89,7 @@
 - probe는 fold별 봉인된 ALS 설정을 기준으로 한 축씩 바꾸도록 고침.
 
 **D. 검증**
-- 결정성 검사 재실행(ALS만, `determinism_mf_blas1.csv`): ALS 비트 단위 동일. BPR(비트 단위 동일)과 GNN(임베딩 최대 차이 1.1e-4, Top-50 목록 99.7% 동일)은 첫 검사(`determinism_run1_blas24.csv`) 값이다. 둘 다 GPU 학습이라 BLAS 스레드 결함과 무관해 다시 돌리지 않았다.
+- 결정성 검사 재실행(ALS·BPR, `determinism_mf_blas1.csv`): 둘 다 비트 단위 동일. GNN(임베딩 최대 차이 1.1e-4, Top-50 목록 99.7% 동일)은 첫 검사(`determinism_run1_blas24.csv`) 값이다. GPU 학습이라 BLAS 스레드 결함과 무관해 다시 돌리지 않았다.
 - probe 재실행: 봉인된 설정 행이 봉인된 validation 점수를 그대로 재현함.
 - 첫 실행 결과는 `*_run1_blas24.csv`로 이름을 바꿔 보존함.
 - 전체 테스트 62개 통과.
@@ -195,4 +195,35 @@
 **E. 커밋**
 - e3cf44e: 문서 수치·표현 정정 (I-47)
 - 05b9c65: 코드 가드, 테스트, 증거 파일 (I-39 – I-46)
-- 이 문서와 함께: Cycle 4 감사 문서 기록
+- 6364ad4: Cycle 4 감사 문서 기록
+
+**F. 커밋 후 재검증**: Cycle 5의 독립 감사로 이어짐 (아래).
+
+## Cycle 5 (2026-10-22): Cycle 4 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- Cycle 4와 같은 방식: 코드 감사자와 문서 감사자를 따로 두고 처음부터 읽게 함. 보고된 항목은 원본 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1 없음)**
+- 코드 (I-48 – I-56): Cycle 4에 넣은 시험 열람 가드가 같은 plan + 바뀐 코드, 겹치는 구간, 커밋 안 된 로컬 root를 놓침(I-48). 재개 시 원본 데이터를 다시 확인하지 않음(I-49). selection 비교가 목적별이고 끝난 단계는 검사를 건너뜀(I-50). 캐시된 MF·GNN 학습을 설정 확인 없이 재사용(I-51). `selection.json`의 plan 미확인(I-52). 사후 분석 기준 파일 쓰기 순서(I-53). `verify_plan_code`가 추가 파일 무시(I-54). 보조 스크립트 스레드 설정 불일치(I-55). 실행 중 누수 검사가 잘린 원본만 봄(I-56).
+- 문서 (I-57): 12건. 결론에 닿는 것은 v7의 "가장 강한 baseline(ALS+BPR)" 서술(repeat에서는 BPR이 평균 최고)과 "Holm 보정 CI"(CI는 보정 안 함). 또 "v7은 `launch_detached.py`로 실행"은 틀림 (그 파일은 v7 뒤에 커밋됨).
+
+**C. 수정**
+- 코드: `code_matches`, 구간 겹침 판정, `audit/`+`audit_runs/` 검색, 매 실행 원본 재해시와 `run_started` 로그, `open_test`(모든 목적·끝난 단계도 검사), MF·GNN 캐시 설정 확인, `sealed_selection`, 사후 분석 기준 파일을 마지막에 쓰기, 누수 게이트에 원본 전체 + `end_fraction`, 보조 스크립트 스레드 강제.
+- 도구: `guard_mutation_check.py`(가드 변이), `check_cached_runs.py`(끝난 root에 캐시 규칙 적용), `determinism_check.py --blas-threads`.
+- 문서: 12건을 CSV·JSON·로그로 다시 확인한 뒤 고침. v7 스레드 주장은 기록이 없어, 실제 재학습으로 확인한 사실로 바꿈.
+
+**D. 검증**
+- 새 테스트 12개(`test_cycle5_guards.py`), 전체 106/106.
+- 가드 변이 H1–H12: 첫 실행에서 H11·H12가 살아남음 → 중단 시뮬레이션 테스트와 `sealed_selection` 테스트를 추가한 뒤 12/12 검출.
+- 실제 데이터: v7 캐시 43개(GNN 39, MF 4) 설정 일치. v7 F4 seed 42 ALS는 1스레드 재학습과 비트 단위로 같고 24스레드와는 다름. 실제 원본 해시로 가드를 돌리면 커밋된 v6·v7 기록과 로컬 `audit_runs/v7`이 모두 잡힘.
+- v6·v7 plan 코드 해시가 각 plan commit과 일치 (25 / 26개).
+- 공식 변이 테스트 17개를 수정된 코드로 다시 실행: 공식 결과와 완전히 같음 (`audit/cycle5/mutation_results_cycle5.json`).
+- `check_score_precision`을 고친 import 순서로 다시 실행: Cycle 4 결과와 완전히 같음.
+
+**E. 커밋**
+- fd9bcca: 코드 가드, 도구, 테스트, 증거 파일 (I-48 – I-56)
+- 이 문서와 함께: 문서 정정(I-57)과 Cycle 5 기록, 변이 재실행 증거
+
+**F. 커밋 후 재검증 (fd9bcca)**
+- 새 worktree, `requirements-v7-lock.txt` venv: 105 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28.

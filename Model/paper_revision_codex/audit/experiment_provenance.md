@@ -22,7 +22,7 @@ v1–v5의 수치와 코드는 수정하거나 삭제하지 않았다. 과거 �
 | plan 코드와 git | plan의 코드 해시 25개가 모두 `29ba891`의 git 내용(CRLF 형태)과 일치 (`audit/plan_code/plan_code_v6.json`, I-38) |
 | 원본 입력 | `events.csv` 외 3개. SHA256은 `plan.json` → `raw_input_sha256` |
 | 환경 | Python 3.11.9, numpy 2.4.6, pandas 3.0.6, scipy 1.17.1, sklearn 1.9.0, torch 2.15.0.dev20260921+cu132, implicit 0.7.3, CUDA 13.2, RTX 5060 Ti |
-| 실행 시간 | 2026-10-20 07:52 UTC 시작, 중단 후 재개, 2026-10-21 05:09 UTC 완료 (exit 0) |
+| 실행 시간 | plan 생성 2026-10-20 07:51:28 UTC (`plan.json`의 `created_utc`), 중단 후 재개. 커밋된 마지막 기록은 F3 sealed_test 열람 2026-10-21 05:08:32 UTC (`test_access_log.jsonl`). 완료 시각과 종료 코드는 v6 PC의 실행 로그에만 있어 저장소로는 확인할 수 없음 |
 
 ### 시험 접근 로그 (`test_access_log.jsonl`)
 
@@ -94,7 +94,7 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | 10-21 20:17 | plan 생성(20:16:46) 19초 뒤, 첫 실행을 `DETACHED_PROCESS`로 띄웠더니 전처리 중 Intel Fortran 런타임이 `forrtl: error (200): program aborting due to window-CLOSE event`로 중단 (I-31) | 미완성 전처리 폴더를 `F4_unseen/prepared_incomplete_run1`, 로그를 `audit_runs/v7_run1_forrtl_abort.log`로 보존. `CREATE_NO_WINDOW` 등으로 다시 실행 |
 
 - 중단은 전처리 단계였다. 학습, 점수 계산, 시험 열람은 없었다.
-- 두 번째 실행은 첫 실행이 만든 `plan.json`(같은 해시)을 그대로 쓰고, 전처리를 처음부터 다시 해(20:18:41 완료) 끝까지 완료됐다.
+- 두 번째 실행은 첫 실행이 만든 `plan.json`(같은 해시)을 그대로 쓰고, 전처리를 처음부터 다시 해(20:18:43 완료. 이 PC의 `audit_runs/v7/progress.jsonl`과 `audit_runs/v7_run.log`의 `prepared`, 커밋 안 됨) 끝까지 완료됐다.
 
 ## 7. 감사 보조 실행 (바깥 시험 지표를 계산하지 않음)
 
@@ -110,6 +110,12 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | 변이 테스트 (사본에서 실행) | `report_tools/mutation_check.py` | `audit/mutation/mutation_results.json` |
 | ALS/BPR 점수 정밀도 비교 (v7 F4 내부 validation, Cycle 4) | `report_tools/check_score_precision.py` | `audit/cycle4/score_precision_F4_val.json` |
 | 누수 검사를 원본 전체 + `--end-fraction 0.36`으로 실행 (v7 F4, Cycle 4. 누수 검사이며 지표 계산 아님) | `audit_tools/leakage_check.py` | `audit/cycle4/leakage_F4_fullraw_end036.json` (커밋된 F4 결과와 28개 동일), `leakage_F4_fullraw_without_end.json` (옵션 없이 실행하면 12개 거짓 실패) |
+
+| v7 F4 seed 42 MF 재학습, BLAS 1 / 24스레드 (Cycle 5. 정답을 읽지 않음) | `report_tools/determinism_check.py --skip-gnn --blas-threads` | `audit/cycle5/determinism_v7_blas1.csv`, `determinism_v7_blas24.csv` |
+| ALS/BPR 점수 정밀도 비교 재실행, 고친 import 순서(1스레드) (Cycle 5) | `report_tools/check_score_precision.py` | `audit/cycle5/score_precision_F4_val_blas1.json` (Cycle 4 파일과 완전히 같음) |
+| v7 root의 캐시 설정 일치 확인 (Cycle 5. 학습·정답 읽기 없음) | `report_tools/check_cached_runs.py` | `audit/cycle5/cache_identity_v7.json` |
+| 가드 변이 테스트 (사본에서 실행, Cycle 5) | `report_tools/guard_mutation_check.py` | `audit/cycle5/guard_mutants.json` |
+| 변이 테스트 재실행 (Cycle 4 / Cycle 5 코드) | `report_tools/mutation_check.py` | `audit/cycle4/mutation_results_cycle4.json`, `audit/cycle5/mutation_results_cycle5.json` |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 
