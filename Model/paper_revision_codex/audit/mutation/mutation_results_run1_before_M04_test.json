@@ -1,0 +1,136 @@
+{
+  "baseline_unmutated": {
+    "old": "survived",
+    "new": "survived"
+  },
+  "old_suite": [
+    "test_v6_protocol.py",
+    "test_v6_smoke.py",
+    "test_revision.py",
+    "test_codex_audit.py"
+  ],
+  "new_suite": [
+    "test_cycle3_consistency.py"
+  ],
+  "mutants": [
+    {
+      "mutant": "M01 NDCG ideal DCG over reachable truth only",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M02 Recall denominator = reachable truth",
+      "file": "policy_evaluation.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M03 cold users dropped from denominator",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M04 novel truth uses filtered (not raw) history",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "survived",
+      "killed_by_any": false
+    },
+    {
+      "mutant": "M05 novel exclusion disabled",
+      "file": "policy_evaluation.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M06 Holm without monotone step-down",
+      "file": "stats_tools.py",
+      "old_tests": "killed",
+      "new_tests": "survived",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M07 sign-flip one-sided",
+      "file": "stats_tools.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M08 paired comparison aligned by position",
+      "file": "stats_tools.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M09 selection grid: gamma boosts unavailable items",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M10 selection grid: RRF weights swapped",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M11 selection grid: MF not min-max normalised",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M12 split puts cutoff-timestamp events in train",
+      "file": "data_protocol.py",
+      "old_tests": "killed",
+      "new_tests": "survived",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M13 available = first (not last) value",
+      "file": "data_protocol.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M14 properties after the cutoff used",
+      "file": "data_protocol.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M15 MF selection takes the minimum",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M16 best_row takes the minimum",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    },
+    {
+      "mutant": "M17 context available flag inverted",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true
+    }
+  ]
+}
