@@ -1,0 +1,19 @@
+unmutated 30 passed, 1 deselected in 82.53s (0:01:22)
+{"mutant": "H1 reproduction exempt without matching code", "file": "rolling_protocol.py", "result": "killed", "summary": "2 failed, 28 passed, 1 deselected in 76.40s (0:01:16)"}
+{"mutant": "H2 exact window match instead of overlap", "file": "rolling_protocol.py", "result": "killed", "summary": "2 failed, 28 passed, 1 deselected in 63.88s (0:01:03)"}
+{"mutant": "H3 committed records only", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 65.09s (0:01:05)"}
+{"mutant": "H4 raw input not re-verified", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.34s (0:01:04)"}
+{"mutant": "H5 selection compared within a purpose only", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 63.98s (0:01:03)"}
+{"mutant": "H6 finished fold skips the log check", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.74s (0:01:04)"}
+{"mutant": "H7 cached MF fit not checked", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.38s (0:01:04)"}
+{"mutant": "H8 cached GNN job not checked", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.10s (0:01:04)"}
+{"mutant": "H9 precision tool imports numpy first", "file": "report_tools/check_score_precision.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.40s (0:01:04)"}
+{"mutant": "H10 leakage gate on fold_raw only", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 63.89s (0:01:03)"}
+{"mutant": "H11 posthoc marker written first", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 52.91s"}
+{"mutant": "H12 selection plan hash not checked", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.12s (0:01:04)"}
+{"mutant": "H13 records matched on all raw file bytes", "file": "rolling_protocol.py", "result": "killed", "summary": "2 failed, 28 passed, 1 deselected in 64.48s (0:01:04)"}
+{"mutant": "H14 git output fully stripped", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 64.46s (0:01:04)"}
+{"mutant": "H15 other roots checked only at start", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 76.61s (0:01:16)"}
+{"mutant": "H16 reproduction exempt with other raw files", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 77.02s (0:01:17)"}
+{"mutant": "H17 hybrid grid cache trusted when it exists", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 77.05s (0:01:17)"}
+{"mutant": "H18 plan created without git", "file": "rolling_protocol.py", "result": "killed", "summary": "1 failed, 29 passed, 1 deselected in 77.70s (0:01:17)"}

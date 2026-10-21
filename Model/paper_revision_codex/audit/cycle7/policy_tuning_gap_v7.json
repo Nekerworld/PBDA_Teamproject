@@ -1,0 +1,72 @@
+{
+  "root": "audit/results_v7",
+  "score": "mean(NDCG@50, Recall@50) on inner validation",
+  "folds": {
+    "F4_unseen": {
+      "repeat": {
+        "hybrid_selected": 0.2249534269345675,
+        "families": {
+          "GNN": {
+            "selected": 0.21685934260832707,
+            "best": 0.21685934260832707,
+            "best_config": "gnn_layers1_embedding_dim256_learning_rate0p003",
+            "selected_rank": 1,
+            "configs": 36
+          },
+          "ALS": {
+            "selected": 0.21760634638949014,
+            "best": 0.21760634638949014,
+            "best_config": "166",
+            "selected_rank": 1,
+            "configs": 192
+          },
+          "BPR": {
+            "selected": 0.21536750368764915,
+            "best": 0.21536750368764915,
+            "best_config": "307",
+            "selected_rank": 1,
+            "configs": 168
+          },
+          "ALS+BPR": {
+            "selected": 0.2218659201425055,
+            "best": 0.2218659201425055
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": []
+      },
+      "novel": {
+        "hybrid_selected": 0.06116531700845859,
+        "families": {
+          "GNN": {
+            "selected": 0.05259817034537863,
+            "best": 0.06593277443866134,
+            "best_config": "gnn_layers4_embedding_dim256_learning_rate0p0005",
+            "selected_rank": 19,
+            "configs": 36
+          },
+          "ALS": {
+            "selected": 0.05405927039411115,
+            "best": 0.05706154605724466,
+            "best_config": "98",
+            "selected_rank": 11,
+            "configs": 192
+          },
+          "BPR": {
+            "selected": 0.04754250993832585,
+            "best": 0.04754250993832585,
+            "best_config": "307",
+            "selected_rank": 1,
+            "configs": 168
+          },
+          "ALS+BPR": {
+            "selected": 0.0551855016868575,
+            "best": 0.0551855016868575
+          }
+        },
+        "baselines_whose_best_config_beats_hybrid": [
+          "GNN"
+        ]
+      }
+    }
+  }
+}

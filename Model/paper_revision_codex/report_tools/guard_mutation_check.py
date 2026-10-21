@@ -1,5 +1,6 @@
-"""Put the pre-fix behaviour of each cycle-5/6 guard (H1-H14) back into a temporary copy, one at a time, and check
-that test_cycle4_guards.py / test_cycle5_guards.py fail. Output: audit/cycle5/guard_mutants.json.
+"""Put the pre-fix behaviour of each cycle-5/6/7 guard (H1-H18) back into a temporary copy, one at a time, and check
+that test_cycle4_guards.py / test_cycle5_guards.py / test_cycle7_guards.py fail. Output: audit/cycle7/guard_mutants.json
+(audit/cycle5/guard_mutants.json holds the H1-H14 run on commit 57dc03b).
 
 Usage: python report_tools/guard_mutation_check.py
 """
@@ -7,7 +8,7 @@ import json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 src = Path(__file__).resolve().parents[1]
 M = {
- 'H1 reproduction exempt by plan hash only': ('rolling_protocol.py', "        if stored['plan_sha256'] == plan_hash and code_matches(", "        if stored['plan_sha256'] == plan_hash or not code_matches("),
+ 'H1 reproduction exempt without matching code': ('rolling_protocol.py', "\n                              and code_matches(stored.get('code_sha256', {}), stored.get('code_hash_scheme', 'sha256-raw')))", ")"),
  'H2 exact window match instead of overlap': ('rolling_protocol.py', "                if max(low, windows[name][0]) < min(high, windows[name][1]) - 1e-9:", "                if (low, high) == windows[name]:"),
  'H3 committed records only': ('rolling_protocol.py', "RESULT_RECORDS = (HERE / 'audit', HERE / 'audit_runs')", "RESULT_RECORDS = (HERE / 'audit',)"),
  'H4 raw input not re-verified': ('rolling_protocol.py', "    if 'raw_input_sha256' in stored and raw_hashes(raw) != stored['raw_input_sha256']:", "    if False:"),
@@ -21,6 +22,10 @@ M = {
  'H12 selection plan hash not checked': ('rolling_protocol.py', "    if selection['plan_sha256'] != plan_hash:\n        raise", "    if False:\n        raise"),
  'H13 records matched on all raw file bytes': ('rolling_protocol.py', "        if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:", "        if stored.get('raw_input_sha256') != raw_hashes:"),
  'H14 git output fully stripped': ('rolling_protocol.py', ".stdout.rstrip('\\n')", ".stdout.strip()"),
+ 'H15 other roots checked only at start': ('rolling_protocol.py', "        conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS)", "        conflicts = []"),
+ 'H16 reproduction exempt with other raw files': ('rolling_protocol.py', "stored['plan_sha256'] == plan_hash and stored.get('raw_input_sha256') == raw_hashes", "stored['plan_sha256'] == plan_hash"),
+ 'H17 hybrid grid cache trusted when it exists': ('rolling_protocol.py', "        if len(rows) == len(HYBRID_GRID):", "        if True:"),
+ 'H18 plan created without git': ('rolling_protocol.py', "        if not state['commit']:\n            raise", "        if False:\n            raise"),
 }
 tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))
 def fresh():
@@ -35,6 +40,7 @@ def fresh():
         for n in ('plan.json', 'test_access_log.jsonl'): shutil.copy2(src / 'audit' / f'results_{v}' / n, d / 'audit' / f'results_{v}' / n)
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
+        'test_cycle7_guards.py',
         '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)
@@ -46,6 +52,6 @@ for name, (f, old, new) in M.items():
     rows.append({'mutant': name, 'file': f, 'result': 'killed' if r.returncode else 'survived', 'summary': r.stdout.strip().splitlines()[-1]})
     print(json.dumps(rows[-1]), flush=True)
 shutil.rmtree(tmp)
-out = src / 'audit' / 'cycle5' / 'guard_mutants.json'
+out = src / 'audit' / 'cycle7' / 'guard_mutants.json'
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps({'unmutated': base, 'tests': args[5:], 'mutants': rows}, indent=2), encoding='utf-8')

@@ -1,0 +1,104 @@
+{
+  "raw_equals_plan_record": {
+    "v6": true,
+    "v7": true
+  },
+  "plan_events_hash_in_event_forms": {
+    "v6": true,
+    "v7": true
+  },
+  "records": [
+    "audit/results_v6",
+    "audit/results_v7",
+    "audit_runs/v7"
+  ],
+  "conflicts": {
+    "v6_folds/v6_plan": [
+      {
+        "fold": "F1_hist",
+        "opened_as": "F1_hist",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F2_mid",
+        "opened_as": "F2_mid",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F3_early",
+        "opened_as": "F3_early",
+        "record": "audit/results_v6"
+      }
+    ],
+    "v6_folds/v7_plan": [
+      {
+        "fold": "F1_hist",
+        "opened_as": "F1_hist",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F2_mid",
+        "opened_as": "F2_mid",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F3_early",
+        "opened_as": "F3_early",
+        "record": "audit/results_v6"
+      }
+    ],
+    "v6_folds/new_plan": [
+      {
+        "fold": "F1_hist",
+        "opened_as": "F1_hist",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F2_mid",
+        "opened_as": "F2_mid",
+        "record": "audit/results_v6"
+      },
+      {
+        "fold": "F3_early",
+        "opened_as": "F3_early",
+        "record": "audit/results_v6"
+      }
+    ],
+    "v7_folds/v6_plan": [
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit/results_v7"
+      },
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit_runs/v7"
+      }
+    ],
+    "v7_folds/v7_plan": [
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit/results_v7"
+      },
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit_runs/v7"
+      }
+    ],
+    "v7_folds/new_plan": [
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit/results_v7"
+      },
+      {
+        "fold": "F4_unseen",
+        "opened_as": "F4_unseen",
+        "record": "audit_runs/v7"
+      }
+    ]
+  }
+}

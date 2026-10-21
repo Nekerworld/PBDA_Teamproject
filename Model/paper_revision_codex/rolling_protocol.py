@@ -522,6 +522,23 @@ def hybrid_grid(context, als, bpr, gnn, backbone):
     return rows
 
 
+def cached_grid(path, compute):
+    """Reuse a Hybrid validation grid only when it has a row for every configuration; write it atomically.
+
+    A CSV cut at a row boundary still parses, so a run interrupted mid-write would otherwise select
+    from part of the grid on resume. Returns (rows, reused)."""
+    path = Path(path)
+    if path.exists():
+        rows = pd.read_csv(path).to_dict('records')
+        if len(rows) == len(HYBRID_GRID):
+            return rows, True
+    rows = compute()
+    partial = path.with_name(path.name + '.partial')
+    pd.DataFrame(rows).to_csv(partial, index=False)
+    os.replace(partial, path)
+    return rows, False
+
+
 def best_row(rows, keys):
     frame = pd.DataFrame(rows).sort_values('score', ascending=False, kind='stable')
     return {k: (v if not isinstance(v, np.generic) else v.item()) for k, v in frame.iloc[0][keys].to_dict().items()}
@@ -565,7 +582,17 @@ def access_log(root, entry, record=True):
 
 
 def open_test(root, fold_name, purpose, plan_hash, done):
-    """Log a test opening, or only check the log when the outputs already exist. Returns True to proceed."""
+    """Log a test opening, or only check the log when the outputs already exist. Returns True to proceed.
+
+    Other roots are checked again here, not only when the run starts: a run started in parallel may
+    have opened an overlapping window in the hours since."""
+    if not done:
+        plan_path = Path(root) / 'plan.json'
+        stored = json.loads(plan_path.read_text(encoding='utf-8')) if plan_path.exists() else {}
+        fold = next(f for f in FOLDS if f['name'] == fold_name)
+        conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS)
+        if conflicts:
+            raise RuntimeError(f'Another run opened an overlapping test window after this run started: {conflicts}')
     access_log(root, {'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'fold': fold_name, 'purpose': purpose,
                       'plan_sha256': plan_hash, 'selection_sha256': sha256(Path(root) / fold_name / 'selection.json'),
                       'git': git_state()['commit']}, record=not done)
@@ -573,6 +600,7 @@ def open_test(root, fold_name, purpose, plan_hash, done):
 
 
 RESULT_RECORDS = (HERE / 'audit', HERE / 'audit_runs')
+RUN_EVENT_FORMS = set()  # event_digests of the running root's raw folder, set by run()
 
 
 def outer_test_window(fold):
@@ -597,8 +625,8 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
     """Recorded test openings on the same events whose window overlaps one of ``folds``.
 
     The per-root access log cannot see other result roots, so a new root would otherwise be free to
-    reopen a window that another run already evaluated. Only an exact reproduction (same plan and
-    same code as that record) may reopen it. ``records`` are folders holding ``*/plan.json`` with a
+    reopen a window that another run already evaluated. Only an exact reproduction (same plan,
+    code and raw files as that record) may reopen it. ``records`` are folders holding ``*/plan.json`` with a
     ``test_access_log.jsonl`` beside it: the committed audit/results_* and local audit_runs/* roots.
     Windows are cut from events.csv alone, so records are matched on its hash; ``event_forms``
     (from ``event_digests``) also matches a copy that differs only in line endings.
@@ -613,8 +641,9 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
         stored = json.loads(plan_path.read_text(encoding='utf-8'))
         if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:
             continue
-        if stored['plan_sha256'] == plan_hash and code_matches(stored.get('code_sha256', {}),
-                                                               stored.get('code_hash_scheme', 'sha256-raw')):
+        exact_reproduction = (stored['plan_sha256'] == plan_hash and stored.get('raw_input_sha256') == raw_hashes
+                              and code_matches(stored.get('code_sha256', {}), stored.get('code_hash_scheme', 'sha256-raw')))
+        if exact_reproduction:
             continue
         windows = {f['name']: outer_test_window(f) for f in stored['plan']['folds']}
         opened = {json.loads(line)['fold'] for line in log_path.read_text(encoding='utf-8').splitlines() if line.strip()}
@@ -923,11 +952,9 @@ def run_fold(root, fold, raw, plan_hash):
         rows = []
         for backbone in gnn_rows[:HYBRID_BACKBONES]:
             path = fold_dir / f'validation_hybrid_{policy}_{backbone["name"]}.csv'
-            if path.exists():
-                part = pd.read_csv(path).to_dict('records')
-            else:
-                part = hybrid_grid(ctx, als_p, bpr_p, load_gnn(backbone['job_dir'], ctx), backbone['name'])
-                pd.DataFrame(part).to_csv(path, index=False)
+            part, cached = cached_grid(path, lambda: hybrid_grid(ctx, als_p, bpr_p, load_gnn(backbone['job_dir'], ctx),
+                                                                 backbone['name']))
+            if not cached:
                 log(root, 'hybrid_grid_done', fold=fold['name'], policy=policy, backbone=backbone['name'])
             rows.extend(part)
         grid_rows[policy] = rows
@@ -1032,6 +1059,8 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
             raise RuntimeError('plan.json differs from the code plan; use a new root (no silent re-planning).')
     else:
         state = git_state()
+        if not state['commit']:
+            raise RuntimeError('A preregistered run needs its code in git; the git state could not be read.')
         if state['dirty_files']:
             raise RuntimeError(f'Commit code before a preregistered run; dirty: {state["dirty_files"]}')
         dump_json(plan_path, {'plan_sha256': plan_hash, 'plan': plan, 'git': state, 'environment': environment(),
@@ -1045,9 +1074,11 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
     if code_now != stored['code_sha256']:
         changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
         raise RuntimeError(f'Code changed since the plan was frozen: {changed}')
+    RUN_EVENT_FORMS.clear()
+    RUN_EVENT_FORMS.update(event_digests(raw) if (Path(raw) / 'events.csv').exists() else ())
     conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash,
                                          [f for f in FOLDS if not folds or f['name'] in folds],
-                                         event_forms=event_digests(raw) if (Path(raw) / 'events.csv').exists() else None)
+                                         event_forms=RUN_EVENT_FORMS)
     if conflicts:
         raise RuntimeError(f'These test windows were already opened under another plan or code: {conflicts}')
     log(root, 'run_started', git=git_state()['commit'], native_threads=native_threads())
