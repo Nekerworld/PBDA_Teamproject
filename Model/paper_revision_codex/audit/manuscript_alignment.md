@@ -14,7 +14,7 @@
 | R2-2 transductive LightGCN | 해결. 학습 상품만 점수를 받고, 학습 벡터 없는 사용자는 0점으로 분모에 포함 | 평가 모집단과 cold-start 미지원을 명시 | `validation_report.md` §3 |
 | R2-3 그림 오류·누락 | 해결. 커밋된 요약 CSV만 읽는 생성기가 모델 비교, Top-K, 쌍대 차이 CI, γ 민감도, 후보 수, 파이프라인 그림과 표를 만듦 | 원고 그림을 `audit/figures_v6`(주 결과), `audit/figures_v7`(확장 grid 확인)로 교체하고 번호를 맞춤 | `report_tools/plot_rolling_results.py`, 각 폴더의 `figure_manifest.json` |
 | R2-4 필터 후 통계 | 해결 | 최종 학습 통계 표(사용자 141,660, 상품 58,556, 이벤트 974,155, 쌍 562,419) | `audit/results_v6/F1_hist/dataset_statistics.csv` (`train_final` 행) |
-| R2-5 식 9의 gamma | 해결. γ는 validation에서 선택됨 (F1 1.25, F2/F3 1.1) | γ의 정의, 탐색 범위 {1, 1.1, 1.25, 1.5}, 선택 방법, 민감도 표 | `validation_report.md` §6.2 |
+| R2-5 식 9의 gamma | 해결. γ는 정책·fold마다 validation에서 선택됨 (repeat: F1 1.25, F2/F3 1.1. novel: F1 1.5(grid 최대), F2/F3 1.25) | γ의 정의, 탐색 범위 {1, 1.1, 1.25, 1.5}, 선택 방법, 민감도 표 | `validation_report.md` §6.2 |
 | R2-6 IF 특징과 제거율 | 해결 | 9개 특징, 제거 62.05%, 구매 100% 제거, IF를 최종 모델에서 뺀 이유와 ablation | `validation_report.md` §6.3 |
 | R1 그림 품질 | 해결. PNG(300 dpi), PDF, SVG를 함께 만들고, 다시 실행해도 바이트 단위로 같음 | `professor_materials/figures`(v5 단일 분할 기준)는 쓰지 않음 | `audit/figures_v6`, `audit/figures_v7` |
 | R1 데이터 맥락과 한계 | - | 단일 데이터셋, 2015년, 반복 추천 비중, 평가 사용자 수 | `validation_report.md` §3, §4.2, §8 |

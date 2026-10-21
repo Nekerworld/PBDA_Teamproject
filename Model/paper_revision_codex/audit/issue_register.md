@@ -4,18 +4,18 @@
 상태: `해결·검증` / `수정·검증 대기(실험 필요)` / `환경 제약` / `원고 수정 필요` / `미해결`.
 "검증"은 이 PC에서 실제로 실행한 테스트·스크립트만 가리킨다. 결과 JSON을 읽은 것만으로는 검증으로 치지 않는다.
 
-> **현재 상태 (2026-10-21 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (exit 0). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨.
+> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (exit 0). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨.
 > - 시험 열람: v6는 fold마다 봉인 평가 1회, F1에서만 사후 분석 2회 추가 (`audit/results_v6/test_access_log.jsonl`). v7은 F4 봉인 평가 1회 (`audit/results_v7/test_access_log.jsonl`).
 > - 결과와 검증: `validation_report.md` (v7은 §12).
-> - Cycle 2 재감사에서 I-23 – I-26, Cycle 3에서 I-27 – I-37, Cycle 3 커밋 후 검증에서 I-38을 찾음.
+> - Cycle 2 재감사에서 I-23 – I-26, Cycle 2 커밋 후 검증(418e7dd)에서 I-27, Cycle 3에서 I-28 – I-37, Cycle 3 커밋 후 검증에서 I-38, Cycle 4 재감사에서 I-39 이후를 찾음.
 
 | ID | 등급 | 문제 | 상태 | 커밋 |
 |---|---|---|---|---|
 | I-01 | P0 | v3 시험 실패 후 v4/v5 설계 변경 (시험 재사용) | 해결·검증: 사전등록 v6 완료, fold마다 봉인 평가 1회 (사후 분석은 선택에 쓰지 않음). F1 구간이 과거에 노출된 사실은 되돌릴 수 없어 공개 사항으로 남김 | 29ba891, 63145d7 |
-| I-02 | P0 | 데이터 누수 (원래 validation→training, 기타 경로) | 해결·검증: 3 fold × 28 검사 통과 | 46fe0e0 |
+| I-02 | P0 | 데이터 누수 (원래 validation→training, 기타 경로) | 해결·검증: v6 3 fold와 v7 F4 모두 28/28 검사 통과 | 46fe0e0 |
 | I-03 | P1 | 단순 baseline 부재 (Recent, Popularity) | 해결·검증: v6 결과에 포함 | 29ba891 |
 | I-04 | P1 | 튜닝 예산 비대칭 (ALS/BPR 고정, Hybrid 576×3) | 해결·검증 (한계 공개): v6에서 MF가 경계에서 선택됨 → I-23. v7에서 ALS 192, BPR 24(168 설정), GNN 36회 학습으로 넓혀 확인 | 0af9a3c, 29ba891, c9d3e49 |
-| I-05 | P1 | GNN epoch가 상한에 걸림 (190/200) | 해결·검증: v6 validation 학습 24회 모두 50–290/400 epoch에서 멈춤. v7은 36개 중 5개가 400에 도달했지만 모두 validation 6위 이하(낮은 lr 또는 64차원)였고, 선택·Hybrid backbone 상위 3개는 90–140 epoch. 사전등록 규칙상 연장 대상 아님 | 0af9a3c, 29ba891 |
+| I-05 | P1 | GNN epoch가 상한에 걸림 (190/200) | 해결·검증: v6 validation 학습 24회 모두 50–290/400 epoch에서 멈춤. v7은 36개 중 5개가 상한 규칙(최고 epoch ≥ 390)에 걸렸지만(400 epoch 4개, 390 epoch 1개) 모두 validation 6위 이하(낮은 lr 또는 64차원)였고, 선택·Hybrid backbone 상위 3개는 90–140 epoch. 사전등록 규칙상 연장 대상 아님 | 0af9a3c, 29ba891 |
 | I-06 | P1 | 통계: 다중비교 보정 없음, Hybrid vs GNN Recall 비유의 | 해결·검증: Holm 보정 결과 보고 | 29ba891 |
 | I-07 | P1 | 반복 추천 허용 평가만 존재 | 해결·검증: novel 정책을 분리 보고. 원본 데이터로 독립 검사 0건 위반 | 29ba891 |
 | I-08 | P1 | 모델군별 선택 기준 불일치 | 해결·검증 | 0af9a3c, 29ba891 |
@@ -33,14 +33,14 @@
 | I-20 | P3 | v6 `selection.json`의 `job_dir`가 절대경로 | 미해결 (봉인된 산출물이라 고치지 않음. 다른 PC에서는 `refits.json`의 상대경로를 씀) | - |
 | I-21 | P3 | v5 성공 기준이 "평균이 모든 baseline보다 높음" (유의성 아님) | 원고 수정 필요 (`manuscript_alignment.md`) | - |
 | I-22 | P3 | 원고 파일이 저장소에 없음 | 원고 수정 필요 (대조표 제공) | - |
-| I-23 | P1 | v6의 ALS/BPR이 grid 경계에서 선택됨. 경계 밖에서 ALS validation이 +0.011 – +0.027 | 해결·검증 (한계 공개): 사용자 승인으로 처음 쓰는 구간 F4에서 모든 모델군 grid를 넓힌 v7 실행. ALS가 validation에서 GNN을 앞섰지만(0.2176 vs 0.2169) 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의로 v6 결론 유지. v6 F1–F3 수치는 덜 튜닝된 조건으로 남고, v7에서도 일부 축이 끝에 걸림(사전등록 규칙상 재확장 안 함) | c9d3e49, dea0f20 |
+| I-23 | P1 | v6의 ALS/BPR이 grid 경계에서 선택됨. 경계 밖에서 ALS validation이 +0.011 – +0.027 | 해결·검증 (한계 공개): 사용자 승인으로 처음 쓰는 구간 F4에서 모든 모델군 grid를 넓힌 v7 실행. ALS가 validation에서 GNN을 앞섰지만(0.2176 vs 0.2169) 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의 (v6는 NDCG 6칸 비유의, Recall 3칸 유의). "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론 유지. v6 F1–F3 수치는 덜 튜닝된 조건으로 남고, v7에서도 일부 축이 끝에 걸림(사전등록 규칙상 재확장 안 함) | c9d3e49, dea0f20 |
 | I-24 | P3 | ALS 결과가 BLAS 스레드 수에 따라 달라짐 | 문서화: v6는 1스레드로 고정. 다른 환경변수가 이미 있으면 그 값이 우선 | Cycle 2 커밋 |
 | I-25 | P2 | `determinism_check.py`가 numpy를 import한 뒤 스레드 환경변수를 설정함 (거짓 비결정성 보고) | 해결·검증 | Cycle 2 커밋 |
 | I-26 | P2 | Hybrid 후보 수가 fold마다 다름 (20000 / 500 / all) | 해석 사항: validation 곡선이 평평함. 원고에서 후보 수를 핵심 설계로 주장하지 않음 | - |
 | I-27 | P2 | 커밋된 결과 파일이 `SHA256SUMS.txt`와 불일치 (줄바꿈 자동 변환) | 해결·검증 (커밋 후 검증에서 발견). 새 clone(다른 PC)에서도 60/60 일치 | 418e7dd |
 | I-28 | P3 | 인자 없는 `python -m pytest`가 보관용 `source_*` 폴더의 옛 테스트까지 수집해 오류 16개 | 해결·검증: `pytest.ini`로 수집 범위 제한. 다른 PC의 깨끗한 venv에서 70개 통과 | 1170ea5 |
 | I-29 | P3 | v7 "미사용 구간" 테스트가 비율만 비교함 (실제 시각 미확인) | 해결·검증: 원본 타임스탬프로 F4 끝 ≤ v6 내부 validation 시작을 확인하는 테스트 추가. 실제 경계는 같은 타임스탬프(겹침 0건). end 0.37 변이를 잡음 | 1170ea5 |
-| I-30 | P2 | 평가·선택·통계의 핵심 성질을 고정하는 테스트 부재 (변이 테스트에서 발견) | 해결·검증: 구현은 올바름(정독 + 실제 데이터 대조). 기존 테스트는 변이 17개 중 11개를 놓침. `test_cycle3_consistency.py`(9개) 추가 후 두 묶음 합쳐 17/17. M04는 합성 데이터에서 필터 전후 이력이 같아 구별되지 않던 것을 전용 데이터로 고정함. v7 실행 중 코드 해시 잠금 때문에 v7 종료 후 커밋 | 아래 |
+| I-30 | P2 | 평가·선택·통계의 핵심 성질을 고정하는 테스트 부재 (변이 테스트에서 발견) | 해결·검증: 구현은 올바름(정독 + 실제 데이터 대조). 기존 테스트는 변이 17개 중 11개를 놓침. `test_cycle3_consistency.py`(9개) 추가 후 두 묶음 합쳐 17/17. M04는 합성 데이터에서 필터 전후 이력이 같아 구별되지 않던 것을 전용 데이터로 고정함. v7 실행 중 코드 해시 잠금 때문에 v7 종료 후 커밋 | 70f5106 |
 | I-31 | P3 | 분리 실행(`DETACHED_PROCESS`) 시 Intel Fortran 런타임이 창 닫기 이벤트로 프로세스를 중단 (`forrtl: error (200)`) | 해결: `CREATE_NO_WINDOW` + `FOR_DISABLE_CONSOLE_CTRL_HANDLER=1`로 재실행. 중단은 v7 전처리 중이었고 시험 열람·학습 없음. 미완성 폴더는 `prepared_incomplete_run1`로 보존 | 문서 |
 | I-32 | P2 | 원고용 그림이 v5 단일 분할 결과 기준 (`professor_materials/figures`) | 해결·검증: 커밋된 v6 CSV만 읽는 그림·표 생성기와 결과(`audit/figures_v6`). 재실행 시 바이트 동일 | a2c5445 |
 | I-33 | P3 | BPR(GPU) 결과가 GPU·torch 빌드에 따라 달라짐 | 문서화: 다른 PC에서 F3 MF grid 재실행. ALS 24행은 비트 단위 동일, BPR 20행은 선택 점수 최대 0.0047 차이, 선택 결과는 같음 | e7f0240 |
@@ -48,7 +48,7 @@
 | I-35 | P3 | 그림 생성기 제목에 v6 전용 문구("F1 window was exposed in v1-v5", seed 목록)가 고정돼 v7 그림에도 찍힘. 범례가 막대를 가림 | 해결·검증: 제목을 데이터(fold 이름, `test_metrics.csv`의 seed)에서 만들고 범례를 그림 아래로 옮김. v6/v7 그림을 다시 만들어 두 번 실행 시 바이트 동일 확인 | dea0f20 |
 | I-36 | P2 | `requirements.txt`가 scikit-learn 1.9.1을 고정하지만 v6·v7은 1.9.0으로 실행됨. v6·v7 실행에 쓴 분리 실행 스크립트도 저장소에 없음 (`audit_runs/`는 gitignore) | 해결·검증: v7 venv를 그대로 적은 `requirements-v7-lock.txt` 추가. 새 venv에 설치해 패키지 목록이 v7 venv와 완전히 같음을 확인. `report_tools/launch_detached.py` 추가 후 실제 실행으로 동작 확인. `requirements.txt` 자체는 기존 문서의 기준이라 바꾸지 않음 | e9538c8 |
 | I-37 | P2 | codex 폴더 첫 문서 `README.md`가 v5 주장("두 지표의 세 seed 평균이 모든 비교 모델보다 높았다")을 감사 결과 안내 없이 제시. `README_HYBRID_KO.md`, `REPRODUCE_KO.md`도 v5 경로만 안내. `professor_materials/README_KO.md`(같은 주장과 "NDCG +10.83%"), 저장소 최상위 `README.md`(v5 재실행을 "최종 Hybrid 실험"으로 안내)도 같음 | 해결: 원문은 이력으로 보존하고, 맨 앞에 시험 재사용 사실과 감사 문서(검증 결과, 재현 절차, 원고 대조표) 안내를 추가 | e9538c8 |
-| I-38 | P2 | plan의 코드 해시(`code_hashes`)가 작업 폴더의 원시 바이트를 해시해 checkout의 줄바꿈 변환(`core.autocrlf`)에 따라 달라짐. 같은 commit이라도 다른 PC에서는 plan 검사가 거짓 실패하고, "코드 변경"과 "줄바꿈 차이"를 구별할 수 없음 (v7 plan은 CRLF 19개·LF 7개가 섞여 있었고, 이 PC에서 v6 plan과 비교하면 내용이 같은 파일 7개가 불일치) | 해결·검증: 새 plan은 줄바꿈을 정규화한 해시(`sha256-lf`)와 방식을 기록함. 방식 기록이 없는 v6/v7 plan은 원시 바이트로 비교해 호환 유지. `report_tools/verify_plan_code.py`로 v6 25개, v7 26개 해시가 모두 각 plan commit의 git 내용과 일치함을 확인 (조작한 해시 1개는 검출). 테스트 3개 추가 | 아래 |
+| I-38 | P2 | plan의 코드 해시(`code_hashes`)가 작업 폴더의 원시 바이트를 해시해 checkout의 줄바꿈 변환(`core.autocrlf`)에 따라 달라짐. 같은 commit이라도 다른 PC에서는 plan 검사가 거짓 실패하고, "코드 변경"과 "줄바꿈 차이"를 구별할 수 없음 (v7 plan은 CRLF 19개·LF 7개가 섞여 있었고, 이 PC에서 v6 plan과 비교하면 내용이 같은 파일 7개가 불일치) | 해결·검증: 새 plan은 줄바꿈을 정규화한 해시(`sha256-lf`)와 방식을 기록함. 방식 기록이 없는 v6/v7 plan은 원시 바이트로 비교해 호환 유지. `report_tools/verify_plan_code.py`로 v6 25개, v7 26개 해시가 모두 각 plan commit의 git 내용과 일치함을 확인 (조작한 해시 1개는 검출). 테스트 3개 추가 | b575dac |
 
 ---
 
@@ -65,7 +65,7 @@
 ## I-02 (P0) 데이터 누수
 
 - **검증 방법**: `audit_tools/leakage_check.py`가 원본 CSV에서 독립적으로 다시 계산해 전처리 결과와 비교. 검사 항목은 cutoff, core 고정점, 평가 사용자, 정답, 속성 시점, `available`, 카탈로그, 내부 validation 구간, GNN 간선.
-- **결과**: 80:20 no-IF 분할에서 28개 항목 모두 통과 (`audit_runs/repro_8020`). v6의 모든 fold도 실행 시작 시 같은 검사를 통과해야 진행되며, F1은 통과함.
+- **결과**: 80:20 no-IF 분할에서 28개 항목 모두 통과 (`audit_runs/repro_8020`). v6의 모든 fold와 v7 F4도 실행 시작 시 같은 검사를 통과해야 진행되며, F1–F3와 F4 모두 28/28 통과함.
 - **결함 검출 확인**: 시험 이벤트 1건을 학습 파일에 넣으면 검사가 실패함 (`test_leakage_check_passes_and_detects_injected_leak`).
 
 ## I-03 (P1) 단순 baseline
@@ -177,13 +177,13 @@ Cycle 2에서 `report_tools/mf_boundary_probe.py`로 **validation 구간만** �
 
 - ALS는 경계 밖에서 크게 좋아지고 (+0.011 – +0.027), F1/F3에서는 GNN에 가까워짐. BPR의 증가폭은 작음 (+0.0002 – +0.0044).
 - 이 grid 결정은 Hybrid의 ALS+BPR 구성 요소에도 들어가므로, 확장하면 Hybrid도 바뀔 수 있음.
-- 따라서 "Hybrid ≥ ALS+BPR" 비교는 baseline이 덜 튜닝된 조건일 수 있음. 현재 결과에서도 이미 유의한 차이는 없음.
+- 따라서 "Hybrid ≥ ALS+BPR" 비교는 baseline이 덜 튜닝된 조건일 수 있음. v6 결과에서 NDCG는 6칸 모두 비유의이고, Recall은 3칸(F1·F2 repeat, F3 novel, p_holm .010 / .024 / .010)에서 유의함. 이 3칸은 덜 튜닝된 baseline 대비 결과라 해석에 주의가 필요함.
 - 고치려면 grid를 넓혀 사전등록을 다시 하고 세 fold를 다시 실행해야 함. 이는 같은 시험 구간을 두 번째로 여는 것이고, 시험 결과를 본 뒤의 재실행임. 그래서 감사자가 임의로 하지 않고 사용자 결정으로 남김.
 - 산출물: `audit/results_v6/mf_boundary_probe.csv`.
 
 **Cycle 3 처리 (v7)**: F1–F3를 다시 여는 대신, 한 번도 평가하지 않은 구간 F4(이벤트 앞 36%)에서 ALS·BPR·GNN grid를 모두 넓힌 v7을 사전등록하고 사용자 승인 후 실행함 (`v7_feasibility.md`, `validation_report.md` §12).
 - ALS: factors 1024, α 80 (둘 다 새 grid의 끝), validation 0.2176. 단독 GNN 최고 0.2169보다 높음.
-- 시험: Hybrid − ALS+BPR은 repeat/novel × NDCG/Recall 4칸 모두 Holm 보정 후 비유의 (+0.0013 – +0.0077). v6와 같은 결론.
+- 시험: Hybrid − ALS+BPR은 repeat/novel × NDCG/Recall 4칸 모두 Holm 보정 후 비유의 (+0.0013 – +0.0077). v6(NDCG 6칸 비유의, Recall 3칸 유의)와 합쳐 보면 "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론이 같음.
 - 남은 한계: v6 표의 ALS·ALS+BPR 수치는 고칠 수 없음. v7에서도 ALS factors·α, BPR factors, GNN layers·dim·lr이 끝에 걸렸고, 사전등록 규칙대로 더 넓히지 않음. F4 한 fold, 시험 사용자 413명이라 0.01 이하의 차이는 판정할 수 없음.
 
 ## I-24 (P3) BLAS 스레드 수
