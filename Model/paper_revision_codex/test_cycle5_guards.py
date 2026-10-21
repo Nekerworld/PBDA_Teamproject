@@ -62,6 +62,7 @@ def test_local_roots_are_guarded_as_well_as_committed_ones(tmp_path):
 
 def test_run_refuses_a_raw_folder_other_than_the_plans(tmp_path, monkeypatch):
     monkeypatch.setattr(rp, 'write_reports', lambda root: None)
+    monkeypatch.setattr(rp, 'run_fold', lambda *args: (None, None))  # start-up checks only
     monkeypatch.setattr(rp, 'RESULT_RECORDS', ())
     plan = rp.plan_payload()
     plan_hash = rp.hashlib.sha256(json.dumps(plan, sort_keys=True).encode()).hexdigest()
@@ -73,9 +74,9 @@ def test_run_refuses_a_raw_folder_other_than_the_plans(tmp_path, monkeypatch):
                                                 'raw_input_sha256': rp.raw_hashes(planned),
                                                 'code_hash_scheme': rp.CODE_HASH_SCHEME,
                                                 'code_sha256': rp.code_hashes()}), encoding='utf-8')
-    rp.run(root, planned, folds=['no-fold'])
+    rp.run(root, planned, folds=[rp.FOLDS[-1]['name']])
     with pytest.raises(RuntimeError, match='differs from the raw input'):
-        rp.run(root, other, folds=['no-fold'])
+        rp.run(root, other, folds=[rp.FOLDS[-1]['name']])
     started = [json.loads(line) for line in (root / 'progress.jsonl').read_text(encoding='utf-8').splitlines()]
     assert [e for e in started if e['stage'] == 'run_started'][0]['native_threads']
 

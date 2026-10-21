@@ -102,6 +102,6 @@ def main(scratch, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scratch', type=Path, default=HERE / 'audit_runs' / 'mutation_src')
-    parser.add_argument('--output', type=Path, default=HERE / 'audit' / 'mutation' / 'mutation_results.json')
+    parser.add_argument('--output', type=Path, default=HERE / 'audit_runs' / 'mutation_results.json')
     args = parser.parse_args()
     main(args.scratch.resolve(), args.output.resolve())

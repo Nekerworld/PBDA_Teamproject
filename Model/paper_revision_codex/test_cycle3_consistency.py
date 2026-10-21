@@ -155,17 +155,18 @@ def test_code_hashes_ignore_line_endings_but_not_content(tmp_path):
 def test_run_accepts_unchanged_code_and_refuses_changed_code(tmp_path, monkeypatch, scheme):
     """New plans record the scheme; plans without it (v6, v7) are checked against raw-byte hashes."""
     monkeypatch.setattr(rp, 'write_reports', lambda root: None)
+    monkeypatch.setattr(rp, 'run_fold', lambda *args: (None, None))  # start-up checks only
     plan = rp.plan_payload()
     stored = {'plan_sha256': hashlib.sha256(json.dumps(plan, sort_keys=True).encode()).hexdigest(), 'plan': plan,
               'code_sha256': rp.code_hashes(scheme=scheme)}
     if scheme == 'sha256-lf':
         stored['code_hash_scheme'] = scheme
     (tmp_path / 'plan.json').write_text(json.dumps(stored), encoding='utf-8')
-    rp.run(tmp_path, tmp_path, folds=['no-fold'])
+    rp.run(tmp_path, tmp_path, folds=[rp.FOLDS[-1]['name']])
     stored['code_sha256']['policy_evaluation.py'] = '0' * 64
     (tmp_path / 'plan.json').write_text(json.dumps(stored), encoding='utf-8')
     with pytest.raises(RuntimeError, match='Code changed'):
-        rp.run(tmp_path, tmp_path, folds=['no-fold'])
+        rp.run(tmp_path, tmp_path, folds=[rp.FOLDS[-1]['name']])
 
 
 def test_best_row_takes_highest_score_and_first_on_ties():

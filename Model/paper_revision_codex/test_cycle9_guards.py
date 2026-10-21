@@ -1,4 +1,4 @@
-"""An exact reproduction in another root may reopen a fold only with the same selection, the opening re-check
+"""An exact reproduction in another root may reopen a fold only with a selection deciding the same, the opening re-check
 compares actual test windows (event timestamps), step-completion CSVs are written atomically, and an error in a
 background GNN step surfaces with its cause."""
 import json
@@ -18,7 +18,7 @@ FOLD = {'name': 'A', 'end_fraction': .36, 'test_size': .25}
 
 def record(base, plan_hash, folds, entries, code=None, name='other'):
     target = base / name
-    target.mkdir(parents=True)
+    target.mkdir(parents=True, exist_ok=True)
     (target / 'plan.json').write_text(json.dumps({'plan_sha256': plan_hash, 'plan': {'folds': folds}, 'raw_input_sha256': RAW,
                                                   'code_hash_scheme': 'sha256-lf', 'code_sha256': code or {}}),
                                       encoding='utf-8')
@@ -27,10 +27,15 @@ def record(base, plan_hash, folds, entries, code=None, name='other'):
 
 
 def test_exact_reproduction_reopens_only_with_the_same_selection(tmp_path):
-    record(tmp_path, 'p1', [FOLD], [{'fold': 'A', 'plan_sha256': 'p1', 'selection_sha256': 's1'}], code=rp.code_hashes())
+    from test_cycle10_guards import selection
+    theirs = selection(tmp_path / 'other' / 'A' / 'selection.json')
+    record(tmp_path, 'p1', [FOLD], [{'fold': 'A', 'plan_sha256': 'p1', 'selection_sha256': rp.sha256(theirs)}],
+           code=rp.code_hashes())
     assert rp.committed_test_conflicts(RAW, 'p1', [FOLD], tmp_path) == []  # run start: selection not made yet
-    assert rp.committed_test_conflicts(RAW, 'p1', [FOLD], tmp_path, selections={'A': 's1'}) == []
-    assert [c['opened_as'] for c in rp.committed_test_conflicts(RAW, 'p1', [FOLD], tmp_path, selections={'A': 's2'})] == ['A']
+    same = rp.selection_decision(theirs)
+    assert rp.committed_test_conflicts(RAW, 'p1', [FOLD], tmp_path, selections={'A': same}) == []
+    changed = rp.selection_decision(selection(tmp_path / 'changed.json', gamma=1.25))
+    assert [c['opened_as'] for c in rp.committed_test_conflicts(RAW, 'p1', [FOLD], tmp_path, selections={'A': changed})] == ['A']
 
 
 def test_overlap_uses_actual_test_windows_when_recorded(tmp_path):
@@ -50,17 +55,19 @@ def test_overlap_uses_actual_test_windows_when_recorded(tmp_path):
 
 def test_test_opening_passes_its_selection_and_actual_window(tmp_path, monkeypatch):
     from test_cycle8_guards import run_root
+    from test_cycle10_guards import selection
     records = tmp_path / 'records'
     records.mkdir()
     monkeypatch.setattr(rp, 'RESULT_RECORDS', (records,))
     root = run_root(tmp_path / 'mine')
     fold = rp.FOLDS[0]
-    mine = rp.sha256(root / fold['name'] / 'selection.json')
+    selection(root / fold['name'] / 'selection.json')
     twin = record(records, 'p1', rp.FOLDS, [{'fold': fold['name'], 'plan_sha256': 'p1', 'selection_sha256': 'other'}],
                   code=rp.code_hashes(), name='twin')
+    theirs = selection(twin / fold['name'] / 'selection.json', locked='2026-03-03T00:00:00', job_dir='D:/b', seconds=5.0)
     with pytest.raises(RuntimeError, match='overlapping test window'):
         rp.open_test(root, fold['name'], 'sealed_test', 'p1', done=False)
-    (twin / 'test_access_log.jsonl').write_text(json.dumps({'fold': fold['name'], 'selection_sha256': mine}) + '\n',
+    (twin / 'test_access_log.jsonl').write_text(json.dumps({'fold': fold['name'], 'selection_sha256': rp.sha256(theirs)}) + '\n',
                                                 encoding='utf-8')
     assert rp.open_test(root, fold['name'], 'sealed_test', 'p1', done=False)
     (root / 'test_access_log.jsonl').unlink()
@@ -91,12 +98,12 @@ def test_completion_csv_is_never_left_cut_under_its_name(tmp_path, monkeypatch):
 
 
 def test_background_step_error_keeps_its_cause():
-    assert rp.start_background(lambda: 7)() == 7
+    assert rp.alongside(lambda stop: 7, lambda: 3) == (3, 7)
 
-    def fails():
+    def fails(stop):
         raise RuntimeError('Code changed since the plan was frozen: [x]')
     with pytest.raises(RuntimeError, match='Code changed since the plan was frozen'):
-        rp.start_background(fails)()
+        rp.alongside(fails, lambda: 3)
 
 
 def test_access_log_entry_that_is_not_an_opening_names_the_file(tmp_path):

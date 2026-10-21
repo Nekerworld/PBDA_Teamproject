@@ -1,7 +1,7 @@
-"""Put the pre-fix behaviour of each cycle-5..9 guard (H1-H35) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9_guards.py fail. The output records the git HEAD and uncommitted files the copy was taken
-from. Default output: audit/cycle7/guard_mutants.json (audit/cycle5/guard_mutants.json holds the H1-H14 run on
-commit 57dc03b, audit/cycle7/guard_mutants.json the H1-H18 run before commit 0ef6daa).
+"""Put the pre-fix behaviour of each cycle-5..10 guard (H1-H44) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10_guards.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
+from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
+as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
 Usage: python report_tools/guard_mutation_check.py [output.json]
 """
@@ -24,12 +24,12 @@ M = {
  'H12 selection plan hash not checked': ('rolling_protocol.py', "    if selection['plan_sha256'] != plan_hash:\n        raise", "    if False:\n        raise"),
  'H13 records matched on all raw file bytes': ('rolling_protocol.py', "        if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:", "        if stored.get('raw_input_sha256') != raw_hashes:"),
  'H14 git output fully stripped': ('rolling_protocol.py', ".stdout.rstrip('\\n')", ".stdout.strip()"),
- 'H15 other roots checked only at start': ('rolling_protocol.py', "        conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS,\n                                             exclude=root, selections={fold_name: sha256(Path(root) / fold_name / 'selection.json')},\n                                             test_windows={fold_name: recorded_test_window(Path(root) / fold_name)})", "        conflicts = []"),
+ 'H15 other roots checked only at start': ('rolling_protocol.py', "        conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS,\n                                             exclude=root, selections={fold_name: selection_decision(Path(root) / fold_name / 'selection.json')},\n                                             test_windows={fold_name: recorded_test_window(Path(root) / fold_name)})", "        conflicts = []"),
  'H16 reproduction exempt with other raw files': ('rolling_protocol.py', "stored['plan_sha256'] == plan_hash and stored.get('raw_input_sha256') == raw_hashes", "stored['plan_sha256'] == plan_hash"),
  'H17 hybrid grid cache trusted when it exists': ('rolling_protocol.py', "        if len(rows) == len(HYBRID_GRID):", "        if True:"),
  'H18 plan created without git': ('rolling_protocol.py', "        if not state['commit']:\n            raise", "        if False:\n            raise"),
  'H19 code not re-checked before a test opening': ('rolling_protocol.py', "        require_frozen_code(root)\n        stored = json.loads((Path(root)", "        stored = json.loads((Path(root)"),
- 'H20 code not re-checked before a GNN job': ('rolling_protocol.py', "            require_frozen_code(root)\n            path = spec_dir", "            path = spec_dir"),
+ 'H20 code not re-checked before a GNN job': ('rolling_protocol.py', "                require_frozen_code(root)\n                path = spec_dir", "                path = spec_dir"),
  'H21 own root not excluded': ('rolling_protocol.py', " or plan_path.parent.resolve() == skip:", ":"),
  'H22 cut-off log line raises': ('rolling_protocol.py', "            try:\n                entry = json.loads(line)\n                opened.setdefault(entry['fold'], set()).add(entry.get('selection_sha256'))\n            except (ValueError, KeyError, TypeError):\n                for name in windows:\n                    opened.setdefault(name, set()).add(None)", "            entry = json.loads(line)\n            opened.setdefault(entry['fold'], set()).add(entry.get('selection_sha256'))"),
  'H23 cut-off log line skipped': ('rolling_protocol.py', "                for name in windows:\n                    opened.setdefault(name, set()).add(None)", "                pass"),
@@ -40,11 +40,20 @@ M = {
  'H28 exact reproduction exempt whatever its selection': ('rolling_protocol.py', "        if exact_reproduction and selections is None:\n            continue", "        if exact_reproduction:\n            continue"),
  'H29 recorded windows ignored': ('rolling_protocol.py', "                if own and theirs:", "                if False:"),
  'H30 touching counts as disjoint without a recorded window': ('rolling_protocol.py', "overlap = max(low, windows[name][0]) <= min(high, windows[name][1]) + 1e-9", "overlap = max(low, windows[name][0]) < min(high, windows[name][1]) - 1e-9"),
- 'H31 test opening passes no selection': ('rolling_protocol.py', "exclude=root, selections={fold_name: sha256(Path(root) / fold_name / 'selection.json')},", "exclude=root,"),
+ 'H31 test opening passes no selection': ('rolling_protocol.py', "exclude=root, selections={fold_name: selection_decision(Path(root) / fold_name / 'selection.json')},", "exclude=root,"),
  'H32 test opening passes no actual window': ('rolling_protocol.py', ",\n                                             test_windows={fold_name: recorded_test_window(Path(root) / fold_name)})", ")"),
  'H33 completion CSV written in place': ('rolling_protocol.py', "    partial = path.with_name(path.name + '.partial')\n    frame.to_csv(partial, index=False)\n    os.replace(partial, path)", "    frame.to_csv(path, index=False)"),
- 'H34 background error replaced by a generic one': ('rolling_protocol.py', "            raise box['error']", "            raise RuntimeError('GNN jobs failed')"),
+ 'H34 background error replaced by a generic one': ('rolling_protocol.py', "        raise box['error']", "        raise RuntimeError('GNN jobs failed')"),
  'H35 non-object access log entry accepted': ('rolling_protocol.py', "        if not all(isinstance(item, dict) and 'fold' in item for item in previous):", "        if False:"),
+ 'H36 test opening compares selection file bytes': ('rolling_protocol.py', "selections={fold_name: selection_decision(Path(root)", "selections={fold_name: sha256(Path(root)"),
+ 'H37 record selection not tied to its logged openings': ('rolling_protocol.py', "    if not path.exists() or opened != {sha256(path)}:", "    if not path.exists():"),
+ 'H38 run-specific seal time in the decision': ('rolling_protocol.py', "        decision = {'plan_sha256': s['plan_sha256'], 'fold': s['fold'],\n", "        decision = {'plan_sha256': s['plan_sha256'], 'fold': s['fold'], 'locked_utc': s.get('locked_utc'),\n"),
+ 'H39 odd split fields converted unguarded': ('rolling_protocol.py', "    if type(start) is not int or not (end is None or type(end) is int):\n        return None\n    return start, (end if end is not None else float('inf'))", "    return int(start), (int(end) if end is not None else float('inf'))"),
+ 'H40 failed step does not stop the background jobs': ('rolling_protocol.py', "        stop.set()\n        thread.join()\n        raise", "        raise"),
+ 'H41 stopped GNN jobs left running': ('rolling_protocol.py', "            process.terminate()\n", ""),
+ 'H42 stop ignored by the GNN job loop': ('rolling_protocol.py', "            if stop is not None and stop.is_set():\n                raise", "            if False:\n                raise"),
+ 'H43 unknown fold name accepted': ('rolling_protocol.py', "    if unknown:\n        raise ValueError", "    if False:\n        raise ValueError"),
+ 'H44 background worker keeps only ordinary errors': ('rolling_protocol.py', "        except BaseException as error:  # surfaced below", "        except Exception as error:  # surfaced below"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
@@ -62,8 +71,9 @@ def fresh():
         for n in ('plan.json', 'test_access_log.jsonl'): shutil.copy2(src / 'audit' / f'results_{v}' / n, d / 'audit' / f'results_{v}' / n)
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
-        'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py',
-        '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked']
+        'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
+        '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)
 assert r.returncode == 0
@@ -74,7 +84,7 @@ for name, (f, old, new) in M.items():
     rows.append({'mutant': name, 'file': f, 'result': 'killed' if r.returncode else 'survived', 'summary': r.stdout.strip().splitlines()[-1]})
     print(json.dumps(rows[-1]), flush=True)
 shutil.rmtree(tmp)
-out = Path(sys.argv[1]) if len(sys.argv) > 1 else src / 'audit' / 'cycle7' / 'guard_mutants.json'
+out = Path(sys.argv[1]) if len(sys.argv) > 1 else src / 'audit_runs' / 'guard_mutants.json'
 out.parent.mkdir(parents=True, exist_ok=True)
 run_info['finished_utc'] = datetime.now(timezone.utc).isoformat()
 out.write_text(json.dumps({**run_info, 'unmutated': base, 'tests': args[5:], 'mutants': rows}, indent=2), encoding='utf-8')

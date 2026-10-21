@@ -6,7 +6,8 @@ outer test is opened once, after selection.json is sealed, and every opening is
 appended to an access log. A changed plan or a re-made selection cannot reopen a
 fold's test in the same root, and no root can open a test window that overlaps one
 already opened on the same raw input in a committed (audit/results_*) or local
-(audit_runs/*) root, unless it is an exact reproduction (same plan and same code).
+(audit_runs/*) root, unless it is an exact reproduction (same plan, code and raw input) whose
+selection decides the same configurations as the one that record opened the fold with.
 
 Usage (from Model/paper_revision_codex):
   python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
@@ -471,31 +472,42 @@ def gnn_job(spec_path):
 GNN_JOB_IDENTITY = ('config', 'fixed', 'seed', 'mode', 'epochs')
 
 
-def run_gnn_jobs(root, specs):
+def run_gnn_jobs(root, specs, stop=None):
+    """Run the GNN jobs not yet finished as subprocesses. If ``stop`` (a threading.Event) is set or anything
+    fails, the jobs still running are terminated; a terminated job has no job_result.json and reruns on resume."""
     pending = [s for s in specs if not (Path(s['job_dir']) / 'job_result.json').exists()]
     running = []
     spec_dir = Path(root) / 'job_specs'
     spec_dir.mkdir(exist_ok=True)
-    while pending or running:
-        while pending and len(running) < MAX_PARALLEL_GNN:
-            spec = pending.pop(0)
-            require_frozen_code(root)
-            path = spec_dir / (hashlib.sha1(spec['job_dir'].encode()).hexdigest()[:16] + '.json')
-            dump_json(path, spec)
-            Path(spec['job_dir']).parent.mkdir(parents=True, exist_ok=True)
-            logfile = open(Path(spec['job_dir'] + '.log'), 'w', encoding='utf-8')
-            process = subprocess.Popen([sys.executable, str(HERE / 'rolling_protocol.py'), 'gnn-job', str(path)],
-                                       cwd=HERE, stdout=logfile, stderr=subprocess.STDOUT)
-            running.append((process, spec, logfile))
-        time.sleep(5)
-        for entry in list(running):
-            process, spec, logfile = entry
-            if process.poll() is not None:
-                logfile.close()
-                running.remove(entry)
-                if process.returncode != 0 or not (Path(spec['job_dir']) / 'job_result.json').exists():
-                    raise RuntimeError(f'GNN job failed: {spec["job_dir"]} (see .log)')
-                log(root, 'gnn_job_done', job=rel(spec['job_dir'], root))
+    try:
+        while pending or running:
+            if stop is not None and stop.is_set():
+                raise RuntimeError('GNN jobs stopped because the step running beside them failed')
+            while pending and len(running) < MAX_PARALLEL_GNN:
+                spec = pending.pop(0)
+                require_frozen_code(root)
+                path = spec_dir / (hashlib.sha1(spec['job_dir'].encode()).hexdigest()[:16] + '.json')
+                dump_json(path, spec)
+                Path(spec['job_dir']).parent.mkdir(parents=True, exist_ok=True)
+                logfile = open(Path(spec['job_dir'] + '.log'), 'w', encoding='utf-8')
+                process = subprocess.Popen([sys.executable, str(HERE / 'rolling_protocol.py'), 'gnn-job', str(path)],
+                                           cwd=HERE, stdout=logfile, stderr=subprocess.STDOUT)
+                running.append((process, spec, logfile))
+            time.sleep(5)
+            for entry in list(running):
+                process, spec, logfile = entry
+                if process.poll() is not None:
+                    logfile.close()
+                    running.remove(entry)
+                    if process.returncode != 0 or not (Path(spec['job_dir']) / 'job_result.json').exists():
+                        raise RuntimeError(f'GNN job failed: {spec["job_dir"]} (see .log)')
+                    log(root, 'gnn_job_done', job=rel(spec['job_dir'], root))
+    except BaseException:
+        for process, _, logfile in running:
+            process.terminate()
+            process.wait()
+            logfile.close()
+        raise
     results = [json.loads((Path(s['job_dir']) / 'job_result.json').read_text(encoding='utf-8')) for s in specs]
     for spec, result in zip(specs, results):
         if any(result['spec'].get(k) != spec[k] for k in GNN_JOB_IDENTITY):
@@ -616,7 +628,7 @@ def open_test(root, fold_name, purpose, plan_hash, done):
         stored = json.loads((Path(root) / 'plan.json').read_text(encoding='utf-8'))
         fold = next(f for f in FOLDS if f['name'] == fold_name)
         conflicts = committed_test_conflicts(stored.get('raw_input_sha256'), plan_hash, [fold], event_forms=RUN_EVENT_FORMS,
-                                             exclude=root, selections={fold_name: sha256(Path(root) / fold_name / 'selection.json')},
+                                             exclude=root, selections={fold_name: selection_decision(Path(root) / fold_name / 'selection.json')},
                                              test_windows={fold_name: recorded_test_window(Path(root) / fold_name)})
         if conflicts:
             raise RuntimeError(f'Another run opened an overlapping test window after this run started: {conflicts}')
@@ -624,6 +636,35 @@ def open_test(root, fold_name, purpose, plan_hash, done):
                       'plan_sha256': plan_hash, 'selection_sha256': sha256(Path(root) / fold_name / 'selection.json'),
                       'git': git_state()['commit']}, record=not done)
     return not done
+
+
+HYBRID_DECISION = ('backbone', 'alpha', 'strategy', 'candidate_k', 'fusion', 'omega', 'gamma')
+
+
+def selection_decision(path):
+    """sha256 of what a selection.json decides (the configurations and epochs refit and evaluated), or None.
+
+    The file also holds values that differ in every run (seal time, absolute job folders, training seconds)
+    and validation scores, so an exact reproduction in a new root never has the same file hash."""
+    try:
+        s = json.loads(Path(path).read_text(encoding='utf-8'))
+        decision = {'plan_sha256': s['plan_sha256'], 'fold': s['fold'],
+                    'mf': {k: s['mf'][k] for k in ('als', 'bpr', 'bpr_epochs')},
+                    **{k: {'config': s[k]['config'], 'epochs': s[k]['epochs']} for k in ('gnn', 'hybrid_backbone')},
+                    'policies': {p: {'mf_alpha': v['mf_alpha'], 'hybrid': {k: v['hybrid'][k] for k in HYBRID_DECISION}}
+                                 for p, v in s['policies'].items()}}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+    return hashlib.sha256(json.dumps(decision, sort_keys=True).encode()).hexdigest()
+
+
+def opened_decision(fold_dir, opened):
+    """Decision of the selection a record opened its fold with: only when every logged opening used the
+    selection.json kept in that fold, otherwise None."""
+    path = Path(fold_dir) / 'selection.json'
+    if not path.exists() or opened != {sha256(path)}:
+        return None
+    return selection_decision(path)
 
 
 RESULT_RECORDS = (HERE / 'audit', HERE / 'audit_runs')
@@ -664,7 +705,9 @@ def recorded_test_window(fold_dir):
                          if c['partition'] == 'outer' and c['check'] == 'cutoff_matches_independent_recompute')
     except (OSError, ValueError, KeyError, TypeError, StopIteration):
         return None
-    return int(start), (int(end) if end is not None else float('inf'))
+    if type(start) is not int or not (end is None or type(end) is int):
+        return None
+    return start, (end if end is not None else float('inf'))
 
 
 def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_forms=None, exclude=None,
@@ -673,8 +716,8 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
 
     The per-root access log cannot see other result roots, so a new root would otherwise be free to
     reopen a window that another run already evaluated. Only an exact reproduction (same plan,
-    code and raw files as that record) may reopen it, and once ``selections`` (fold -> selection.json hash) is
-    known, only a fold that record opened with the same selection. ``records`` are folders holding ``*/plan.json`` with a
+    code and raw files as that record) may reopen it, and once ``selections`` (fold -> ``selection_decision``) is
+    known, only a fold that record opened with a selection deciding the same. ``records`` are folders holding ``*/plan.json`` with a
     ``test_access_log.jsonl`` beside it: the committed audit/results_* and local audit_runs/* roots.
     Windows are cut from events.csv alone, so records are matched on its hash; ``event_forms``
     (from ``event_digests``) also matches a copy that differs only in line endings. ``exclude`` is a root
@@ -717,7 +760,10 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
             low, high = outer_test_window(fold)
             own = (test_windows or {}).get(fold['name'])
             for name in sorted(set(opened) & set(windows)):
-                if exact_reproduction and (name != fold['name'] or opened[name] <= {selections.get(fold['name'])}):
+                if exact_reproduction and name != fold['name']:
+                    continue
+                if exact_reproduction and selections.get(fold['name']) is not None \
+                        and opened_decision(plan_path.parent / name, opened[name]) == selections[fold['name']]:
                     continue
                 theirs = recorded_test_window(plan_path.parent / name) if own else None
                 if own and theirs:
@@ -962,25 +1008,31 @@ def leakage_gate(prepared, fold_dir, raw, end_fraction):
         raise RuntimeError(f'Leakage check failed for {Path(fold_dir).name} ({path})')
 
 
-def start_background(target):
-    """Run target() in a thread. The returned function waits for it and re-raises its error with the cause."""
+def alongside(background, foreground):
+    """Run background(stop) in a thread while foreground() runs here; return (foreground, background) results.
+
+    If foreground fails, ``stop`` is set and the thread is joined before the error propagates, so the process
+    does not linger on GNN jobs nobody waits for. An error of the thread is re-raised with its cause."""
     import threading
-    box = {}
+    stop, box = threading.Event(), {}
 
     def worker():
         try:
-            box['value'] = target()
-        except Exception as error:  # surfaced by the returned function
+            box['value'] = background(stop)
+        except BaseException as error:  # surfaced below
             box['error'] = error
     thread = threading.Thread(target=worker)
     thread.start()
-
-    def wait():
+    try:
+        value = foreground()
+    except BaseException:
+        stop.set()
         thread.join()
-        if 'error' in box:
-            raise box['error']
-        return box['value']
-    return wait
+        raise
+    thread.join()
+    if 'error' in box:
+        raise box['error']
+    return value, box['value']
 
 
 def run_fold(root, fold, raw, plan_hash):
@@ -994,10 +1046,10 @@ def run_fold(root, fold, raw, plan_hash):
     # GNN validation jobs start first (GPU); MF grid runs in this process meanwhile.
     specs = [gnn_spec(fold_dir / 'gnn_val' / config_name('gnn', c), val_dir, c, SELECTION_SEED, 'select', GNN_MAX_EPOCHS)
              for c in GNN_GRID]
-    wait_gnn = start_background(lambda: run_gnn_jobs(root, specs))
-    mf = mf_validation(fold_dir, val_dir, contexts)
+    mf, gnn_validation = alongside(lambda stop: run_gnn_jobs(root, specs, stop),
+                                   lambda: mf_validation(fold_dir, val_dir, contexts))
     log(root, 'mf_selected', fold=fold['name'], als=mf['als'], bpr=mf['bpr'], bpr_epochs=mf['bpr_epochs'])
-    results = {'gnn': wait_gnn()}
+    results = {'gnn': gnn_validation}
     val_mf = fold_dir / 'val_mf'
     if not (val_mf / 'manifest.json').exists():
         clone_protocol(val_dir, val_mf)
@@ -1096,10 +1148,8 @@ def run_fold(root, fold, raw, plan_hash):
             specs.append(gnn_spec(hybrid_dir, prepared, selection['hybrid_backbone']['config'], seed, 'refit',
                                   selection['hybrid_backbone']['epochs']))
         refits[seed] = {'mf': str(seed_dir), 'gnn': str(gnn_dir), 'hybrid_gnn': str(hybrid_dir)}
-    wait_refits = start_background(lambda: run_gnn_jobs(root, specs))
-    for seed in SEEDS:
-        fit_mf(refits[seed]['mf'], selection['mf'], seed)
-    wait_refits()
+    alongside(lambda stop: run_gnn_jobs(root, specs, stop),
+              lambda: [fit_mf(refits[seed]['mf'], selection['mf'], seed) for seed in SEEDS])
     dump_json(fold_dir / 'refits.json', {s: {k: rel(v, root) for k, v in d.items()} for s, d in refits.items()})
     evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash)
     log(root, 'test_evaluated', fold=fold['name'])
@@ -1130,6 +1180,9 @@ def write_reports(root):
 def run(root, raw, folds=None, posthoc=True, protocol=None):
     if protocol:
         use_protocol(protocol)
+    unknown = sorted(set(folds or ()) - {f['name'] for f in FOLDS})
+    if unknown:
+        raise ValueError(f'Unknown folds {unknown}; this protocol has {[f["name"] for f in FOLDS]}')
     root, raw = Path(root), Path(raw).resolve()
     root.mkdir(parents=True, exist_ok=True)
     plan = plan_payload()
