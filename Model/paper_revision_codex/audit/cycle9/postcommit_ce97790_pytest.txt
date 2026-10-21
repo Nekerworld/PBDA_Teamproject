@@ -1,0 +1,10 @@
+commit: ce97790eb8b37bec9b4812802133a6377ed2d007
+worktree: /c/Users/chris/AppData/Local/Temp/pc_ce97790 (fresh, detached)
+status: 0 changed files
+venv: C:/Users/chris/venvs/pbda_lockcheck (Python 3.11.9)
+started_utc: 2026-10-21T21:41:06Z
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] test_v7_protocol.py:76: raw RetailRocket events.csv not available
+126 passed, 1 skipped, 1 warning in 328.42s (0:05:28)
+finished_utc: 2026-10-21T21:46:36Z

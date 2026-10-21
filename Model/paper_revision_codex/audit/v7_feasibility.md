@@ -3,7 +3,7 @@
 목적: I-23(MF baseline이 grid 경계에서 선택됨)을, 이미 연 시험 구간(F1–F3)을 다시 열지 않고 확인할 수 있는지 검토한다.
 
 이 검토에서 한 일은 F4 후보 구간의 전처리뿐이다. 모델 학습, 점수 계산, 지표 계산은 하지 않았다.
-- 실행 위치: `audit_runs/v7_feasibility/F4_candidate` (gitignore 대상).
+- 실행 위치: `audit_runs/v7_feasibility/F4_candidate` (gitignore 대상. 이 폴더는 현재 v7 실행 PC에 남아 있지 않아 다시 확인할 수 없음).
 - 확인한 것: 데이터 크기와 평가 사용자 수.
 
 ## 1. 아직 평가에 쓰지 않은 구간

@@ -26,10 +26,10 @@
 | 기존 서술 (v5 / briefing) | 문제 | 검증된 대체 서술 |
 |---|---|---|
 | "Hybrid가 두 지표의 세 seed 평균 모두 가장 높았다" (F1 = v5 시험 구간) | v6 F1에서 Recall은 GNN이 더 높음 (0.1681 vs 0.1668). F3 NDCG는 ALS+BPR이 더 높음 | "baseline 7종과 비교하면 Hybrid는 12개 칸(3 fold × 2 정책 × 2 지표) 중 9개에서 평균 1위였고, 가장 강한 baseline(GNN, ALS+BPR)보다 세 fold 모두에서 유의하게 높은 지표는 없었다". 같은 후보에서 결합 점수의 MF 부분만 ALS로 바꾼 ablation(`Hybrid_ALS_only`, 후보 생성에는 BPR이 남음, 검정 안 함)은 F3 novel(두 지표)과 F1 repeat Recall에서 Hybrid보다 평균이 높았다 |
-| "가장 강한 비교 모델 대비 NDCG +10.83%" | v5는 시험을 본 뒤 설계를 바꾼 결과임. 상대 개선율은 비유의한 차이를 과장함 | GNN·ALS+BPR 대비 차이, 95% CI(보정 안 함), Holm 보정 p값을 그대로 보고 (`validation_report.md` §4.3). 유의성은 p_holm으로만 판정함 (CI가 0을 포함하지 않아도 Holm 기준 비유의한 칸이 있음). 세 fold 모두에서 유의한 우위는 없음 |
+| "가장 강한 비교 모델 대비 NDCG +10.83%" | v5는 시험을 본 뒤 설계를 바꾼 결과임. 상대 개선율은 비유의한 차이를 과장함 | GNN·ALS+BPR 대비 차이, 95% CI(보정 안 함), Holm 보정 p값을 그대로 보고 (차이·p_holm은 `validation_report.md` §4.3, CI는 `audit/results_v6/report_paired_tests_all_folds.csv`. v7은 차이·p_holm이 §12.4, CI는 `audit/results_v7/report_paired_tests_all_folds.csv`). 유의성은 p_holm으로만 판정함 (CI가 0을 포함하지 않아도 Holm 기준 비유의한 칸이 있음). 세 fold 모두에서 유의한 우위는 없음 |
 | Recall 우위 | v5에서도 CI가 0을 포함함 | Recall 우위를 주장하지 않음 |
-| 계산 효율 (retrieve-then-rank) | 후보 수는 fold마다 500–전체로 바뀌고, Hybrid 경로는 GNN 단독 전체 카탈로그 점수 계산보다 10배 이상 느림 | 효율성 주장을 삭제하거나 "후보 500개에서도 정확도 유지"로 한정 |
-| 재고 인식 추천 | 정확도 효과는 NDCG +0.002 수준 | "노출 구성을 재고 있는 상품 쪽으로 바꾸고, 정확도 손실은 없다" 정도로 한정 |
+| 계산 효율 (retrieve-then-rank) | 후보 수는 fold마다 500–전체로 바뀌고, Hybrid 경로는 GNN 단독 전체 카탈로그 점수 계산보다 10배 이상 느림 | 효율성 주장을 삭제하거나 "후보 500개에서도 정확도 유지"로 한정하되, 근거가 F1·seed 42 한 번의 사후 분석(시험 구간, 선택에 쓰지 않음, `validation_report.md` §6.1)임을 함께 적음 |
+| 재고 인식 추천 | 정확도 효과는 NDCG +0.002 수준 | "선택된 γ에서는 노출 구성을 재고 있는 상품 쪽으로 바꾸고 정확도 손실은 없었다" 정도로 한정하고, F1·seed 42 한 번의 사후 분석(§6.2)임을 적음. γ=2.0에서는 NDCG가 중립값보다 낮음(0.1140 vs 0.1151) |
 | 이종 그래프(속성·카테고리 노드), BPR 손실, IF 기반 정제 | 최종 구현은 이분 그래프, InfoNCE(음성 32개, 온도 0.2), IF 없음 | 식 6–9, 구조도, 손실 함수를 구현에 맞춰 다시 씀 (`model.py`, `recommendation_scoring.py`) |
 | 최종 점수 = ALS + GNN | 구현은 ALS+BPR min-max 결합(α) 후 후보 안에서 GNN과 결합(ω) × γ | 식 8을 고침 |
 | 단일 분할 결과 | 시간 변동(fold 간 SD)이 모델 간 차이보다 큼 | rolling-origin 3 fold 결과를 주 결과로 쓰고, F1은 "이전 버전에서 노출된 구간"이라고 명시 |
@@ -46,7 +46,7 @@
 5. 통계 방법: 사용자 단위 paired bootstrap 95% CI, sign-flip 검정, Holm 보정(비교 7개 × 지표 2개, 정책·fold별), seed 3개.
 6. v7은 v6의 시험 결과를 본 뒤에 설계했다. 설계의 근거는 validation 전용 경계 탐색(I-23)이었고, F4의 시험·validation 점수는 설계 전에 본 적이 없다. v7은 한 번만 실행했고 결과를 보고 다시 실행하지 않았다. v7 수치는 v6 fold와 평균하지 않고 따로 보고한다.
 7. v6와 v7은 서로 다른 PC·GPU에서 실행했다 (RTX 5060 Ti / RTX 3090 Ti). BPR·GNN은 GPU·torch 빌드에 따라 소수점 아래 값이 달라진다 (`reproducibility.md` §4).
-8. 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, novel에서는 추론 설정(Hybrid 결합, ALS+BPR α)만 다시 골랐다. 그래서 novel의 ALS·GNN 단독은 novel로 튜닝되지 않았다. 같은 grid에서 novel로 골랐다면 GNN의 validation 점수가 F2·F3·F4에서 높아지고, F4에서는 Hybrid보다 높았다 (`validation_report.md` §8 항목 5). novel의 Hybrid − GNN, Hybrid − ALS 유의 결과는 이 조건과 함께 보고한다.
+8. 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, novel에서는 추론 설정(Hybrid 결합, ALS+BPR α)만 다시 골랐다. 그래서 novel의 ALS·GNN 단독은 novel로 튜닝되지 않았다. 같은 grid에서 novel로 골랐다면 GNN의 validation 점수가 F2·F3·F4에서 높아지고, F4에서는 Hybrid보다 높았다 (`validation_report.md` §8 항목 5). novel의 Hybrid − GNN, Hybrid − ALS 유의 결과는 이 조건과 함께 보고한다. 자동 생성 표(`audit/figures_v*/table_paired_tests.*`)의 `claim` 열은 이 조건을 표시하지 않으므로, 표를 원고에 옮길 때 주석을 단다.
 
 ## 4. 원고에 쓰면 안 되는 표현
 
