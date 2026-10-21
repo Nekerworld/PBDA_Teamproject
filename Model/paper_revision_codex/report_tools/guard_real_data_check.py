@@ -6,7 +6,9 @@ is trained, no test file is read, and no access log is written.
 
 The test-opening check compares actual windows (event timestamps). ``windows`` applies the split rule to the raw
 events and compares it with each recorded window; ``boundary`` takes new folds whose nominal window only touches
-F4's and reports what the start check (nominal shares) and the opening check (timestamps) say.
+F4's and reports what the start check (nominal shares) and the opening check (timestamps) say. ``decisions`` gives,
+for each fold a record opened, whether its logged selection hash is the selection.json kept there and the decision
+an exact reproduction would have to match (``rp.opened_decision``).
 
 Usage: python report_tools/guard_real_data_check.py --raw ../../data --output audit/cycle7/guard_real_data.json
 """
@@ -60,6 +62,18 @@ def main(raw, output):
             'window': [str(x) for x in own], 'events_shared_with_F4': int(max(0, np.searchsorted(ts, 1434817031045, 'left')
                                                                             - np.searchsorted(ts, own[0], 'left'))),
             'start_check_conflicts': len(start_check), 'opening_check_conflicts': len(opening_check)}
+    result['decisions'] = {}
+    for record in result['records']:
+        log_path = HERE / record / 'test_access_log.jsonl'
+        opened = {}
+        for line in (log_path.read_text(encoding='utf-8').splitlines() if log_path.exists() else []):
+            entry = json.loads(line)
+            opened.setdefault(entry['fold'], set()).add(entry.get('selection_sha256'))
+        for fold, hashes_opened in sorted(opened.items()):
+            path = HERE / record / fold / 'selection.json'
+            result['decisions'][f'{record}/{fold}'] = {
+                'distinct_selection_hashes': len(hashes_opened), 'log_matches_selection_file': hashes_opened == {rp.sha256(path)},
+                'opened_decision': rp.opened_decision(path.parent, hashes_opened)}
     for protocol in ('v6', 'v7'):
         rp.use_protocol(protocol)
         for name, plan_hash in (('v6_plan', plans['v6']['plan_sha256']), ('v7_plan', plans['v7']['plan_sha256']),

@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§18은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§19는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -15,6 +15,7 @@
 | 회귀 테스트 (Cycle 7) | `test_cycle7_guards.py` 4개, `test_policy_tuning_gap.py` 1개 추가 후 114/114 (v7 venv) → §16 |
 | 회귀 테스트 (Cycle 8) | `test_cycle8_guards.py` 6개 추가 후 120/120 (v7 venv). 커밋 b9e7134의 새 worktree + lock venv 119 통과, 1 건너뜀 → §17 |
 | 회귀 테스트 (Cycle 9) | `test_cycle9_guards.py` 6개, `test_stamp_code_check.py` 1개 추가 후 127/127 (v7 venv). 커밋 ce97790의 새 worktree + lock venv 126 통과, 1 건너뜀 → §18 |
+| 회귀 테스트 (Cycle 10) | `test_cycle10_guards.py` 9개 추가 후 136/136 (v7 venv). 커밋 4e166c5의 새 worktree + lock venv 135 통과, 1 건너뜀 → §19 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -450,4 +451,20 @@ Cycle 8 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 �
 | 회귀 테스트 | 작업 폴더 127/127 (v7 venv, 출력은 저장하지 않음). 커밋 ce97790의 새 worktree + lock venv: 126 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle9/postcommit_ce97790_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_ce97790_sha256.txt`) |
 | 가드 변이 H1–H35 (H28 selection 무관 재현 예외, H29 기록 구간 무시, H30 기록 없으면 맞닿음을 분리로, H31·H32 열람 직전 검사에 selection·구간을 넘기지 않음, H33 완료 CSV 직접 쓰기, H34 일반 오류 메시지, H35 객체가 아닌 기록 줄 허용. H2·H15·H22·H23은 바뀐 코드에 맞게 대상 문구 수정) | 커밋 ce97790 코드로 실행(커밋 안 된 것은 문서뿐), 35/35 검출, 수정 안 한 사본 42 통과. 21:40:59–22:25:53 UTC (`audit/cycle9/guard_mutants.json`, `guard_mutants_cycle9_log.txt`) |
 | 변이 테스트 17개 (§11), 커밋 79b628d 그대로(작업 폴더 깨끗함) | 공식 `mutation_results.json`과 완전히 같음 (17/17, 21:15:30–22:08:20 UTC, `audit/cycle9/mutation_results_79b628d.json`, `mutation_79b628d_run.txt`). ce97790에서 17개 대상 문구는 모두 한 번씩 있음 |
-| 문서 (I-74) | 7건 정정과 함께 확인한 6건 (issue_register I-74 행) |
+| 문서 (I-74) | 감사가 보고한 7건과 함께 고친 7건 (issue_register I-74 행) |
+
+## 19. Cycle 10: 정확한 재현의 selection 비교, 백그라운드 작업 정지, 재현 명령의 출력 경로 (I-80 – I-84)
+
+Cycle 9 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. 새 P0·P1은 없다 (코드 P2 1건, P3 3건, 문서 P3 5건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택과 시험 결과는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| 정확한 재현의 selection 비교 (I-81, I-75 정정) | `selection.json`에는 봉인 시각·절대경로·학습 시간이 들어 있어 원본부터 다시 돌린 재현은 파일 해시가 항상 다름. 이제 결정 내용(`selection_decision`)으로 비교. 합성 원본으로 v7 프로토콜 두 root를 끝까지 돌리는 테스트: 두 번째 root가 시험 평가까지 마침, 파일 해시는 다르고 결정은 같음. 결정이 다르거나(γ) 기록의 파일이 로그와 다르면 거부 |
+| 실제 기록의 결정 (`report_tools/guard_real_data_check.py`의 `decisions`) | 기록 5개(v6 F1–F3, v7 커밋본, `audit_runs/v7`) 모두 접근 로그의 selection 해시가 보관된 `selection.json`과 같고(fold마다 서로 다른 해시 1개), v7 커밋본과 실행 폴더의 결정이 같음. 나머지 항목(raw 일치, 기록 root, 구간, 경계 fold, 충돌)은 Cycle 9 출력과 같음 (`audit/cycle10/guard_real_data.json`) |
+| 기록의 이상한 분할 필드 (I-82) | null·문자열·실수 값이면 구간 없음으로 처리(맞닿음도 겹침). 실제 기록은 모두 정수 |
+| 백그라운드 GNN 작업 (I-83) | 주 단계가 실패하면 stop을 걸고 실행 중인 작업을 종료한 뒤 오류를 냄. 작업의 BaseException도 원인 그대로 |
+| 알 수 없는 fold 이름 (I-84) | plan을 만들기 전에 멈춤 |
+| 재현 명령의 출력 경로 (I-80) | 재현 5–10단계와 두 변이 도구의 기본 출력이 커밋된 증거를 덮어쓰지 않도록 `audit_runs/`로. 7–10단계를 `audit_runs/repro/`에 실제로 실행해 출력 5개가 커밋된 증거와 같음(출력은 gitignore 대상이라 커밋하지 않음) |
+| 회귀 테스트 | 작업 폴더 136/136 (v7 venv, 출력은 저장하지 않음). 커밋 4e166c5의 새 worktree + lock venv: 135 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle10/postcommit_4e166c5_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_4e166c5_sha256.txt`) |
+| 가드 변이 H1–H44 (H36 열람 직전 검사가 파일 해시를 넘김, H37 기록 파일과 로그의 연결 없음, H38 봉인 시각이 결정에 들어감, H39 분할 필드를 그대로 변환, H40 주 단계 실패 때 정지 없음, H41 작업을 종료하지 않음, H42 작업 루프가 stop을 무시, H43 알 수 없는 fold 허용, H44 worker가 일반 오류만 보관. H15·H20·H31·H34는 바뀐 코드에 맞게 대상 문구 수정. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 4e166c5 코드로 실행(커밋 안 된 것은 문서와, 가드 테스트가 쓰지 않는 `guard_real_data_check.py`), 44/44 검출, 수정 안 한 사본 50 통과. 23:06:25–23:58:51 UTC (`audit/cycle10/guard_mutants.json`, `guard_mutants_cycle10_log.txt`) |
+| 변이 테스트 17개 (§11), 커밋 ac9b865 그대로(시작 때 작업 폴더 깨끗함, 사본의 `rolling_protocol.py`·`policy_evaluation.py`가 ac9b865와 같음) | 공식 `mutation_results.json`과 완전히 같음 (17/17, 22:27:07–23:17:51 UTC, `audit/cycle10/mutation_results_ac9b865.json`, `mutation_ac9b865_run.txt`). 4e166c5에서 17개 대상 문구는 모두 한 번씩 있음 |

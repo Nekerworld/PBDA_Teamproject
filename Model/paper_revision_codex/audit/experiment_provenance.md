@@ -114,14 +114,15 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | v7 F4 seed 42 MF 재학습, BLAS 1 / 24스레드 (Cycle 5. 평가 사용자 목록만 쓰고 지표는 계산하지 않음) | `report_tools/determinism_check.py --skip-gnn --blas-threads` | `audit/cycle5/determinism_v7_blas1.csv`, `determinism_v7_blas24.csv` |
 | ALS/BPR 점수 정밀도 비교 재실행, 고친 import 순서(1스레드) (Cycle 5) | `report_tools/check_score_precision.py` | `audit/cycle5/score_precision_F4_val_blas1.json` (Cycle 4 파일과 완전히 같음) |
 | v7 root의 캐시 설정 일치 확인 (Cycle 5. 학습·정답 읽기 없음) | `report_tools/check_cached_runs.py` | `audit/cycle5/cache_identity_v7.json` (Cycle 6에 고친 도구로 다시 만듦) |
-| 가드 변이 H1–H14 / H1–H18 / H1–H27 / H1–H35 (사본에서 실행, Cycle 6·7·8·9. Cycle 5의 H1–H12 결과는 Cycle 6 실행으로 같은 파일에 덮어씀. Cycle 8·9 판은 각각 커밋 b9e7134·ce97790 코드로 실행하고 HEAD를 출력에 기록) | `report_tools/guard_mutation_check.py` | `audit/cycle5/guard_mutants.json`, `audit/cycle7/guard_mutants.json`, `audit/cycle8/guard_mutants.json`, `audit/cycle9/guard_mutants.json` |
+| 가드 변이 H1–H14 / H1–H18 / H1–H27 / H1–H35 / H1–H44 (사본에서 실행, Cycle 6·7·8·9·10. Cycle 5의 H1–H12 결과는 Cycle 6 실행으로 같은 파일에 덮어씀. Cycle 8·9·10 판은 각각 커밋 b9e7134·ce97790·4e166c5 코드로 실행하고 HEAD를 출력에 기록) | `report_tools/guard_mutation_check.py` | `audit/cycle5/guard_mutants.json`, `audit/cycle7/guard_mutants.json`, `audit/cycle8/guard_mutants.json`, `audit/cycle9/guard_mutants.json`, `audit/cycle10/guard_mutants.json` |
 | v7 산출물에 찍힌 학습 코드 해시와 plan 비교 (Cycle 8, Cycle 9에 해시 방식별로 고친 도구로 다시 실행) | `report_tools/stamp_code_check.py` | `audit/cycle8/stamp_code_v7.json`, `audit/cycle9/stamp_code_v7.json` |
 | 기록된 Hybrid grid를 재개 때처럼 다시 읽은 값과 선택 비교 (validation만, Cycle 8) | `report_tools/grid_cache_precision_check.py` | `audit/cycle8/grid_cache_precision_v7.json` |
 | 변이 테스트 17개를 커밋 8cf8215 그대로 재실행 (Cycle 7) | `report_tools/mutation_check.py` | `audit/cycle7/mutation_results_8cf8215.json` |
 | 변이 테스트 17개를 커밋 343e75f 그대로 재실행 (Cycle 8) | `report_tools/mutation_check.py` | `audit/cycle8/mutation_results_343e75f.json`, `mutation_343e75f_run.txt` |
 | 변이 테스트 17개를 커밋 79b628d 그대로 재실행 (Cycle 9) | `report_tools/mutation_check.py` | `audit/cycle9/mutation_results_79b628d.json`, `mutation_79b628d_run.txt` |
+| 변이 테스트 17개를 커밋 ac9b865 그대로 재실행 (Cycle 10) | `report_tools/mutation_check.py` | `audit/cycle10/mutation_results_ac9b865.json`, `mutation_ac9b865_run.txt` |
 | 정책별 튜닝 차이 (커밋된 선택 파일만 읽음, Cycle 7·8) | `report_tools/policy_tuning_gap.py` | `audit/cycle7/policy_tuning_gap_v*.json`, `audit/cycle8/policy_tuning_gap_v*.json` |
-| 실제 원본으로 시험 열람 가드 확인 (학습·시험 읽기·로그 쓰기 없음, Cycle 7·9. Cycle 9 판은 실제 구간과 F4 경계 fold 추가) | `report_tools/guard_real_data_check.py` | `audit/cycle7/guard_real_data.json`, `audit/cycle9/guard_real_data.json` |
+| 실제 원본으로 시험 열람 가드 확인 (학습·시험 읽기·로그 쓰기 없음, Cycle 7·9·10. Cycle 9 판은 실제 구간과 F4 경계 fold, Cycle 10 판은 기록별 selection 결정(`decisions`) 추가. Cycle 10 판은 커밋 4e166c5에 `decisions`를 더한 도구로 만들었고 그 도구는 문서 커밋에 함께 커밋함) | `report_tools/guard_real_data_check.py` | `audit/cycle7/guard_real_data.json`, `audit/cycle9/guard_real_data.json`, `audit/cycle10/guard_real_data.json` |
 | 변이 테스트 재실행 (Cycle 4 / Cycle 5 코드) | `report_tools/mutation_check.py` | `audit/cycle4/mutation_results_cycle4.json`, `audit/cycle5/mutation_results_cycle5.json` |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
