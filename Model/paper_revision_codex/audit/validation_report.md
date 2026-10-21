@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§15는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§17은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -13,6 +13,7 @@
 | 회귀 테스트 (Cycle 5) | `test_cycle5_guards.py` 12개 추가 후 106/106 (v7 venv) → §14 |
 | 회귀 테스트 (Cycle 6) | `test_cycle5_guards.py`에 3개 추가 후 109/109 (v7 venv) → §15 |
 | 회귀 테스트 (Cycle 7) | `test_cycle7_guards.py` 4개, `test_policy_tuning_gap.py` 1개 추가 후 114/114 (v7 venv) → §16 |
+| 회귀 테스트 (Cycle 8) | `test_cycle8_guards.py` 6개 추가 후 120/120 (v7 venv). 커밋 b9e7134의 새 worktree + lock venv 119 통과, 1 건너뜀 → §17 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -208,7 +209,9 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
    | F3 | 0.0529 / 0.0581 (4/8) | 0.0493 / 0.0504 | 0.0674 |
    | F4 (v7) | 0.0526 / 0.0659 (19/36) | 0.0541 / 0.0571 | 0.0612 |
 
-   - BPR은 네 fold 모두 repeat 선택이 novel에서도 최고다. ALS+BPR은 α를 이미 정책별로 고른다.
+   - ALS는 네 fold 모두 novel로 고르면 오른다 (F2는 0.05226 → 0.05232로 매우 작음). BPR은 네 fold 모두 repeat 선택이 novel에서도 최고다.
+   - ALS+BPR은 α만 정책별로 고르고, 그 안의 ALS·BPR은 repeat로 고른 것이다. Hybrid도 같은 ALS·BPR을 쓰므로 MF 부분의 조건은 같지만, novel에서 다시 고르는 추론 설정은 Hybrid 2,808개, ALS+BPR α 하나다. ALS·BPR을 novel로 다시 골랐을 때 ALS+BPR이 어떻게 될지는 재학습이 필요해 계산하지 않았다. 그래서 novel F3 Recall의 Hybrid − ALS+BPR 유의 결과(p_holm .010)도 이 조건 아래의 결과로 본다.
+   - GNN의 학습 epoch는 설정마다 공통 validation 기준의 early stopping으로 한 번 정해지고, 기록된 novel 점수는 그 epoch의 값이다. novel 기준으로 epoch까지 골랐다면 더 높을 수 있으므로, 위 GNN의 novel 최고값은 하한이다.
    - v7 F4에서는 novel로 고른 GNN(4층 256차원)이 validation에서 Hybrid보다 높다. Hybrid의 backbone 후보도 repeat 상위 3개(모두 1층)뿐이라 이 GNN을 쓰지 못한다.
    - "grid 최고"는 여러 설정 중 최댓값이라 낙관적으로 치우친 값이다 (Hybrid 선택값도 2,808개 중 최댓값). 시험에서 어떻게 될지는 알 수 없고, 이미 연 시험 구간을 다시 열 수 없어 확인하지 않았다.
    - 따라서 novel 정책의 유의한 결과 중 Hybrid − GNN (F2 NDCG·Recall, F3 NDCG, F4 Recall)과 Hybrid − ALS (F2 NDCG·Recall, F3 Recall, F4 Recall)는 "repeat로 튜닝된 단독 모델 대비"로만 해석해야 하며, novel에서 GNN·ALS보다 우수하다는 근거로 쓰면 안 된다. Hybrid − BPR의 novel 결과는 이 문제의 영향을 받지 않는다.
@@ -244,7 +247,7 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
 | GNN | 0.1912 | 0.1888 | 84.0% | 0% |
 | BPR | 0.1899 | 0.1912 | 28.5% | 0% |
 
-- 같은 seed라도 장치가 다르면 다른 모델이 학습된다 (난수 흐름과 연산 순서가 다름). 집계 지표 차이(0.001 – 0.003)는 seed 간 변동과 같은 크기다.
+- 같은 seed라도 장치가 다르면 다른 모델이 학습된다 (난수 흐름과 연산 순서가 다름). 집계 지표 차이(NDCG 0.0015 – 0.0022, Recall 0.0033 – 0.0047, 선택 점수 0.0013 – 0.0024)는 seed 간 변동과 같은 크기다.
 - v6와 v7의 모든 GNN/BPR 결과는 CUDA에서 얻었다. CPU로 재현하면 목록 수준에서는 일치하지 않는다.
 
 ## 11. 테스트의 결함 검출력: 변이 테스트 (Cycle 3, `audit/mutation/mutation_results.json`)
@@ -405,11 +408,29 @@ Cycle 6 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 �
 
 | 검사 | 결과 |
 |---|---|
-| novel 튜닝 비대칭 (I-63, validation만) | `report_tools/policy_tuning_gap.py`가 커밋된 선택 파일로 재구성한 repeat 선택은 GNN·ALS·BPR 모두 repeat 1위(테스트). novel로 골랐다면 GNN F2·F3·F4, ALS F1·F3·F4의 validation 점수가 오르고, F4에서는 GNN이 Hybrid보다 높음 (`audit/cycle7/policy_tuning_gap_v6.json`, `_v7.json`) |
-| 회귀 테스트 | 114/114 (v7 venv) |
-| 가드 변이 H1–H18 (H15 시작 때만 확인, H16 다른 원본으로 재현 예외, H17 grid 캐시를 존재만으로 신뢰, H18 git 없이 plan 생성) | 18/18 검출, 수정 안 한 사본 30 통과, 22분 14초 (`audit/cycle7/guard_mutants.json`, `guard_mutants_cycle7_log.txt`) |
+| novel 튜닝 비대칭 (I-63, validation만) | `report_tools/policy_tuning_gap.py`가 커밋된 선택 파일로 재구성한 repeat 선택은 GNN·ALS·BPR 모두 repeat 1위(테스트. Cycle 7 판의 ALS·BPR 확인은 순환적이어서 Cycle 8에 `selection.json` 설정으로 고침 → §17). novel로 골랐다면 GNN F2·F3·F4, ALS 네 fold 모두(F2는 +0.00006)의 validation 점수가 오르고, F4에서는 GNN이 Hybrid보다 높음 (`audit/cycle7/policy_tuning_gap_v6.json`, `_v7.json`) |
+| 회귀 테스트 | 114/114 (v7 venv. 이 실행의 출력은 저장하지 않음. 커밋 후 lock venv 결과는 아래 행) |
+| 가드 변이 H1–H18 (H15 시작 때만 확인, H16 다른 원본으로 재현 예외, H17 grid 캐시를 존재만으로 신뢰, H18 git 없이 plan 생성) | 18/18 검출, 수정 안 한 사본 30 통과 (`audit/cycle7/guard_mutants.json`, `guard_mutants_cycle7_log.txt`). 22분 14초는 셸 실행 시간이고 로그에는 시각이 없음. 커밋 0ef6daa 전의 작업 폴더 코드로 실행했고, 그 사본과 커밋이 같다는 산출물은 없음 (Cycle 8에 커밋된 코드로 다시 실행 → §17) |
 | 실제 원본으로 가드 (`report_tools/guard_real_data_check.py`) | 원본 4개 파일이 v6·v7 plan 기록과 모두 같음. 기록 root 3개(`audit/results_v6`, `results_v7`, `audit_runs/v7`). v6 fold에서는 v6·v7·새 plan 모두 F1–F3 충돌(3건), v7 fold에서는 모두 F4 충돌(2건) (`audit/cycle7/guard_real_data.json`) |
 | 변이 테스트 17개 대상 문구 | 0ef6daa 코드에서 17개 모두 한 번씩 있음 |
 | 변이 테스트 17개 (§11), 커밋 8cf8215 그대로(작업 폴더 깨끗함) | 공식 `mutation_results.json`과 완전히 같음 (17/17, 51분 25초, `audit/cycle7/mutation_results_8cf8215.json`, `mutation_8cf8215_run.txt`) |
 | 커밋 후 재검증 (0ef6daa) | 새 worktree + `requirements-v7-lock.txt` venv: 113 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle7/postcommit_0ef6daa_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_0ef6daa_sha256.txt`) |
 | 문서 (I-68) | 10건 정정, 일회성 확인에 출력 없음 표시, 실제 원본 가드 확인은 다시 실행해 증거로 남김, 투고본 수치 출처 기재 |
+
+## 17. Cycle 8: 실행 중 코드 고정, 기록 파일 손상, grid 캐시 정밀도, 문서 정정 (I-69 – I-73)
+
+Cycle 7 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. 새 P0·P1은 없다. 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택과 시험 결과는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| `policy_tuning_gap.py`의 ALS·BPR 선택 재구성 (I-69) | Cycle 7 판은 "repeat 선택 = repeat 1위"로 정의해 테스트가 순환적이었음. `selection.json`의 MF 설정을 grid에서 한 행으로 찾도록 고침(못 찾거나 여러 행이면 오류). 출력 값은 Cycle 7과 같음 (`audit/cycle8/policy_tuning_gap_v*.json`) |
+| 실행 중 코드 고정 (I-70) | `require_frozen_code`를 실행 시작, GNN 작업 시작 직전, 새 시험 열람 직전에 확인. v7 산출물 43개에 찍힌 코드 해시 731개가 plan과 모두 같음 (`audit/cycle8/stamp_code_v7.json`). v6 실행 폴더는 v6 PC에만 있어 확인 못 함 |
+| 자기 root 오인 (I-71) | 시험 열람 직전의 다른 root 검사에서 자기 root 제외. 코드 확인이 먼저라 원인 메시지가 정확함 |
+| grid 캐시 정밀도 (I-72) | v7 grid 6개(각 2,808행): 기본 파서는 모든 행의 값을 몇 ulp 바꾸고, round-trip은 파일을 바이트 단위로 재현. 점수 순서는 같음. `selection.json`의 수치 48개 중 26개가 round-trip 값에서 그대로 나오고 기본 파서 값에서는 11개만 나옴 (`audit/cycle8/grid_cache_precision_v7.json`) |
+| 기록 파일 손상 (I-73) | 잘린 접근 기록 줄은 그 기록의 모든 fold를 연 것으로 봄(겹치는 구간만 거부, 겹치지 않는 fold는 통과). 읽을 수 없는 `plan.json`·자기 접근 기록은 파일을 지목하는 오류 |
+| 실제 원본으로 가드 (`guard_real_data_check.py`, b9e7134 커밋 직전 작업 폴더) | Cycle 7 출력(`audit/cycle7/guard_real_data.json`)과 완전히 같음. 그래서 새로 저장하지 않음 (다시 만들려면 reproducibility 9단계) |
+| 회귀 테스트 | 작업 폴더 120/120 (v7 venv, 출력은 저장하지 않음). 커밋 b9e7134의 새 worktree + lock venv: 119 통과, 1 건너뜀(원본 데이터 상대경로 없음). 출력 머리에 commit·worktree·venv·시각 기록 (`audit/cycle8/postcommit_b9e7134_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_b9e7134_sha256.txt`) |
+| 가드 변이 H1–H27 (H19 시험 열람 전 코드 미확인, H20 GNN 작업 전 코드 미확인, H21 자기 root 미제외, H22 잘린 줄에서 예외, H23 잘린 줄 무시, H24·H25 읽을 수 없는 파일을 지목하지 않음, H26 기본 float 파서, H27 열람 직전 검사가 줄바꿈 사본을 못 봄) | 커밋 b9e7134 코드로 실행(출력에 HEAD와 커밋 안 된 파일 기록. 커밋 안 된 것은 문서뿐), 27/27 검출, 수정 안 한 사본 36 통과. 20:38:30–21:14:36 UTC (`audit/cycle8/guard_mutants.json`, `guard_mutants_cycle8_log.txt`). Cycle 7의 H1–H18 실행이 커밋 전 코드였던 점은 이 실행으로 대체됨 |
+| 변이 테스트 17개 (§11), 커밋 343e75f 그대로(작업 폴더 깨끗함) | 공식 `mutation_results.json`과 완전히 같음 (17/17, 20:14:17–21:08:52 UTC, `audit/cycle8/mutation_results_343e75f.json`, `mutation_343e75f_run.txt`). b9e7134에서 17개 대상 문구는 모두 한 번씩 있음 |
+| novel 튜닝 비대칭 해석 (I-63 보완) | GNN의 epoch는 공통 기준으로 정해지므로 GNN의 novel 최고값은 하한임을 §8 항목 5에 적음 |
+| 문서 (I-69) | `manuscript_alignment.md`·두 README에 I-63 한정 추가, ALS+BPR 조건, ALS 네 fold, CPU/GPU 차이 범위, 머리말 PC 범위, `plan_code` 참조, §7 보조 실행 표, 출력 없는 실행 표시 |

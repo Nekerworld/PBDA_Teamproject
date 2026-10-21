@@ -38,7 +38,7 @@ M = {
  'H26 hybrid grid cache read with the default float parser': ('rolling_protocol.py', "pd.read_csv(path, float_precision='round_trip')", "pd.read_csv(path)"),
  'H27 test-opening re-check ignores line-ending copies': ('rolling_protocol.py', "[fold], event_forms=RUN_EVENT_FORMS,\n", "[fold],\n"),
 }
-git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.strip()
+git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
             'started_utc': datetime.now(timezone.utc).isoformat()}
 tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))

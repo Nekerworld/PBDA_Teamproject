@@ -113,7 +113,13 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | 누수 검사를 원본 전체 + `--end-fraction 0.36`으로 실행 (v7 F4, Cycle 4. 누수 검사이며 지표 계산 아님) | `audit_tools/leakage_check.py` | `audit/cycle4/leakage_F4_fullraw_end036.json` (커밋된 F4 결과와 28개 동일), `leakage_F4_fullraw_without_end.json` (옵션 없이 실행하면 12개 거짓 실패) |
 | v7 F4 seed 42 MF 재학습, BLAS 1 / 24스레드 (Cycle 5. 평가 사용자 목록만 쓰고 지표는 계산하지 않음) | `report_tools/determinism_check.py --skip-gnn --blas-threads` | `audit/cycle5/determinism_v7_blas1.csv`, `determinism_v7_blas24.csv` |
 | ALS/BPR 점수 정밀도 비교 재실행, 고친 import 순서(1스레드) (Cycle 5) | `report_tools/check_score_precision.py` | `audit/cycle5/score_precision_F4_val_blas1.json` (Cycle 4 파일과 완전히 같음) |
-| v7 root의 캐시 설정 일치 확인 (Cycle 5. 학습·정답 읽기 없음) | `report_tools/check_cached_runs.py` | `audit/cycle5/cache_identity_v7.json` |
+| v7 root의 캐시 설정 일치 확인 (Cycle 5. 학습·정답 읽기 없음) | `report_tools/check_cached_runs.py` | `audit/cycle5/cache_identity_v7.json` (Cycle 6에 고친 도구로 다시 만듦) |
+| 가드 변이 H1–H14 / H1–H18 / H1–H27 (사본에서 실행, Cycle 6·7·8. Cycle 8 판은 커밋 b9e7134 코드로 실행하고 HEAD를 출력에 기록) | `report_tools/guard_mutation_check.py` | `audit/cycle5/guard_mutants.json`, `audit/cycle7/guard_mutants.json`, `audit/cycle8/guard_mutants.json` |
+| v7 산출물에 찍힌 학습 코드 해시와 plan 비교 (Cycle 8) | `report_tools/stamp_code_check.py` | `audit/cycle8/stamp_code_v7.json` |
+| 기록된 Hybrid grid를 재개 때처럼 다시 읽은 값과 선택 비교 (validation만, Cycle 8) | `report_tools/grid_cache_precision_check.py` | `audit/cycle8/grid_cache_precision_v7.json` |
+| 변이 테스트 17개를 커밋 8cf8215 그대로 재실행 (Cycle 7) | `report_tools/mutation_check.py` | `audit/cycle7/mutation_results_8cf8215.json` |
+| 정책별 튜닝 차이 (커밋된 선택 파일만 읽음, Cycle 7·8) | `report_tools/policy_tuning_gap.py` | `audit/cycle7/policy_tuning_gap_v*.json`, `audit/cycle8/policy_tuning_gap_v*.json` |
+| 실제 원본으로 시험 열람 가드 확인 (학습·시험 읽기·로그 쓰기 없음, Cycle 7) | `report_tools/guard_real_data_check.py` | `audit/cycle7/guard_real_data.json` |
 | 가드 변이 테스트 (사본에서 실행, Cycle 5) | `report_tools/guard_mutation_check.py` | `audit/cycle5/guard_mutants.json` |
 | 변이 테스트 재실행 (Cycle 4 / Cycle 5 코드) | `report_tools/mutation_check.py` | `audit/cycle4/mutation_results_cycle4.json`, `audit/cycle5/mutation_results_cycle5.json` |
 

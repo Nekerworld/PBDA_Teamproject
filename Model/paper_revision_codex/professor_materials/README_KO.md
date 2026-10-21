@@ -1,6 +1,6 @@
 # 교수님 설명 자료
 
-> **감사 후 안내 (2026-10-21)**: 이 자료는 v5 결과 기준이다. v5는 v3 시험 결과를 본 뒤 설계를 바꿨고, 같은 시험 구간을 다시 열었다. 사전등록 재평가(v6 3 fold, v7 확장 grid)에서 Hybrid는 가장 강한 학습 baseline(v6: GNN·ALS+BPR, v7: 평균 최고가 repeat BPR·novel ALS+BPR)보다 일관되게 유의하게 높지는 않았고 (일부 fold·지표에서만 유의), "NDCG +10.83%"는 재현되지 않았다. 검증된 결과와 그림은 `../audit/validation_report.md`, `../audit/figures_v6`, `../audit/figures_v7`에 있다. 아래 원문은 이력으로 보존한다.
+> **감사 후 안내 (2026-10-21)**: 이 자료는 v5 결과 기준이다. v5는 v3 시험 결과를 본 뒤 설계를 바꿨고, 같은 시험 구간을 다시 열었다. 사전등록 재평가(v6 3 fold, v7 확장 grid)에서 Hybrid는 가장 강한 학습 baseline(v6: GNN·ALS+BPR, v7: 평균 최고가 repeat BPR·novel ALS+BPR)보다 일관되게 유의하게 높지는 않았고 (일부 fold·지표에서만 유의. novel 정책의 GNN·ALS 대비 유의 결과는 repeat validation으로 고른 비교 대상 대비, `../audit/validation_report.md` §8 항목 5), "NDCG +10.83%"는 재현되지 않았다. 검증된 결과와 그림은 `../audit/validation_report.md`, `../audit/figures_v6`, `../audit/figures_v7`에 있다. 아래 원문은 이력으로 보존한다.
 
 Hybrid가 두 지표의 세 seed 평균 모두 가장 높았습니다. RetailRocket의 공통 시간순 80:20 분할에서 seed 42·43·44의 평균을 비교했습니다. Hybrid의 NDCG@50은 0.117177, Recall@50은 0.166260입니다.
 

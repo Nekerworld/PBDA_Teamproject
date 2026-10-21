@@ -35,7 +35,7 @@
 | 단일 분할 결과 | 시간 변동(fold 간 SD)이 모델 간 차이보다 큼 | rolling-origin 3 fold 결과를 주 결과로 쓰고, F1은 "이전 버전에서 노출된 구간"이라고 명시 |
 | baseline (ALS/BPR/ALS+BPR/GNN) | 단순 규칙 baseline이 없었음. 반복 추천 비중이 큼 | Popularity, Recent, RecentPop과 novel 정책 결과를 추가 (`validation_report.md` §4) |
 | 튜닝 공정성 | v6에서도 ALS가 grid 경계에서 선택됨 (I-23) | 한계로 명시: 경계 밖 validation 탐색에서 ALS가 +0.011 – +0.027 좋아짐 (`mf_boundary_probe.csv`). 확인 실험으로 v7을 보고: 처음 쓰는 구간 F4에서 모든 모델군 grid를 넓혔더니 ALS가 validation에서 GNN을 앞섰지만, 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의 (`validation_report.md` §12) |
-| (v7) "확장 grid에서도 Hybrid가 가장 좋다" | v7에서 Hybrid가 4칸 모두 평균 1위지만, 칸마다 Hybrid가 유의하게 앞서지 못한 학습 baseline이 있음. ALS+BPR 대비 유의한 칸은 없음 | "baseline grid를 넓혀도 Hybrid가 모든 학습 baseline보다 유의하게 높은 칸은 없었다(F4, repeat 413명 / novel 306명)". 평균이 가장 높은 baseline은 repeat에서 BPR, novel에서 ALS+BPR이며, 그 대비 유의한 칸은 repeat Recall(Hybrid − BPR +0.0076)뿐. ALS+BPR 대비 차이 +0.0013 – +0.0077은 모두 비유의. GNN 대비는 repeat NDCG(+0.0118)와 novel Recall(+0.0151)만 유의 (`validation_report.md` §12.4) |
+| (v7) "확장 grid에서도 Hybrid가 가장 좋다" | v7에서 Hybrid가 4칸 모두 평균 1위지만, 칸마다 Hybrid가 유의하게 앞서지 못한 학습 baseline이 있음. ALS+BPR 대비 유의한 칸은 없음 | "baseline grid를 넓혀도 Hybrid가 모든 학습 baseline보다 유의하게 높은 칸은 없었다(F4, repeat 413명 / novel 306명)". 평균이 가장 높은 baseline은 repeat에서 BPR, novel에서 ALS+BPR이며, 그 대비 유의한 칸은 repeat Recall(Hybrid − BPR +0.0076)뿐. ALS+BPR 대비 차이 +0.0013 – +0.0077은 모두 비유의. GNN 대비는 repeat NDCG(+0.0118)와 novel Recall(+0.0151)만 유의 (`validation_report.md` §12.4). novel의 GNN·ALS 대비 결과는 "repeat validation으로 고른 GNN·ALS 대비"로 함께 적는다 (공개 사항 8) |
 
 ## 3. 원고에 넣어야 할 공개 사항
 

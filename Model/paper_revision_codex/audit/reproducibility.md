@@ -42,7 +42,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 114개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 120개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -56,8 +56,8 @@ python report_tools/launch_detached.py --log audit_runs/v7_run.log -- python -u 
 python report_tools/plot_rolling_results.py --results audit/results_v7 --output audit/figures_v7
 # 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서, 다른 GPU 작업이 없을 때 실행)
 python report_tools/mutation_check.py
-# 6) 가드 변이 테스트 (Cycle 5·6·7 가드의 옛 동작 18개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 출력 audit/cycle7/guard_mutants.json. 22분 14초, 공식 변이 테스트와 동시 실행)
-python report_tools/guard_mutation_check.py
+# 6) 가드 변이 테스트 (Cycle 5–8 가드의 옛 동작 27개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 출력 경로를 인자로 줌(기본 audit/cycle7/guard_mutants.json), 출력에 git HEAD와 커밋 안 된 파일 기록. Cycle 7에 셸 실행 시간 22분 14초, 공식 변이 테스트와 동시 실행)
+python report_tools/guard_mutation_check.py audit/cycle8/guard_mutants.json
 # 7) 끝난 root의 캐시가 plan·selection이 요청할 설정과 같은지 (학습·정답 읽기 없음.
 #    상한 연장 대상은 validation_gnn.json에서 읽고 규칙으로 다시 유도하지 않음. F1 IF ablation 재학습은 대상 아님)
 python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit/cycle5/cache_identity_v7.json
@@ -65,10 +65,13 @@ python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit/cyc
 python report_tools/policy_tuning_gap.py --root audit/results_v7 --output audit/cycle7/policy_tuning_gap_v7.json
 # 9) 실제 원본으로 시험 열람 가드 확인 (학습·시험 읽기·로그 쓰기 없음)
 python report_tools/guard_real_data_check.py --raw ../../data --output audit/cycle7/guard_real_data.json
+# 10) 산출물에 찍힌 학습 코드 해시가 plan과 같은지, 기록된 Hybrid grid를 다시 읽은 값이 선택과 같은지 (validation 파일만 읽음)
+python report_tools/stamp_code_check.py --root audit_runs/v7 --output audit/cycle8/stamp_code_v7.json
+python report_tools/grid_cache_precision_check.py --root audit_runs/v7 --output audit/cycle8/grid_cache_precision_v7.json
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.
-- 코드나 plan이 바뀐 상태로 같은 `--root`를 쓰면 오류를 내고 멈춤.
+- 코드나 plan이 바뀐 상태로 같은 `--root`를 쓰면 오류를 내고 멈춤. 코드는 실행 시작 때뿐 아니라 GNN 작업을 시작하기 직전과 새 시험 열람 직전에도 확인함(Cycle 8 I-70). 그래서 실행 중에 코드를 고치면 다음 GNN 작업이나 시험 열람에서 멈춤.
   - 코드 해시는 `Model/paper_revision_codex/*.py`(테스트 파일 포함)와 `audit_tools/*.py`를 대상으로 함. `report_tools/`는 포함하지 않음.
   - 따라서 v6/v7을 처음부터 다시 실행하려면 각 plan의 commit(v6 `29ba891`, v7 `1170ea5`)을 checkout해야 함. 이후 commit에서는 코드와 테스트 파일이 바뀌어 해시가 다름. 새 `--root`로 실행하면 그 checkout 기준으로 새 `plan.json`이 만들어지고, plan 내용이 같으면 `plan_sha256`도 같음.
   - **줄바꿈 (I-38)**: v6/v7 plan은 작업 폴더의 원시 바이트를 해시함. 같은 commit이라도 checkout의 줄바꿈(`core.autocrlf`)이 다르면 해시가 달라, 기존 `audit_runs/v6`·`v7`의 plan으로 재개할 때 거부될 수 있음. 이후 만드는 plan은 줄바꿈을 정규화한 해시(`code_hash_scheme: sha256-lf`)를 씀.
@@ -77,10 +80,10 @@ python report_tools/guard_real_data_check.py --raw ../../data --output audit/cyc
 ```powershell
 python report_tools/verify_plan_code.py --plan audit/results_v7/plan.json --output audit/plan_code/plan_code_v7.json
 ```
-  - 종료 코드 0은 "plan 해시가 plan commit의 내용과 맞음"이라는 뜻이다. 그 뒤 코드가 바뀌었는지는 `changed_since_plan`에만 나온다. 바뀐 경우도 실패로 처리하려면 `--require-unchanged`를 붙인다 (현재 v6·v7 모두 실패함: plan 뒤에 `rolling_protocol.py`·`audit_tools/leakage_check.py`가 바뀌었고 v6은 `test_v6_smoke.py`도 바뀜. 새 테스트 파일은 `added_since_plan`에 나옴. `audit/plan_code/`는 Cycle 3 시점 결과이고 현재 결과는 `audit/cycle6/plan_code_v*.json`).
-- 시험 열람 가드 (Cycle 4 I-40, Cycle 5 I-48 – I-52, Cycle 6 I-59, Cycle 7 I-64 – I-67):
+  - 종료 코드 0은 "plan 해시가 plan commit의 내용과 맞음"이라는 뜻이다. 그 뒤 코드가 바뀌었는지는 `changed_since_plan`에만 나온다. 바뀐 경우도 실패로 처리하려면 `--require-unchanged`를 붙인다 (현재 v6·v7 모두 실패함: plan 뒤에 `rolling_protocol.py`·`audit_tools/leakage_check.py`가 바뀌었고 v6은 `test_v6_smoke.py`도 바뀜. 새 테스트 파일은 `added_since_plan`에 나옴. `audit/plan_code/`는 Cycle 3, `audit/cycle6/plan_code_v*.json`은 커밋 57dc03b 시점 결과다. 테스트 파일이 추가될 때마다 `added_since_plan`이 늘어나므로 현재 상태는 위 명령으로 다시 확인한다).
+- 시험 열람 가드 (Cycle 4 I-40, Cycle 5 I-48 – I-52, Cycle 6 I-59, Cycle 7 I-64 – I-67, Cycle 8 I-70 – I-73):
   - 같은 `--root`에서는 plan이 바뀌었거나 `selection.json`이 다시 만들어졌으면(해시가 다르면) 이미 연 fold의 시험을 다시 열 수 없다. 시험 평가와 사후 분석 모두 같은 plan·selection이어야 하고, 이미 끝난 단계도 재개할 때 이 검사를 거친다. `selection.json`을 만든 plan이 현재 plan과 다르면 멈춘다.
-  - 다른 `--root`에서도, `audit/`(커밋된 결과)와 `audit_runs/`(이 PC의 실행 폴더) 아래의 plan·접근 로그 중 같은 `events.csv`(시험 구간을 정하는 파일. 줄바꿈만 다른 사본도 같은 것으로 봄)로 겹치는 시험 구간(바깥 시험 구간 (end·(1−test_size), end)이 겹침, 맞닿기만 하면 아님)을 연 기록이 있으면 실행을 시작하지 않는다. 같은 검사를 시험을 열기 직전에도 다시 한다(Cycle 7 I-64, 병렬로 시작한 다른 root 대비). 예외는 plan, 코드, 원본 4개 파일이 모두 같은 재현뿐이다(I-65). 그래서 v6·v7은 현재 코드로는 다시 열 수 없고, 각 plan commit을 checkout해야 한다.
+  - 다른 `--root`에서도, `audit/`(커밋된 결과)와 `audit_runs/`(이 PC의 실행 폴더) 아래의 plan·접근 로그 중 같은 `events.csv`(시험 구간을 정하는 파일. 줄바꿈만 다른 사본도 같은 것으로 봄)로 겹치는 시험 구간(바깥 시험 구간 (end·(1−test_size), end)이 겹침, 맞닿기만 하면 아님)을 연 기록이 있으면 실행을 시작하지 않는다. 같은 검사를 시험을 열기 직전에도 다시 한다(Cycle 7 I-64, 병렬로 시작한 다른 root 대비). 예외는 plan, 코드, 원본 4개 파일이 모두 같은 재현뿐이다(I-65). 시험을 열기 직전의 검사에서는 실행 중인 root 자신은 제외한다(자기 열람은 접근 로그가 관리, I-71). 다른 root의 접근 로그에 읽을 수 없는 줄(쓰다 끊김)이 있으면 그 root의 모든 fold를 연 것으로 보고, 읽을 수 없는 `plan.json`은 파일을 지목하는 오류로 멈춘다(I-73). 그래서 v6·v7은 현재 코드로는 다시 열 수 없고, 각 plan commit을 checkout해야 한다.
   - 가드가 보지 못하는 경우: 두 root가 거의 같은 순간에 확인하고 기록하는 경쟁(파일 잠금 없음), 다른 PC의 커밋되지 않은 기록, 프로젝트 폴더의 `audit/`·`audit_runs/` 바로 아래가 아닌 곳에 만든 root, 내용(행)이 바뀐 `events.csv`. 정확한 재현(같은 plan·코드)은 새 root에서 여러 번 열 수 있으므로, 결과를 고르지 않도록 재현 root도 접근 로그와 함께 보고해야 한다.
   - 캐시 재사용 조건에 장치(CPU/GPU)는 들어가지 않는다. 다른 장치에서 재개하면 두 장치의 산출물이 섞일 수 있으므로(I-34) 같은 장치에서 재개한다. 장치는 plan `environment`와 각 GNN `job_result.json`에 남는다.
   - 재개할 때마다 원본 4개 파일을 다시 해시해 plan의 `raw_input_sha256`과 다르면 멈춘다. 캐시된 MF 학습과 GNN 작업은 설정(seed, 하이퍼파라미터, epoch)이 요청과 같을 때만 재사용한다.
