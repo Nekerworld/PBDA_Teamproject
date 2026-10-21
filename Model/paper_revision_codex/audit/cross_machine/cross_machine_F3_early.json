@@ -1,0 +1,84 @@
+{
+  "fold": "F3_early",
+  "host": "Daisy",
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "sklearn": "1.9.0",
+    "torch": "2.11.0+cu128",
+    "implicit": "0.7.3",
+    "cuda": "12.8",
+    "gpu": "NVIDIA GeForce RTX 3090 Ti"
+  },
+  "reference_environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "sklearn": "1.9.0",
+    "torch": "2.15.0.dev20260921+cu132",
+    "implicit": "0.7.3",
+    "cuda": "13.2",
+    "gpu": "NVIDIA GeForce RTX 5060 Ti"
+  },
+  "outer_test_read": false,
+  "fold_raw_identical": {
+    "end_fraction": true,
+    "end_cutoff_timestamp": true,
+    "source_events_sha256": true,
+    "fold_events_sha256": true,
+    "rule": true
+  },
+  "leakage": {
+    "checks": 28,
+    "same_check_list": true,
+    "all_pass": true,
+    "identical_values": 28,
+    "differing": []
+  },
+  "validation_population_identical": true,
+  "mf_selection_identical": {
+    "als": true,
+    "bpr": true,
+    "bpr_epochs": true
+  },
+  "mf_grid": {
+    "max_abs_diff": {
+      "repeat_ndcg": 0.004928400517966586,
+      "repeat_recall": 0.008793937850229194,
+      "repeat_precision": 0.00022075055187640007,
+      "repeat_hit_rate": 0.008830022075055233,
+      "repeat_hit_users": 4.0,
+      "repeat_users": 0.0,
+      "novel_ndcg": 0.003143076536235699,
+      "novel_recall": 0.009059691772147202,
+      "novel_precision": 0.00035820895522390003,
+      "novel_hit_rate": 0.014925373134328401,
+      "novel_hit_users": 5.0,
+      "novel_users": 0.0,
+      "repeat_score": 0.004748220437392009
+    },
+    "by_family": {
+      "ALS": {
+        "rows": 24,
+        "unmatched_rows": 0,
+        "max_abs_diff_repeat_score": 0.0,
+        "rows_bit_identical_all_metrics": 24
+      },
+      "BPR": {
+        "rows": 20,
+        "unmatched_rows": 0,
+        "max_abs_diff_repeat_score": 0.004748220437392009,
+        "rows_bit_identical_all_metrics": 0
+      }
+    }
+  },
+  "train_seconds": {
+    "ALS": 1543.7064948000002,
+    "BPR": 202.7916796999998
+  }
+}
