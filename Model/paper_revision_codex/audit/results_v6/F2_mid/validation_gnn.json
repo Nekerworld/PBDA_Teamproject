@@ -1,0 +1,234 @@
+[
+  {
+    "name": "gnn_layers2_embedding_dim128_learning_rate0p001",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 128,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p001",
+    "epochs": 290,
+    "at_cap": false,
+    "seconds": 1973.0347716000397,
+    "repeat": {
+      "ndcg": 0.15787189068538957,
+      "recall": 0.2245929853423385,
+      "precision": 0.008013698630136986,
+      "hit_rate": 0.2825342465753425,
+      "hit_users": 165,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.036180303382332774,
+      "recall": 0.08343929080453406,
+      "precision": 0.0030088495575221236,
+      "hit_rate": 0.1261061946902655,
+      "hit_users": 57,
+      "users": 452
+    },
+    "score": 0.19123243801386403
+  },
+  {
+    "name": "gnn_layers3_embedding_dim128_learning_rate0p001",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 128,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p001",
+    "epochs": 220,
+    "at_cap": false,
+    "seconds": 1697.2834703000262,
+    "repeat": {
+      "ndcg": 0.15303112579812722,
+      "recall": 0.22255734321860426,
+      "precision": 0.007808219178082193,
+      "hit_rate": 0.2791095890410959,
+      "hit_users": 163,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.03540169324173888,
+      "recall": 0.08096572419130145,
+      "precision": 0.0029203539823008853,
+      "hit_rate": 0.12168141592920353,
+      "hit_users": 55,
+      "users": 452
+    },
+    "score": 0.18779423450836574
+  },
+  {
+    "name": "gnn_layers3_embedding_dim64_learning_rate0p001",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 64,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p001",
+    "epochs": 240,
+    "at_cap": false,
+    "seconds": 1660.3605301999487,
+    "repeat": {
+      "ndcg": 0.14815986399352457,
+      "recall": 0.22563220804027506,
+      "precision": 0.007979452054794521,
+      "hit_rate": 0.285958904109589,
+      "hit_users": 167,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.038265563396917716,
+      "recall": 0.0902830653571645,
+      "precision": 0.0031858407079646016,
+      "hit_rate": 0.13053097345132744,
+      "hit_users": 59,
+      "users": 452
+    },
+    "score": 0.1868960360168998
+  },
+  {
+    "name": "gnn_layers2_embedding_dim64_learning_rate0p001",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 64,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p001",
+    "epochs": 140,
+    "at_cap": false,
+    "seconds": 1017.2378207000438,
+    "repeat": {
+      "ndcg": 0.1434016693144174,
+      "recall": 0.22989928016592898,
+      "precision": 0.00804794520547945,
+      "hit_rate": 0.285958904109589,
+      "hit_users": 167,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.037238399001933355,
+      "recall": 0.09280140516616747,
+      "precision": 0.0034070796460176993,
+      "hit_rate": 0.1415929203539823,
+      "hit_users": 64,
+      "users": 452
+    },
+    "score": 0.18665047474017318
+  },
+  {
+    "name": "gnn_layers2_embedding_dim64_learning_rate0p003",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 64,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p003",
+    "epochs": 90,
+    "at_cap": false,
+    "seconds": 762.7864942001179,
+    "repeat": {
+      "ndcg": 0.147970524555699,
+      "recall": 0.2242665818811356,
+      "precision": 0.008047945205479454,
+      "hit_rate": 0.2825342465753425,
+      "hit_users": 165,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.034101508523675904,
+      "recall": 0.08242095769459197,
+      "precision": 0.0030530973451327434,
+      "hit_rate": 0.12831858407079647,
+      "hit_users": 58,
+      "users": 452
+    },
+    "score": 0.1861185532184173
+  },
+  {
+    "name": "gnn_layers2_embedding_dim128_learning_rate0p003",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 128,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p003",
+    "epochs": 80,
+    "at_cap": false,
+    "seconds": 766.4276447999291,
+    "repeat": {
+      "ndcg": 0.1497699911927826,
+      "recall": 0.22141248291097995,
+      "precision": 0.007979452054794521,
+      "hit_rate": 0.2808219178082192,
+      "hit_users": 164,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.03591992997161912,
+      "recall": 0.07712236404957978,
+      "precision": 0.0028761061946902654,
+      "hit_rate": 0.11946902654867257,
+      "hit_users": 54,
+      "users": 452
+    },
+    "score": 0.18559123705188127
+  },
+  {
+    "name": "gnn_layers3_embedding_dim64_learning_rate0p003",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 64,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p003",
+    "epochs": 170,
+    "at_cap": false,
+    "seconds": 1327.7888720999472,
+    "repeat": {
+      "ndcg": 0.15180909105504437,
+      "recall": 0.2183477687352878,
+      "precision": 0.007773972602739726,
+      "hit_rate": 0.2791095890410959,
+      "hit_users": 163,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.03336880662541545,
+      "recall": 0.0776455929775158,
+      "precision": 0.0027433628318584077,
+      "hit_rate": 0.1172566371681416,
+      "hit_users": 53,
+      "users": 452
+    },
+    "score": 0.1850784298951661
+  },
+  {
+    "name": "gnn_layers3_embedding_dim128_learning_rate0p003",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 128,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YSSAFY\\PBDA_Teamproject\\Model\\paper_revision_codex\\audit_runs\\v6\\F2_mid\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p003",
+    "epochs": 90,
+    "at_cap": false,
+    "seconds": 826.7137614998501,
+    "repeat": {
+      "ndcg": 0.14884617864207655,
+      "recall": 0.22099460135520926,
+      "precision": 0.007876712328767122,
+      "hit_rate": 0.2825342465753425,
+      "hit_users": 165,
+      "users": 584
+    },
+    "novel": {
+      "ndcg": 0.03807766390369562,
+      "recall": 0.07998856634585134,
+      "precision": 0.003008849557522124,
+      "hit_rate": 0.12831858407079647,
+      "hit_users": 58,
+      "users": 452
+    },
+    "score": 0.1849203899986429
+  }
+]

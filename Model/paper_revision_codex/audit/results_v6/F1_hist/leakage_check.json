@@ -1,0 +1,184 @@
+{
+  "processed": "audit_runs\\v6\\F1_hist\\prepared",
+  "checks": [
+    {
+      "partition": "outer",
+      "check": "cutoff_matches_independent_recompute",
+      "pass": true,
+      "manifest": 1439871811966,
+      "recomputed": 1439871811966
+    },
+    {
+      "partition": "outer",
+      "check": "train_strictly_before_cutoff",
+      "pass": true,
+      "max_train": 1439871764694
+    },
+    {
+      "partition": "outer",
+      "check": "test_original_at_or_after_cutoff",
+      "pass": true,
+      "min_test": 1439871885951
+    },
+    {
+      "partition": "outer",
+      "check": "train_equals_independent_core_fixpoint",
+      "pass": true,
+      "expected": 974155,
+      "actual": 974155
+    },
+    {
+      "partition": "outer",
+      "check": "core_thresholds_hold",
+      "pass": true
+    },
+    {
+      "partition": "outer",
+      "check": "evaluation_users_match_definition",
+      "pass": true,
+      "expected": 854,
+      "saved": 854
+    },
+    {
+      "partition": "outer",
+      "check": "truth_equals_raw_test_positives",
+      "pass": true,
+      "expected": 4056,
+      "saved": 4056
+    },
+    {
+      "partition": "outer",
+      "check": "no_test_event_in_train_file",
+      "pass": true
+    },
+    {
+      "partition": "outer",
+      "check": "properties_strictly_before_cutoff",
+      "pass": true,
+      "max_property_timestamp": 1439694000000
+    },
+    {
+      "partition": "outer",
+      "check": "available_is_last_value_before_cutoff",
+      "pass": true,
+      "items": 58556,
+      "available_items": 24629
+    },
+    {
+      "partition": "outer",
+      "check": "catalog_equals_train_items",
+      "pass": true,
+      "catalog": 58556
+    },
+    {
+      "partition": "inner",
+      "check": "cutoff_matches_independent_recompute",
+      "pass": true,
+      "manifest": 1437892184456,
+      "recomputed": 1437892184456
+    },
+    {
+      "partition": "inner",
+      "check": "train_strictly_before_cutoff",
+      "pass": true,
+      "max_train": 1437892183107
+    },
+    {
+      "partition": "inner",
+      "check": "test_original_at_or_after_cutoff",
+      "pass": true,
+      "min_test": 1437892247601
+    },
+    {
+      "partition": "inner",
+      "check": "validation_window_inside_outer_train",
+      "pass": true,
+      "max_val_label": 1439871753866,
+      "outer_cutoff": 1439871811966
+    },
+    {
+      "partition": "inner",
+      "check": "train_equals_independent_core_fixpoint",
+      "pass": true,
+      "expected": 772302,
+      "actual": 772302
+    },
+    {
+      "partition": "inner",
+      "check": "core_thresholds_hold",
+      "pass": true
+    },
+    {
+      "partition": "inner",
+      "check": "evaluation_users_match_definition",
+      "pass": true,
+      "expected": 789,
+      "saved": 789
+    },
+    {
+      "partition": "inner",
+      "check": "truth_equals_raw_test_positives",
+      "pass": true,
+      "expected": 3232,
+      "saved": 3232
+    },
+    {
+      "partition": "inner",
+      "check": "no_test_event_in_train_file",
+      "pass": true
+    },
+    {
+      "partition": "inner",
+      "check": "properties_strictly_before_cutoff",
+      "pass": true,
+      "max_property_timestamp": 1437879600000
+    },
+    {
+      "partition": "inner",
+      "check": "available_is_last_value_before_cutoff",
+      "pass": true,
+      "items": 50576,
+      "available_items": 24105
+    },
+    {
+      "partition": "inner",
+      "check": "catalog_equals_train_items",
+      "pass": true,
+      "catalog": 50576
+    },
+    {
+      "partition": "inner",
+      "check": "validation_labels_never_in_inner_train",
+      "pass": true
+    },
+    {
+      "partition": "outer",
+      "check": "gnn_edges_equal_train_pairs",
+      "pass": true,
+      "edges": 562419,
+      "train_pairs": 562419,
+      "non_train_edges": 0
+    },
+    {
+      "partition": "outer",
+      "check": "no_future_only_pair_in_gnn_graph",
+      "pass": true,
+      "future_only_pairs_in_graph": 0
+    },
+    {
+      "partition": "inner",
+      "check": "gnn_edges_equal_train_pairs",
+      "pass": true,
+      "edges": 441449,
+      "train_pairs": 441449,
+      "non_train_edges": 0
+    },
+    {
+      "partition": "inner",
+      "check": "no_future_only_pair_in_gnn_graph",
+      "pass": true,
+      "future_only_pairs_in_graph": 0
+    }
+  ],
+  "all_pass": true
+}

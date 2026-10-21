@@ -1,0 +1,4 @@
+event,train_before,removed_by_if,after_if,final_after_core,removed_share
+view,2132031,1295885,836146,141844,0.6078171471240333
+addtocart,54985,54470,515,320,0.9906338092206965
+transaction,17864,17864,0,0,1.0

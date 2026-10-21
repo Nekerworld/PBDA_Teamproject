@@ -1,0 +1,4 @@
+artifact,max_abs_user_factor_diff,mean_top50_overlap,identical_lists_share,users,max_abs_user_embedding_diff
+F3_early/runs/seed_42/als,0.20528459548950195,0.9984049079754602,0.4754601226993865,326,
+F3_early/runs/seed_42/bpr,0.0,1.0,1.0,326,
+F3_early/runs/hybrid_gnn_seed_42,,1.0,0.9969325153374233,326,0.00011300499999999936

@@ -1,0 +1,17 @@
+{
+  "42": {
+    "mf": "F2_mid/runs/seed_42",
+    "gnn": "F2_mid/runs/gnn_seed_42",
+    "hybrid_gnn": "F2_mid/runs/gnn_seed_42"
+  },
+  "43": {
+    "mf": "F2_mid/runs/seed_43",
+    "gnn": "F2_mid/runs/gnn_seed_43",
+    "hybrid_gnn": "F2_mid/runs/gnn_seed_43"
+  },
+  "44": {
+    "mf": "F2_mid/runs/seed_44",
+    "gnn": "F2_mid/runs/gnn_seed_44",
+    "hybrid_gnn": "F2_mid/runs/gnn_seed_44"
+  }
+}

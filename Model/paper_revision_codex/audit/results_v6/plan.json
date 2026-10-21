@@ -1,0 +1,412 @@
+{
+  "plan_sha256": "c56ada95ecce29320a4e903e2ae5c23b72296d13e8be0fc2030efe9cc25a700d",
+  "plan": {
+    "protocol": "rolling-origin-v6",
+    "folds": [
+      {
+        "name": "F1_hist",
+        "end_fraction": 1.0,
+        "test_size": 0.2,
+        "validation_size": 0.2,
+        "test_window": "Historical outer test of v1-v5; inspected repeatedly before this protocol."
+      },
+      {
+        "name": "F2_mid",
+        "end_fraction": 0.8,
+        "test_size": 0.25,
+        "validation_size": 0.2,
+        "test_window": "Mostly the v1-v5 inner-validation window (used for selection, never as a test)."
+      },
+      {
+        "name": "F3_early",
+        "end_fraction": 0.6,
+        "test_size": 0.25,
+        "validation_size": 0.2,
+        "test_window": "Training data in v1-v5; never used for evaluation or selection before."
+      }
+    ],
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "selection_seed": 42,
+    "selection_rule": "maximize mean(NDCG@50, Recall@50) on inner validation, identical for every model family",
+    "policy_rule": "Trained model configurations are selected under the repeat policy. Inference-time parameters (ALS+BPR alpha, all Hybrid fusion parameters) are re-selected per policy.",
+    "als_grid": [
+      {
+        "factors": 64,
+        "regularization": 0.02,
+        "alpha": 2.0,
+        "iterations": 32
+      },
+      {
+        "factors": 64,
+        "regularization": 0.02,
+        "alpha": 2.0,
+        "iterations": 256
+      },
+      {
+        "factors": 64,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 64,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 256
+      },
+      {
+        "factors": 64,
+        "regularization": 0.2,
+        "alpha": 2.0,
+        "iterations": 32
+      },
+      {
+        "factors": 64,
+        "regularization": 0.2,
+        "alpha": 2.0,
+        "iterations": 256
+      },
+      {
+        "factors": 64,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 64,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 256
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 2.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 2.0,
+        "iterations": 256
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 256
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 2.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 2.0,
+        "iterations": 256
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 256
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 2.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 2.0,
+        "iterations": 256
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 256
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 2.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 2.0,
+        "iterations": 256
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 256
+      }
+    ],
+    "bpr_grid": [
+      {
+        "factors": 128,
+        "learning_rate": 0.001,
+        "regularization": 0.003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.001,
+        "regularization": 0.03
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.005,
+        "regularization": 0.003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.005,
+        "regularization": 0.03
+      }
+    ],
+    "bpr_epoch_checkpoints": [
+      16,
+      32,
+      64,
+      128,
+      256
+    ],
+    "bpr_negatives": "popularity",
+    "mf_common": {
+      "behavior_weighted": true,
+      "time_decay": true,
+      "half_life_days": 7.0
+    },
+    "gnn_grid": [
+      {
+        "layers": 2,
+        "embedding_dim": 64,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 64,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 128,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 128,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 64,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 64,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 128,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 128,
+        "learning_rate": 0.003
+      }
+    ],
+    "gnn_fixed": {
+      "batch_size": 8192,
+      "reg": 0.0001,
+      "graph_mode": "bipartite",
+      "loss_mode": "infonce",
+      "n_negatives": 32,
+      "temperature": 0.2,
+      "edge_dropout": 0.1,
+      "propagation": "unweighted",
+      "time_decay": true,
+      "half_life_days": 7.0,
+      "negative_mode": "uniform",
+      "validation_interval": 10,
+      "early_stopping_patience": 60,
+      "min_epochs": 20,
+      "validation_metric": "ndcg_recall_mean"
+    },
+    "gnn_max_epochs": 400,
+    "gnn_cap_rule": "If a top-3 GNN configuration selects an epoch within one validation interval of 400, it is retrained on validation with cap 800 and the extended run replaces it.",
+    "mf_alphas": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ],
+    "hybrid_backbones": "top 3 GNN configurations by validation score",
+    "hybrid_grid_size": 2808,
+    "candidate_ks": [
+      500,
+      1000,
+      2000,
+      5000,
+      10000,
+      20000,
+      "all"
+    ],
+    "hybrid_grid_axes": {
+      "alpha": [
+        0.25,
+        0.5,
+        0.75
+      ],
+      "strategy": [
+        "blend",
+        "balanced_union"
+      ],
+      "fusion": [
+        "minmax",
+        "rrf"
+      ],
+      "omega": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9
+      ],
+      "gamma": [
+        1.0,
+        1.1,
+        1.25,
+        1.5
+      ]
+    },
+    "baselines": [
+      "ALS",
+      "BPR",
+      "ALS+BPR",
+      "GNN",
+      "Popularity",
+      "Recent",
+      "RecentPop"
+    ],
+    "ks": [
+      10,
+      20,
+      30,
+      40,
+      50
+    ],
+    "primary_k": 50,
+    "statistics": "Per policy and fold: user-level paired bootstrap 95% CI (10,000) and two-sided sign-flip test (10,000) on seed-averaged per-user metrics; Holm correction over the family of Hybrid vs every baseline on NDCG@50 and Recall@50. Seed SD reported separately.",
+    "posthoc_test_analyses": "F1 only, after the sealed test evaluation, never used for selection: candidate depth [100, 200, 500, 1000, 2000, 5000, 10000, 20000, 'all'] with timing/memory, gamma [1.0, 1.1, 1.25, 1.5, 2.0], and an IF preprocessing ablation with the sealed configs.",
+    "preprocessing": {
+      "use_if": false,
+      "core_mode": "events",
+      "min_user_events": 3,
+      "min_item_events": 3,
+      "random_state": 42
+    }
+  },
+  "git": {
+    "commit": "29ba89105783083b1abc3fc72a0af4a138e1d218",
+    "branch": "dev",
+    "dirty_files": []
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "sklearn": "1.9.0",
+    "torch": "2.15.0.dev20260921+cu132",
+    "implicit": "0.7.3",
+    "cuda": "13.2",
+    "gpu": "NVIDIA GeForce RTX 5060 Ti"
+  },
+  "raw_input_sha256": {
+    "events.csv": "3745aa83238b1e6d44d8fda209807899f420084398f94ddf745f3cbcfecbf9e7",
+    "item_properties_part1.csv": "30aad5aeca58b2dc27dcc73e1708565f5818e45adb3eb57401f91e87355b0b81",
+    "item_properties_part2.csv": "d5e7d1a91dc40f522aeb596b267e6c87d8aed689a7192d12369cfb165eb987e5",
+    "category_tree.csv": "94e865eb0a3d48cbbfe3b79079018dd92509315c88f5fd8d00d0b4b5af434f5b"
+  },
+  "created_utc": "2026-10-20T07:51:28.632858+00:00",
+  "code_sha256": {
+    "als_debug.py": "b283abefc708a8286c49b78060df3c1585311256b25546d01d5f417855765ea5",
+    "audit_revision.py": "e6cbe0fc54b6aad821567f5b74d3308ddb4bf7a7c8463e09f69ef9afe746cc12",
+    "data_protocol.py": "ae5764729063de48e75c4658ae7a3c6adab290ea6eac90dbced807f173784b85",
+    "experiments.py": "49f42fb982926146a1f339f98ef927230c948bfefbf7e857986f5ff3e8b09553",
+    "export_legacy_gnn_split.py": "fb4b2b5d6ac58d8aed6f59b213c543075d974dfe570e9af2bae49f40d941c72a",
+    "fast_fusion.py": "4f608a99f48c71da573877005f62f1ab7f830e9029fe71ab6713f4249acb7322",
+    "improve_hybrid.py": "d5bd6633444c7a7ba0b9bd66cf56d995289873dba6aea7c76057b78ffed07d9d",
+    "learning.py": "d84ee510eb0c87f79730a1f690da4451dfbfce64d113aee77c8d7bcd51882a70",
+    "model.py": "42939c4c41d9268b7998c2356f2bd080575d235a65349c87595c153af508fa2a",
+    "past_code.py": "c010ff0010bb6668d39441ca267e7d1bc02ce5f83d83ca984272a2fc758c8a12",
+    "policy_evaluation.py": "c582d0fcc8d561681d8ec08972e176fc1361f64b061d15750a40befbf63691b5",
+    "ranking_evaluation.py": "7483dc0557f70013fe28956bdd1fdba396d533535660b2874fd8e60454b8be5b",
+    "recommendation_scoring.py": "c465110368319c9fcfc2141b7e10293a44b0fde47c744ccd5b2fdfeadc655ca3",
+    "robust_hybrid.py": "5b50f6022c51aba367ef4c0577f26a6f6f23c155752a7e45e6c3c6b49e72ef0b",
+    "rolling_protocol.py": "ffaf0918e6c696ba7366267f470a05158ec74a03f1b82b46183fb3a687a593a8",
+    "stats_tools.py": "83b03359f2ae4b022b8e4234207505aa1aead47401d6ce161bb1a184bd88e649",
+    "test_codex_audit.py": "03f969f58ffdc49506b987d8cfe2177245050251c7b468723d5d3ed5b92f729b",
+    "test_fast_fusion.py": "65688a74dc0907aff8f1f148a947be9a22836487aca14859bc28356b84186568",
+    "test_hybrid_improvement.py": "2b2db0caf170e9026e154aeae6fccae87a2c5c3f97aad5643258b193c29dacea",
+    "test_revision.py": "e3012717156b70b61ab0941994dc877b53f384d36154758cda974c5b45c944e2",
+    "test_robust_hybrid.py": "c2f31adf43dc041d97fd91e22941b482dd66688d62eb224f0379d93664cde006",
+    "test_v6_protocol.py": "3271aad46d52f160ac6669463661a5259409cfc091a3cff1e09eb84076d8376d",
+    "test_v6_smoke.py": "b991a5972015356a69aa1e09e6230d96c624593adaaaea06705eebd416053c32",
+    "viz.py": "ac795fb0fc19922307bd8b8d930ac295d61122bc9deafc30897c091e5a6504f8",
+    "audit_tools/leakage_check.py": "467283ab0b8ae52e71d913bceb9e2e9ea3306869ca211560746d963cbc529d4f"
+  }
+}

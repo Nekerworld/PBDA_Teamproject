@@ -1,0 +1,17 @@
+{
+  "42": {
+    "mf": "F3_early/runs/seed_42",
+    "gnn": "F3_early/runs/gnn_seed_42",
+    "hybrid_gnn": "F3_early/runs/hybrid_gnn_seed_42"
+  },
+  "43": {
+    "mf": "F3_early/runs/seed_43",
+    "gnn": "F3_early/runs/gnn_seed_43",
+    "hybrid_gnn": "F3_early/runs/hybrid_gnn_seed_43"
+  },
+  "44": {
+    "mf": "F3_early/runs/seed_44",
+    "gnn": "F3_early/runs/gnn_seed_44",
+    "hybrid_gnn": "F3_early/runs/hybrid_gnn_seed_44"
+  }
+}

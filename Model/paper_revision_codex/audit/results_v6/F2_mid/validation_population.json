@@ -1,0 +1,20 @@
+[
+  {
+    "policy": "repeat",
+    "evaluation_users": 584,
+    "warm_users": 319,
+    "users_with_reachable_truth": 298,
+    "truth_items": 1739,
+    "reachable_truth_items": 1139,
+    "catalog_items": 41328
+  },
+  {
+    "policy": "novel",
+    "evaluation_users": 452,
+    "warm_users": 234,
+    "users_with_reachable_truth": 212,
+    "truth_items": 1467,
+    "reachable_truth_items": 925,
+    "catalog_items": 41328
+  }
+]

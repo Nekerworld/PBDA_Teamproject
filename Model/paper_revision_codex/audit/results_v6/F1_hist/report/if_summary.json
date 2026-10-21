@@ -1,0 +1,21 @@
+{
+  "if_features": [
+    "event_count",
+    "view_count",
+    "unique_visitors",
+    "event_code_mean",
+    "event_code_std",
+    "first_event_hour",
+    "last_event_hour",
+    "event_duration_hours",
+    "property_count"
+  ],
+  "if_item_percent_of_train_items": 13.163468989972523,
+  "if_event_percent_of_prefilter_train": 62.054125394579295,
+  "if_event_percent_of_raw_input": 49.643282303515,
+  "evaluation_users": 854,
+  "warnings": [
+    "All 17864 training transaction events were removed by IF/core filtering.",
+    "Fewer than 10% of original test positive events remain in the warm-start evaluation."
+  ]
+}

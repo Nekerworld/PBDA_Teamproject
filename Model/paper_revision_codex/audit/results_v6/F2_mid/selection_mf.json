@@ -1,0 +1,68 @@
+{
+  "als": {
+    "factors": 256,
+    "regularization": 0.2,
+    "alpha": 10.0,
+    "iterations": 32
+  },
+  "bpr": {
+    "factors": 128,
+    "learning_rate": 0.005,
+    "regularization": 0.003
+  },
+  "bpr_epochs": 256,
+  "validation": {
+    "ALS": {
+      "family": "ALS",
+      "factors": 256,
+      "regularization": 0.2,
+      "alpha": 10.0,
+      "iterations": 32.0,
+      "repeat_ndcg": 0.1301483356406847,
+      "repeat_recall": 0.20449878616400466,
+      "repeat_precision": 0.007534246575342466,
+      "repeat_hit_rate": 0.261986301369863,
+      "repeat_hit_users": 153,
+      "repeat_users": 584,
+      "novel_ndcg": 0.03488797524302914,
+      "novel_recall": 0.06962431746153078,
+      "novel_precision": 0.0029203539823008857,
+      "novel_hit_rate": 0.1172566371681416,
+      "novel_hit_users": 53,
+      "novel_users": 452,
+      "repeat_score": 0.16732356090234468
+    },
+    "BPR": {
+      "family": "BPR",
+      "factors": 128,
+      "regularization": 0.003,
+      "repeat_ndcg": 0.15344950749996716,
+      "repeat_recall": 0.20894586688903663,
+      "repeat_precision": 0.0075684931506849315,
+      "repeat_hit_rate": 0.2688356164383562,
+      "repeat_hit_users": 157,
+      "repeat_users": 584,
+      "novel_ndcg": 0.02673713469631403,
+      "novel_recall": 0.06198678484290935,
+      "novel_precision": 0.00252212389380531,
+      "novel_hit_rate": 0.10176991150442478,
+      "novel_hit_users": 46,
+      "novel_users": 452,
+      "learning_rate": 0.005,
+      "epochs": 256.0,
+      "repeat_score": 0.1811976871945019
+    }
+  },
+  "fits": {
+    "ALS": 24,
+    "BPR": 4
+  },
+  "evaluated_configs": {
+    "ALS": 24,
+    "BPR": 20
+  },
+  "train_seconds": {
+    "ALS": 1110.9163710998837,
+    "BPR": 293.7302254999522
+  }
+}
