@@ -1,5 +1,6 @@
 """Selection-time and test-time scoring agree, paired statistics align users by ID,
 selection takes the validation maximum, and inventory flags use the last value before the cutoff."""
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -131,6 +132,40 @@ def test_sign_flip_is_two_sided():
     assert stats_tools.sign_flip_pvalue(d, 2000) == stats_tools.sign_flip_pvalue(-d, 2000)
     # Exact: 12 of the 32 sign patterns of [1, 1, 1, 1, -1] have |sum| >= 3 (one-sided: 6 of 32).
     assert stats_tools.sign_flip_pvalue(np.array([1., 1., 1., 1., -1.]), 20000) == pytest.approx(12 / 32, abs=.02)
+
+
+def test_code_hashes_ignore_line_endings_but_not_content(tmp_path):
+    files = {'model.py': b'x = 1\nprint(x)\n', 'audit_tools/check.py': b'y = 2\n'}
+    roots = {}
+    for name, convert in (('lf', lambda b: b), ('crlf', lambda b: b.replace(b'\n', b'\r\n'))):
+        roots[name] = tmp_path / name
+        for relative, text in files.items():
+            (roots[name] / relative).parent.mkdir(parents=True, exist_ok=True)
+            (roots[name] / relative).write_bytes(convert(text))
+    lf, crlf = rp.code_hashes(roots['lf']), rp.code_hashes(roots['crlf'])
+    assert set(lf) == set(files) and lf == crlf
+    assert rp.code_hashes(roots['lf'], 'sha256-raw') != rp.code_hashes(roots['crlf'], 'sha256-raw')
+    (roots['crlf'] / 'model.py').write_bytes(b'x = 2\r\nprint(x)\r\n')
+    assert rp.code_hashes(roots['crlf'])['model.py'] != lf['model.py']
+    with pytest.raises(ValueError):
+        rp.code_hashes(roots['lf'], 'md5')
+
+
+@pytest.mark.parametrize('scheme', ['sha256-lf', 'sha256-raw'])
+def test_run_accepts_unchanged_code_and_refuses_changed_code(tmp_path, monkeypatch, scheme):
+    """New plans record the scheme; plans without it (v6, v7) are checked against raw-byte hashes."""
+    monkeypatch.setattr(rp, 'write_reports', lambda root: None)
+    plan = rp.plan_payload()
+    stored = {'plan_sha256': hashlib.sha256(json.dumps(plan, sort_keys=True).encode()).hexdigest(), 'plan': plan,
+              'code_sha256': rp.code_hashes(scheme=scheme)}
+    if scheme == 'sha256-lf':
+        stored['code_hash_scheme'] = scheme
+    (tmp_path / 'plan.json').write_text(json.dumps(stored), encoding='utf-8')
+    rp.run(tmp_path, tmp_path, folds=['no-fold'])
+    stored['code_sha256']['policy_evaluation.py'] = '0' * 64
+    (tmp_path / 'plan.json').write_text(json.dumps(stored), encoding='utf-8')
+    with pytest.raises(RuntimeError, match='Code changed'):
+        rp.run(tmp_path, tmp_path, folds=['no-fold'])
 
 
 def test_best_row_takes_highest_score_and_first_on_ties():

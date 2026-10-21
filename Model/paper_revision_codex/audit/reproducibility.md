@@ -42,7 +42,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 79개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 82개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -59,7 +59,13 @@ python report_tools/mutation_check.py
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.
 - 코드나 plan이 바뀐 상태로 같은 `--root`를 쓰면 오류를 내고 멈춤.
   - 코드 해시는 `Model/paper_revision_codex/*.py`(테스트 파일 포함)와 `audit_tools/*.py`를 대상으로 함. `report_tools/`는 포함하지 않음.
-  - 따라서 v6/v7을 처음부터 다시 실행하려면 각 plan의 commit(v6 `29ba891`, v7 `1170ea5`)을 checkout해야 함. 이후 commit에서는 테스트 파일이 추가돼 해시가 다름.
+  - 따라서 v6/v7을 처음부터 다시 실행하려면 각 plan의 commit(v6 `29ba891`, v7 `1170ea5`)을 checkout해야 함. 이후 commit에서는 코드와 테스트 파일이 바뀌어 해시가 다름. 새 `--root`로 실행하면 그 checkout 기준으로 새 `plan.json`이 만들어지고, plan 내용이 같으면 `plan_sha256`도 같음.
+  - **줄바꿈 (I-38)**: v6/v7 plan은 작업 폴더의 원시 바이트를 해시함. 같은 commit이라도 checkout의 줄바꿈(`core.autocrlf`)이 다르면 해시가 달라, 기존 `audit_runs/v6`·`v7`의 plan으로 재개할 때 거부될 수 있음. 이후 만드는 plan은 줄바꿈을 정규화한 해시(`code_hash_scheme: sha256-lf`)를 씀.
+  - 기존 plan의 코드가 commit 내용과 같은지는 줄바꿈과 무관하게 확인할 수 있음. v6 25개, v7 26개 모두 일치 (`audit/plan_code/`):
+
+```powershell
+python report_tools/verify_plan_code.py --plan audit/results_v7/plan.json --output audit/plan_code/plan_code_v7.json
+```
 - 이미 열린 fold의 시험을 다른 plan으로 다시 열 수 없음.
 - `launch_detached.py`가 필요한 이유 (Windows): 셸의 Ctrl+C·창 닫기 이벤트가 v6 실행을 두 번 끊었고, `DETACHED_PROCESS`로 띄우면 BLAS 안의 Intel Fortran 런타임이 `forrtl: error (200)`으로 중단됨 (I-31). launcher는 별도 프로세스 그룹, job 분리, 숨은 자체 콘솔을 쓰고 `FOR_DISABLE_CONSOLE_CTRL_HANDLER=1`, BLAS 스레드 1을 설정함.
 

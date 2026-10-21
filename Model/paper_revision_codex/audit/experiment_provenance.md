@@ -19,6 +19,7 @@ v1–v5의 수치와 코드는 수정하거나 삭제하지 않았다. 과거 �
 | plan SHA256 | `c56ada95ecce…` (`audit/results_v6/plan.json`) |
 | 코드 commit (plan 고정 시점) | `29ba891` (`dev`, 작업 트리 깨끗함) |
 | 실행 commit (시험 열람 시점) | `074443e` (문서만 추가됨. 코드 해시는 plan과 동일함을 실행 시 검사) |
+| plan 코드와 git | plan의 코드 해시 25개가 모두 `29ba891`의 git 내용(CRLF 형태)과 일치 (`audit/plan_code/plan_code_v6.json`, I-38) |
 | 원본 입력 | `events.csv` 외 3개. SHA256은 `plan.json` → `raw_input_sha256` |
 | 환경 | Python 3.11.9, numpy 2.4.6, pandas 3.0.6, scipy 1.17.1, sklearn 1.9.0, torch 2.15.0.dev20260921+cu132, implicit 0.7.3, CUDA 13.2, RTX 5060 Ti |
 | 실행 시간 | 2026-10-20 07:52 UTC 시작, 중단 후 재개, 2026-10-21 05:09 UTC 완료 (exit 0) |
@@ -81,6 +82,7 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | plan SHA256 | `784d0fa97912…` (`audit/results_v7/plan.json`) |
 | 코드 commit (plan 고정 시점) | `1170ea5` (`dev`, 작업 트리 깨끗함) |
 | 실행 commit (시험 열람 시점) | `868b714` (감사 문서·`report_tools`만 추가됨. 실행 후 코드 해시가 plan과 같음을 확인) |
+| plan 코드와 git | plan의 코드 해시 26개가 모두 `1170ea5`의 git 내용과 일치 (`audit/plan_code/plan_code_v7.json`, I-38) |
 | 환경 | Python 3.11.9, numpy 2.4.6, pandas 3.0.6, scipy 1.17.1, sklearn 1.9.0, torch 2.11.0+cu128, implicit 0.7.3, CUDA 12.8, RTX 3090 Ti (v6와 다른 PC) |
 | 실행 시간 | 2026-10-21 11:16 UTC plan 생성, 13:10 UTC 완료 (`progress.jsonl` "completed") |
 | 시험 접근 | `F4_unseen` `sealed_test` 1회 (13:09:41 UTC), selection 고정(13:04:26 UTC) 이후 |

@@ -7,7 +7,7 @@
 > **현재 상태 (2026-10-21 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (exit 0). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨.
 > - 시험 열람: v6는 fold마다 봉인 평가 1회, F1에서만 사후 분석 2회 추가 (`audit/results_v6/test_access_log.jsonl`). v7은 F4 봉인 평가 1회 (`audit/results_v7/test_access_log.jsonl`).
 > - 결과와 검증: `validation_report.md` (v7은 §12).
-> - Cycle 2 재감사에서 I-23 – I-26, Cycle 3에서 I-27 – I-36을 찾음.
+> - Cycle 2 재감사에서 I-23 – I-26, Cycle 3에서 I-27 – I-37, Cycle 3 커밋 후 검증에서 I-38을 찾음.
 
 | ID | 등급 | 문제 | 상태 | 커밋 |
 |---|---|---|---|---|
@@ -48,6 +48,7 @@
 | I-35 | P3 | 그림 생성기 제목에 v6 전용 문구("F1 window was exposed in v1-v5", seed 목록)가 고정돼 v7 그림에도 찍힘. 범례가 막대를 가림 | 해결·검증: 제목을 데이터(fold 이름, `test_metrics.csv`의 seed)에서 만들고 범례를 그림 아래로 옮김. v6/v7 그림을 다시 만들어 두 번 실행 시 바이트 동일 확인 | dea0f20 |
 | I-36 | P2 | `requirements.txt`가 scikit-learn 1.9.1을 고정하지만 v6·v7은 1.9.0으로 실행됨. v6·v7 실행에 쓴 분리 실행 스크립트도 저장소에 없음 (`audit_runs/`는 gitignore) | 해결·검증: v7 venv를 그대로 적은 `requirements-v7-lock.txt` 추가. 새 venv에 설치해 패키지 목록이 v7 venv와 완전히 같음을 확인. `report_tools/launch_detached.py` 추가 후 실제 실행으로 동작 확인. `requirements.txt` 자체는 기존 문서의 기준이라 바꾸지 않음 | e9538c8 |
 | I-37 | P2 | codex 폴더 첫 문서 `README.md`가 v5 주장("두 지표의 세 seed 평균이 모든 비교 모델보다 높았다")을 감사 결과 안내 없이 제시. `README_HYBRID_KO.md`, `REPRODUCE_KO.md`도 v5 경로만 안내. `professor_materials/README_KO.md`(같은 주장과 "NDCG +10.83%"), 저장소 최상위 `README.md`(v5 재실행을 "최종 Hybrid 실험"으로 안내)도 같음 | 해결: 원문은 이력으로 보존하고, 맨 앞에 시험 재사용 사실과 감사 문서(검증 결과, 재현 절차, 원고 대조표) 안내를 추가 | e9538c8 |
+| I-38 | P2 | plan의 코드 해시(`code_hashes`)가 작업 폴더의 원시 바이트를 해시해 checkout의 줄바꿈 변환(`core.autocrlf`)에 따라 달라짐. 같은 commit이라도 다른 PC에서는 plan 검사가 거짓 실패하고, "코드 변경"과 "줄바꿈 차이"를 구별할 수 없음 (v7 plan은 CRLF 19개·LF 7개가 섞여 있었고, 이 PC에서 v6 plan과 비교하면 내용이 같은 파일 7개가 불일치) | 해결·검증: 새 plan은 줄바꿈을 정규화한 해시(`sha256-lf`)와 방식을 기록함. 방식 기록이 없는 v6/v7 plan은 원시 바이트로 비교해 호환 유지. `report_tools/verify_plan_code.py`로 v6 25개, v7 26개 해시가 모두 각 plan commit의 git 내용과 일치함을 확인 (조작한 해시 1개는 검출). 테스트 3개 추가 | 아래 |
 
 ---
 

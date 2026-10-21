@@ -172,9 +172,23 @@ def environment():
             'cuda': torch.version.cuda, 'gpu': torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}
 
 
-def code_hashes():
-    files = sorted(HERE.glob('*.py')) + sorted(HERE.glob('audit_tools/*.py'))
-    return {p.relative_to(HERE).as_posix(): sha256(p) for p in files}
+# Line endings are normalised so that a checkout's core.autocrlf cannot change the hash of unchanged code.
+# Plans written before this scheme existed (v6, v7) hashed raw bytes and are checked with 'sha256-raw'.
+CODE_HASH_SCHEME = 'sha256-lf'
+
+
+def code_hashes(root=HERE, scheme=CODE_HASH_SCHEME):
+    if scheme not in ('sha256-lf', 'sha256-raw'):
+        raise ValueError(f'Unknown code hash scheme {scheme}')
+    root = Path(root)
+    files = sorted(root.glob('*.py')) + sorted(root.glob('audit_tools/*.py'))
+    digest = {}
+    for path in files:
+        data = path.read_bytes()
+        if scheme == 'sha256-lf':
+            data = data.replace(b'\r\n', b'\n')
+        digest[path.relative_to(root).as_posix()] = hashlib.sha256(data).hexdigest()
+    return digest
 
 
 def rel(path, root):
@@ -887,9 +901,9 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
                               'raw_input_sha256': {n: sha256(raw / n) for n in ('events.csv', 'item_properties_part1.csv',
                                                                                'item_properties_part2.csv', 'category_tree.csv')},
                               'created_utc': pd.Timestamp.now(tz='UTC').isoformat(),
-                              'code_sha256': code_hashes()})
-    code_now = code_hashes()
+                              'code_hash_scheme': CODE_HASH_SCHEME, 'code_sha256': code_hashes()})
     stored = json.loads(plan_path.read_text(encoding='utf-8'))
+    code_now = code_hashes(scheme=stored.get('code_hash_scheme', 'sha256-raw'))
     if code_now != stored['code_sha256']:
         changed = sorted(n for n in set(code_now) | set(stored['code_sha256']) if code_now.get(n) != stored['code_sha256'].get(n))
         raise RuntimeError(f'Code changed since the plan was frozen: {changed}')

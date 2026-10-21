@@ -1,0 +1,167 @@
+{
+  "plan": "audit/results_v6/plan.json",
+  "commit": "29ba89105783083b1abc3fc72a0af4a138e1d218",
+  "scheme": "sha256-raw",
+  "files": 25,
+  "all_plan_hashes_match_commit": true,
+  "changed_since_plan": [
+    "rolling_protocol.py",
+    "test_v6_smoke.py"
+  ],
+  "added_since_plan": [
+    "test_cycle3_consistency.py",
+    "test_v7_protocol.py"
+  ],
+  "rows": [
+    {
+      "file": "als_debug.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "audit_revision.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "audit_tools/leakage_check.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "data_protocol.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "experiments.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "export_legacy_gnn_split.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "fast_fusion.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "improve_hybrid.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "learning.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "model.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "past_code.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "policy_evaluation.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "ranking_evaluation.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "recommendation_scoring.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "robust_hybrid.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "rolling_protocol.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": false
+    },
+    {
+      "file": "stats_tools.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_codex_audit.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_fast_fusion.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_hybrid_improvement.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_revision.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_robust_hybrid.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_v6_protocol.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    },
+    {
+      "file": "test_v6_smoke.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": false
+    },
+    {
+      "file": "viz.py",
+      "plan_hash_matches_commit": true,
+      "form": "crlf",
+      "working_file_unchanged": true
+    }
+  ]
+}
