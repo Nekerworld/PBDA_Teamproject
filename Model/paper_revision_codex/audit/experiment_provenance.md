@@ -7,7 +7,7 @@
 | v1–v2 | `results/hybrid_joint_8020_v1`, `_v2` | 내부 validation | v3 이전에는 없음 | 내부 validation 도입, 후보 합집합 수정 |
 | v3 | `results/hybrid_joint_8020_v3` | 내부 validation (seed 42) | **최초 열람**, Recall 목표 미달 | 후보 수 상한 확장 |
 | v4–v5 | `results/hybrid_joint_8020_v4`, `_v5` | 내부 validation (3 seed 평균) | 같은 시험 구간을 **다시 열람** | backbone 3개와 독립 GNN을 v3 시험을 본 뒤 사람이 정함. v3 학습 산출물 재사용 |
-| **v6** | `audit_runs/v6` (요약은 `audit/results_v6`) | 내부 validation (seed 42) | fold당 1회 (아래 로그) | 사전등록 plan, 원본부터 일괄 실행 |
+| **v6** | `audit_runs/v6` (요약은 `audit/results_v6`) | 내부 validation (seed 42) | fold마다 봉인 평가 1회, F1 사후 분석 2회 (아래 로그) | 사전등록 plan, 원본부터 일괄 실행 |
 
 v1–v5의 수치와 코드는 수정하거나 삭제하지 않았다. 과거 소스는 `source_*` 폴더에 그대로 있다.
 
