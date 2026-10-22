@@ -1,0 +1,41 @@
+{
+  "mf_dir": "audit_runs/v7/F4_unseen/val_mf",
+  "rows": [
+    {
+      "policy": "repeat",
+      "model": "ALS",
+      "raw_dtype": "float32",
+      "users": 168,
+      "identical_lists_share": 1.0,
+      "ndcg_difference": 0.0,
+      "recall_difference": 0.0
+    },
+    {
+      "policy": "repeat",
+      "model": "BPR",
+      "raw_dtype": "float32",
+      "users": 168,
+      "identical_lists_share": 1.0,
+      "ndcg_difference": 0.0,
+      "recall_difference": 0.0
+    },
+    {
+      "policy": "novel",
+      "model": "ALS",
+      "raw_dtype": "float32",
+      "users": 107,
+      "identical_lists_share": 1.0,
+      "ndcg_difference": 0.0,
+      "recall_difference": 0.0
+    },
+    {
+      "policy": "novel",
+      "model": "BPR",
+      "raw_dtype": "float32",
+      "users": 107,
+      "identical_lists_share": 1.0,
+      "ndcg_difference": 0.0,
+      "recall_difference": 0.0
+    }
+  ]
+}

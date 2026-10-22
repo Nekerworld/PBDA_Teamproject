@@ -52,7 +52,7 @@ F3의 쌍대 비교 95% CI 반폭을 사용자 수 비율(√(628/413) ≈ 1.23)
 | ALS | factors {64,128,256}, reg {.02,.2}, α {2,10}, iter {32,256} | factors 256(최대), α 10(최대), iter 32(최소) |
 | BPR | lr {.001,.005}, reg {.003,.03}, epoch 체크포인트 ≤ 256 | lr .005(최대), reg .003(최소), 256(최대) |
 | GNN | layers {2,3}, dim {64,128}, lr {.001,.003} | dim 128(최대) 세 fold 모두, lr .001(최소) 세 fold 모두 |
-| Hybrid | ω, γ, 후보 수 | repeat: 후보 수만 F2/F3에서 경계 (곡선 평평). novel: F1에서 γ 1.5(최대) (Cycle 4 정정: 처음 표에서 누락) |
+| Hybrid | α, ω, γ, 후보 수 | repeat: 후보 수 F2/F3에서 경계 (곡선 평평), F3에서 α .75(최대). novel: F1에서 γ 1.5(최대), F2에서 α .75(최대) (Cycle 4 정정: 처음 표에서 γ 누락. Cycle 13 정정: `hybrid_at_grid_boundary`에 α 축이 없어 α 끝도 누락, `audit/cycle13/hybrid_boundary_recheck.json`) |
 
 ALS만 넓히면 반대 방향으로 불공정해진다. 모든 모델군에 같은 규칙을 적용해야 한다.
 

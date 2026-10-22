@@ -1,0 +1,4 @@
+v6 plan hash == committed v6 True rolling-origin-v6 24 ['F1_hist', 'F2_mid', 'F3_early']
+v7 plan hash == committed v7 True rolling-origin-v7 192 ['F4_unseen']
+v7 -> v6 plan hash == committed v6 True rolling-origin-v6 24 ['F1_hist', 'F2_mid', 'F3_early']
+v6 -> v7 -> v6 -> v7 plan hash == committed v7 True rolling-origin-v7 192 ['F4_unseen']

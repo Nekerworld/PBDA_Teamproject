@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§19는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§22는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -17,7 +17,8 @@
 | 회귀 테스트 (Cycle 9) | `test_cycle9_guards.py` 6개, `test_stamp_code_check.py` 1개 추가 후 127/127 (v7 venv). 커밋 ce97790의 새 worktree + lock venv 126 통과, 1 건너뜀 → §18 |
 | 회귀 테스트 (Cycle 10) | `test_cycle10_guards.py` 9개 추가 후 136/136 (v7 venv). 커밋 4e166c5의 새 worktree + lock venv 135 통과, 1 건너뜀 → §19 |
 | 회귀 테스트 (Cycle 11) | `test_compare_outputs.py` 1개, `test_cycle11_guards.py` 3개 추가 후 140/140 (v7 venv). 커밋 318186b의 새 worktree + lock venv 139 통과, 1 건너뜀 → §20 |
-| 회귀 테스트 (Cycle 12) | `test_cycle12_guards.py` 4개, `test_compare_outputs.py` 1개 추가 후 145/145 (v7 venv). 커밋 5026680의 새 worktree + lock venv 144 통과, 1 건너뜀 → §21 |
+| 회귀 테스트 (Cycle 12) | `test_cycle12_guards.py` 4개, `test_compare_outputs.py` 1개 추가 후 145/145 (v7 venv, 출력 저장 안 함). 커밋 5026680의 새 worktree + lock venv 144 통과, 1 건너뜀 → §21 |
+| 회귀 테스트 (Cycle 13) | `test_cycle13_guards.py` 4개 추가 후 149/149 (v7 venv, 출력 저장 안 함). 커밋 cb22505와 db3653e의 새 worktree + lock venv 각각 148 통과, 1 건너뜀 → §22 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -310,11 +311,11 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
 | ALS+BPR | 추가 학습 없음 / 11 | α = .9 (novel .7) | 0.2219 | - |
 | GNN | 36 / 952 | 1층 256차원 lr 3e-3, 90 epoch | 0.2169 | layers(최소), dim(최대), lr(최대) |
 | Hybrid | 추가 학습 없음 / 8,424 | repeat: 위 GNN, α .5, balanced_union, 후보 500, minmax, ω .7, γ 1.1 | 0.2250 | 후보 수(최소) |
-| | | novel: 같은 GNN, α .75, balanced_union, 후보 20,000, RRF, ω .5, γ 1.25 | 0.0612 | - |
+| | | novel: 같은 GNN, α .75, balanced_union, 후보 20,000, RRF, ω .5, γ 1.25 | 0.0612 | α(최대), 후보 수(balanced_union의 최대) |
 
 - 학습 시간: ALS 3,971초, BPR 1,696초, GNN 16,975초 (36개 합).
 - **ALS는 grid를 넓히자 validation에서 GNN 최고값보다 높아졌다** (0.2176 vs 0.2169). v6 경계 탐색(`mf_boundary_probe.csv`)에서 본 경향과 같다.
-- 사전등록 규칙대로 경계에 다시 걸린 축은 더 넓히지 않았고, `selection.json`의 `grid_edges`에 기록했다.
+- 사전등록 규칙대로 경계에 다시 걸린 축은 더 넓히지 않았고, `selection.json`의 `grid_edges`에 기록했다. Hybrid 행의 끝 축은 `audit/cycle13/hybrid_boundary_recheck.json` 기준이다: 커밋된 `selection.json`의 `hybrid_at_grid_boundary`는 α 축을 빼고, 후보 수 최대를 `all`로만 봐서(balanced_union의 최대는 20,000) novel 행을 모두 False로 적었다 (I-97, 선택값은 그대로).
 - GNN 36개 중 5개가 epoch 상한 규칙(최고 epoch ≥ 390)에 걸렸다 (400 epoch 4개, 390 epoch 1개). 모두 lr ≤ 1e-3이거나 64차원인 설정이고, validation 순위는 6, 15, 24, 30, 33위다 (최고 0.2138, 선택된 GNN 0.2169). Hybrid backbone 상위 3개와 단독 GNN 선택에는 상한 도달이 없어 연장 규칙은 발동하지 않았다. 연장했다면 이 5개의 순위가 바뀌었을지는 확인하지 않았다.
 
 ### 12.3 시험 결과 (F4, 세 seed 평균, K = 50)
@@ -501,3 +502,18 @@ Cycle 11 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 
 | 회귀 테스트 | 작업 폴더 145/145 (v7 venv, 출력은 저장하지 않음). 커밋 5026680의 새 worktree + lock venv: 144 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle12/postcommit_5026680_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_5026680_sha256.txt`). 주석만 고친 8feac9b도 144 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_8feac9b_*.txt`) |
 | 가드 변이 H1–H54 (H49 바깥 manifest를 먼저 씀, H50 빈 fold 목록 허용, H51 끝난 작업의 job object 오류를 그대로 냄, H52 0개 비교 통과, H53 JSON 형 무시, H54 새 출력에만 있는 파일 무시. H46은 바뀐 코드에 맞게 대상 문구 수정. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 5026680 코드로 실행(시작 때 커밋 안 된 것은 문서 2개와 `audit/cycle12/`뿐이고 실행 중에 코드를 고치지 않음), 54/54 검출, 수정 안 한 사본 59 통과. 04:28:49–05:45:08 UTC (`audit/cycle12/guard_mutants.json`, `guard_mutants_cycle12_log.txt`) |
 | 변이 테스트 17개 (§11), 커밋 2f1767c 그대로(사본의 `rolling_protocol.py`·`policy_evaluation.py`·`data_protocol.py`·`stats_tools.py`가 2f1767c와 같음, `audit/cycle12/mutation_scratch_vs_commit.json`. 사본은 시작 때 한 번 만들어져, 실행 중 작업 폴더의 Cycle 12 수정은 들어가지 않음) | 공식 `mutation_results.json`과 바이트 단위로 같음 (17/17, 03:47:29–04:36:35 UTC, `audit/cycle12/mutation_results_2f1767c.json`, `mutation_2f1767c_run.txt`) |
+
+## 22. Cycle 13: Hybrid 끝 축 표시, 비교 도구의 키·빈 쌍, 정밀도 도구의 역할 확인, protocol 전환, 문서 정정 (I-96 – I-100)
+
+Cycle 12 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. 새 P0·P1·P2는 없다 (코드 감사 P3 4건, 문서 감사 P3 5건). 코드 감사자는 커밋된 validation CSV만으로 v7 선택(백본, Hybrid 두 정책, MF 가중, GNN, ALS·BPR, BPR epoch)을 처음부터 다시 도출해 모두 같음을 확인했다(감사자의 임시 출력, 저장 안 함). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택과 시험 결과는 바뀌지 않는다. 보고 내용 중 바뀐 것은 Hybrid의 grid 끝 축 표시(§12.2 novel 행, `v7_feasibility.md` §4)뿐이다.
+
+| 검사 | 결과 |
+|---|---|
+| Hybrid 끝 축 (I-97) | 고친 규칙(선택된 전략의 grid 기준, α 포함)으로 커밋된 8개 정책을 다시 계산: v7 F4 novel은 α .75(최대)와 balanced_union 후보 수 20,000(최대), v6 F2 novel과 F3 repeat는 α .75(최대)가 새로 끝으로 표시되고, 나머지 5개는 기존 표시와 같음. 선택값은 그대로 (`audit/cycle13/hybrid_boundary_recheck.json`, HEAD cb22505에서 만듦) |
+| 비교 도구 (I-98) | 없는 `#keys`, JSON 객체가 아닌 파일의 `#keys`는 오류, 커밋 파일이 없는 폴더 쌍은 다른 쌍이 있어도 `all_equal: false`(테스트). 재현 11단계 비교를 Cycle 11 재현 출력에 다시 하면 Cycle 12와 같은 판정(I-89 전 v7 `pipeline.*` 3개만 다름, 빈 쌍 없음) (`audit/cycle13/compare_repro.json`) |
+| 정밀도 도구 역할 (I-99) | 실제 v7 F4 `prepared`·`runs/seed_42`(역할 test)는 파일을 읽기 전에 거부, `val_mf`로 다시 실행한 결과는 Cycle 4 커밋본과 같음 (`audit/cycle13/precision_role_check.txt`, `score_precision_F4_val_c13.json`) |
+| protocol 전환 (I-100) | v6, v7, v7→v6, v6→v7→v6→v7 순서 모두 마지막 protocol의 plan 해시가 커밋된 `plan.json`과 같음 (`audit/cycle13/use_protocol_check.txt`) |
+| 문서 정정 (I-96) | Cycle 12 가드 변이와 동시 실행한 작업, 두 번째 PC 범위(§9–§21), I-95의 정정 이유(POSIX에서 `launch_detached.py`는 실행을 새 세션으로 띄우고 GNN 작업은 그 그룹을 이어받으므로 그룹 전체 종료도 맞음), "약 10ms"의 근거, 저장 안 한 확인 표시 |
+| 회귀 테스트 | 작업 폴더 149/149 (v7 venv, 출력 저장 안 함). 커밋 cb22505의 새 worktree + lock venv: 148 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle13/postcommit_cb22505_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_cb22505_sha256.txt`). 변이 대상만 고친 db3653e도 148 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_db3653e_*.txt`) |
+| 가드 변이 H1–H60 (H55 `#keys`의 없는 키를 None으로 비교, H56 객체가 아닌 JSON의 `#keys`, H57 빈 커밋 폴더 쌍을 다른 쌍이 가림, H58 정밀도 도구가 시험 폴더를 읽음, H59 `use_protocol('v6')`가 v7 값을 남김, H60 α 없는 Hybrid 끝 표시. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 db3653e 코드로 실행(시작 때 커밋 안 된 것은 문서 6개와 `audit/cycle13/`뿐이고 실행 중에 코드를 고치지 않음), 60/60 검출, 수정 안 한 사본 63 통과. 07:24:16–08:48:34 UTC (`audit/cycle13/guard_mutants.json`, `guard_mutants_cycle13_log.txt`). cb22505 코드로 한 첫 실행은 H52 대상 문구가 없어 H52에서 멈춤(H1–H51 검출, 그 로그는 다시 실행할 때 덮어써 보존 안 됨) |
+| 변이 테스트 17개 (§11), 커밋 1e2b35e 그대로(사본의 `.py` 37개가 모두 1e2b35e와 같음, `audit/cycle13/mutation_scratch_vs_commit.json`. 사본은 시작 때 한 번 만들어져 Cycle 13 수정은 들어가지 않음) | 공식 `mutation_results.json`과 바이트 단위로 같음 (17/17, 05:52:27–06:43:43 UTC, `audit/cycle13/mutation_results_1e2b35e.json`, `mutation_1e2b35e_run.txt`) |

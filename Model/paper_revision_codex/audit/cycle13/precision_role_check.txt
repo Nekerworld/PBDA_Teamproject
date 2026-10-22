@@ -1,0 +1,3 @@
+audit_runs/v7/F4_unseen/val_mf role validation -> accepted (not run here)
+audit_runs/v7/F4_unseen/prepared role test -> refused: audit_runs\v7\F4_unseen\prepared is a test folder; this check reads inner validation only
+audit_runs/v7/F4_unseen/runs/seed_42 role test -> refused: audit_runs\v7\F4_unseen\runs\seed_42 is a test folder; this check reads inner validation only

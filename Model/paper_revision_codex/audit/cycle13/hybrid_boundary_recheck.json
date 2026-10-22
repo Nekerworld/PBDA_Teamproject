@@ -1,0 +1,176 @@
+{
+  "tool": "rolling_protocol.hybrid_at_grid_boundary",
+  "head": "cb22505ea570fa1a5341e9f01bb65b331bf5ca9e",
+  "python_files_changed_since_head": [],
+  "note": "Read-only: committed selection.json files are not changed; the Hybrid selections themselves are unchanged.",
+  "folds": {
+    "results_v6/F1_hist/repeat": {
+      "selected": {
+        "alpha": 0.5,
+        "strategy": "blend",
+        "candidate_k": 20000,
+        "fusion": "minmax",
+        "omega": 0.4,
+        "gamma": 1.25
+      },
+      "committed_flags": {
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": false,
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "results_v6/F1_hist/novel": {
+      "selected": {
+        "alpha": 0.5,
+        "strategy": "balanced_union",
+        "candidate_k": 2000,
+        "fusion": "rrf",
+        "omega": 0.6,
+        "gamma": 1.5
+      },
+      "committed_flags": {
+        "candidate_k": false,
+        "omega": false,
+        "gamma": true
+      },
+      "recomputed_flags": {
+        "alpha": false,
+        "candidate_k": false,
+        "omega": false,
+        "gamma": true
+      }
+    },
+    "results_v6/F2_mid/repeat": {
+      "selected": {
+        "alpha": 0.5,
+        "strategy": "balanced_union",
+        "candidate_k": 500,
+        "fusion": "minmax",
+        "omega": 0.5,
+        "gamma": 1.1
+      },
+      "committed_flags": {
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": false,
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "results_v6/F2_mid/novel": {
+      "selected": {
+        "alpha": 0.75,
+        "strategy": "blend",
+        "candidate_k": 20000,
+        "fusion": "minmax",
+        "omega": 0.4,
+        "gamma": 1.25
+      },
+      "committed_flags": {
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": true,
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "results_v6/F3_early/repeat": {
+      "selected": {
+        "alpha": 0.75,
+        "strategy": "blend",
+        "candidate_k": "all",
+        "fusion": "minmax",
+        "omega": 0.3,
+        "gamma": 1.1
+      },
+      "committed_flags": {
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": true,
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "results_v6/F3_early/novel": {
+      "selected": {
+        "alpha": 0.5,
+        "strategy": "balanced_union",
+        "candidate_k": 2000,
+        "fusion": "minmax",
+        "omega": 0.4,
+        "gamma": 1.25
+      },
+      "committed_flags": {
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": false,
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "results_v7/F4_unseen/repeat": {
+      "selected": {
+        "alpha": 0.5,
+        "strategy": "balanced_union",
+        "candidate_k": 500,
+        "fusion": "minmax",
+        "omega": 0.7,
+        "gamma": 1.1
+      },
+      "committed_flags": {
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": false,
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      }
+    },
+    "results_v7/F4_unseen/novel": {
+      "selected": {
+        "alpha": 0.75,
+        "strategy": "balanced_union",
+        "candidate_k": 20000,
+        "fusion": "rrf",
+        "omega": 0.5,
+        "gamma": 1.25
+      },
+      "committed_flags": {
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      },
+      "recomputed_flags": {
+        "alpha": true,
+        "candidate_k": true,
+        "omega": false,
+        "gamma": false
+      }
+    }
+  }
+}
