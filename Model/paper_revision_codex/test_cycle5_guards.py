@@ -166,9 +166,13 @@ def test_records_match_on_events_whatever_the_line_endings_or_other_raw_files(tm
 
 def test_git_state_keeps_the_status_column_of_the_first_line(monkeypatch):
     class Done:
-        stdout = ' M audit_runs/v7/x.json\n M rolling_protocol.py\n'
-    monkeypatch.setattr(rp.subprocess, 'run', lambda *a, **k: Done())
-    assert rp.git_state()['dirty_files'] == [' M rolling_protocol.py']
+        stdout = ' M rolling_protocol.py\n M model.py\n'
+
+    def run(args, **kwargs):
+        assert 'status' not in args or ':(exclude)audit_runs' in args  # git, not this parser, drops audit_runs
+        return Done()
+    monkeypatch.setattr(rp.subprocess, 'run', run)
+    assert rp.git_state()['dirty_files'] == [' M rolling_protocol.py', ' M model.py']
 
 
 def test_cache_audit_compares_with_what_the_plan_and_selection_request(tmp_path):

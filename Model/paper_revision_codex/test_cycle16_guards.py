@@ -8,21 +8,19 @@ sys.path.insert(0, str(HERE))
 import rolling_protocol as rp
 
 
-def test_dirty_check_exempts_only_the_audit_runs_folder(monkeypatch):
-    porcelain = '\n'.join([
-        '?? Model/paper_revision_codex/audit_runs_patch.py',
-        '?? audit_runs_tools.py',
-        ' M Model/paper_revision_codex/model.py',
-        '?? Model/paper_revision_codex/audit_runs/v8/x.json',
-        '?? audit_runs/v8/',
-    ]) + '\n'
+def git(repo, *args):
+    subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *args], cwd=repo, check=True,
+                   capture_output=True)
 
-    def fake_run(args, **kwargs):
-        return subprocess.CompletedProcess(args, 0, stdout=porcelain if 'status' in args else 'x\n')
 
-    monkeypatch.setattr(rp.subprocess, 'run', fake_run)
-    assert rp.git_state()['dirty_files'] == [
-        '?? Model/paper_revision_codex/audit_runs_patch.py',
-        '?? audit_runs_tools.py',
-        ' M Model/paper_revision_codex/model.py',
-    ]
+def test_dirty_check_exempts_only_the_audit_runs_folder(tmp_path, monkeypatch):
+    git(tmp_path, 'init', '-q')
+    (tmp_path / 'model.py').write_text('a = 1\n')
+    git(tmp_path, 'add', 'model.py')
+    git(tmp_path, 'commit', '-q', '-m', 'base')
+    (tmp_path / 'model.py').write_text('a = 2\n')
+    (tmp_path / 'audit_runs_patch.py').write_text('')
+    (tmp_path / 'audit_runs' / 'v8').mkdir(parents=True)
+    (tmp_path / 'audit_runs' / 'v8' / 'x.json').write_text('{}')
+    monkeypatch.setattr(rp, 'HERE', tmp_path)
+    assert sorted(line[3:] for line in rp.git_state()['dirty_files']) == ['audit_runs_patch.py', 'model.py']

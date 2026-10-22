@@ -189,9 +189,11 @@ def git_state():
             return subprocess.run(['git', *args], cwd=HERE, capture_output=True, text=True, check=True).stdout.rstrip('\n')
         except (OSError, subprocess.CalledProcessError):
             return None
+    # The run outputs are left out by pathspec, not by parsing the output: untracked files are listed whatever
+    # status.showUntrackedFiles says, and a code file renamed from audit_runs/ cannot hide behind that path.
+    status = run('status', '--porcelain', '--untracked-files=normal', '--', '.', ':(exclude)audit_runs')
     return {'commit': run('rev-parse', 'HEAD'), 'branch': run('rev-parse', '--abbrev-ref', 'HEAD'),
-            'dirty_files': [line for line in (run('status', '--porcelain', '--', '.') or '').splitlines()
-                            if line.strip() and not line[3:].startswith(('audit_runs/', 'Model/paper_revision_codex/audit_runs/'))]}
+            'dirty_files': [line for line in (status or '').splitlines() if line.strip()]}
 
 
 def native_threads():
@@ -539,7 +541,7 @@ def run_gnn_jobs(root, specs, stop=None):
     fails, the jobs still running are terminated; a terminated job has no job_result.json and reruns on resume."""
     pending = [s for s in specs if not (Path(s['job_dir']) / 'job_result.json').exists()]
     running = []
-    spec_dir = Path(root) / 'job_specs'
+    spec_dir = Path(root).resolve() / 'job_specs'  # the jobs run in HERE, not in the caller's directory
     spec_dir.mkdir(exist_ok=True)
     try:
         while pending or running:
