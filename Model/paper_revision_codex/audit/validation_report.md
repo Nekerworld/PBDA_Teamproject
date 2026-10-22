@@ -17,6 +17,7 @@
 | 회귀 테스트 (Cycle 9) | `test_cycle9_guards.py` 6개, `test_stamp_code_check.py` 1개 추가 후 127/127 (v7 venv). 커밋 ce97790의 새 worktree + lock venv 126 통과, 1 건너뜀 → §18 |
 | 회귀 테스트 (Cycle 10) | `test_cycle10_guards.py` 9개 추가 후 136/136 (v7 venv). 커밋 4e166c5의 새 worktree + lock venv 135 통과, 1 건너뜀 → §19 |
 | 회귀 테스트 (Cycle 11) | `test_compare_outputs.py` 1개, `test_cycle11_guards.py` 3개 추가 후 140/140 (v7 venv). 커밋 318186b의 새 worktree + lock venv 139 통과, 1 건너뜀 → §20 |
+| 회귀 테스트 (Cycle 12) | `test_cycle12_guards.py` 4개, `test_compare_outputs.py` 1개 추가 후 145/145 (v7 venv). 커밋 5026680의 새 worktree + lock venv 144 통과, 1 건너뜀 → §21 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -472,11 +473,11 @@ Cycle 9 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 �
 
 ## 20. Cycle 11: 재현 명령 출력과 저장된 비교, 원자적 복제, 강제 종료 때 GNN 작업, 모집단·후보 생성 서술 (I-85 – I-89)
 
-Cycle 10 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. 새 P0·P1은 없다 (문서 P2 1건·P3 6건, 코드 P3 4건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택과 시험 결과는 바뀌지 않는다.
+Cycle 10 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. 새 P0·P1은 없다 (문서 감사 P2 1건·P3 6건, 코드 감사 P3 4건. 코드 감사의 I-88·I-89는 문서·그림 서술). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택과 시험 결과는 바뀌지 않는다.
 
 | 검사 | 결과 |
 |---|---|
-| 재현 명령 출력과 저장된 비교 (I-85) | 재현 4, 7–10단계·plan 코드 확인·재계산을 8d8d0d5의 도구로 `audit_runs/repro/`에 다시 실행해 `compare_outputs`로 커밋된 증거와 비교: 29개 파일 모두 같음(plan 코드 확인은 시간에 따라 바뀌는 값을 빼고 `commit,scheme,files,all_plan_hashes_match_commit`만 비교) (`audit/cycle11/repro_compare.json`, `repro_run.txt`). 이 비교의 그림은 I-89로 구조도를 고치기 전 것과 같음 |
+| 재현 명령 출력과 저장된 비교 (I-85) | 재현 4, 7–10단계·plan 코드 확인·재계산을 8d8d0d5의 도구로 `audit_runs/repro/`에 다시 실행해 `compare_outputs`로 커밋된 증거와 비교: 29행(다시 만든 출력 28개. plan 코드 확인 출력 하나를 Cycle 3·Cycle 6 증거 두 곳과 비교했고, 11단계 명령은 Cycle 3 쪽만 비교해 28행) 모두 같음(plan 코드 확인은 시간에 따라 바뀌는 값을 빼고 `commit,scheme,files,all_plan_hashes_match_commit`만 비교) (`audit/cycle11/repro_compare.json`, `repro_run.txt`). 이 비교의 그림은 I-89로 구조도를 고치기 전 것과 같음 |
 | 원자적 복제 (I-86) | 6번째 hard link에서 끊으면 대상 폴더가 생기지 않고, 다시 실행하면 하위 `validation`까지 완성되며 `.partial`이 남지 않음(테스트). 실제 v7 실행 폴더 `audit_runs/v7`의 protocol 폴더 51개가 모두 manifest의 파일을 다 갖고 있고 `.partial`이 없음(한 번 확인, 출력 저장 안 함) |
 | 강제 종료 때 GNN 작업 (I-87) | 실제 부모 프로세스가 자식을 `kill_with_parent`로 묶은 뒤 부모를 `TerminateProcess`로 끝내면 자식의 heartbeat 파일이 더 자라지 않음(테스트). 모든 작업이 묶이고, Popen이 실패하면 로그가 닫힘(테스트). 원본부터 두 root를 끝까지 돌리는 재현 테스트가 실제 GNN 작업 프로세스로 이 경로를 지남. POSIX에는 이 보호가 없음 |
 | 평가 모집단 서술 (I-88) | `manuscript_alignment.md` 공개 사항 2를 `data_protocol.py`의 `reference`(필터 전 원본 학습 기간의 사용자·상품)와 `policy_evaluation.py` 머리말(정답 집합, 0점 처리, novel 제외)에 맞춤 |
@@ -484,3 +485,19 @@ Cycle 10 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 
 | 회귀 테스트 | 작업 폴더 140/140 (v7 venv, 출력은 저장하지 않음). 커밋 318186b의 새 worktree + lock venv: 139 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle11/postcommit_318186b_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_318186b_sha256.txt`) |
 | 가드 변이 H1–H48 (H45 대상 폴더에 바로 링크, H46 작업을 job object에 넣지 않음, H47 kill-on-close 없는 job object, H48 실행 실패 때 로그를 닫지 않음. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 318186b 코드로 실행(시작 때 커밋 안 된 것은 문서 6개, 구조도 6개, `audit/cycle11/`뿐이고 실행 중에 코드를 고치지 않음), 48/48 검출, 수정 안 한 사본 53 통과. 02:43:44–03:46:38 UTC (`audit/cycle11/guard_mutants.json`, `guard_mutants_cycle11_log.txt`) |
 | 변이 테스트 17개 (§11), 커밋 8d8d0d5 그대로(사본의 `rolling_protocol.py`·`policy_evaluation.py`가 8d8d0d5와 같음, `audit/cycle11/mutation_scratch_vs_commit.json`) | 공식 `mutation_results.json`과 완전히 같음 (17/17, 23:59:52–00:47:48 UTC, `audit/cycle11/mutation_results_8d8d0d5.json`, `mutation_8d8d0d5_run.txt`) |
+
+## 21. Cycle 12: 전처리 완료 표시, 빈 fold 목록, 비교 도구의 거짓 통과, job object 오류, 문서 정정 (I-90 – I-95)
+
+Cycle 11 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 찾은 항목이다. 새 P0·P1·P2는 없다 (코드 감사 P3 4건, 문서 감사 P3 3건, 코드 감사의 미확정 의심 1건을 공개로 처리). 코드 감사자는 v7 시험 지표와 paired test를 사용자별 파일에서 독립적으로 다시 계산해 커밋된 값과 1e-16 수준까지 같음을 확인했다(감사자의 임시 출력, 저장 안 함). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택과 시험 결과는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| 전처리 완료 표시 (I-90) | 바깥 `manifest.json`을 마지막에 한 번만 씀. `finalize_outer`에서 끊으면 바깥 manifest가 없고 재개는 "Incomplete preprocessing output"으로 멈춤, 새로 하면 `input_hashes`·`raw_valid` 행이 있음(테스트). 실제 원본으로 v7 F4 전처리를 고친 코드로 다시 해(39초) 기존 `audit_runs/v7/F4_unseen/prepared`와 비교: 바깥·validation 모두 파일 해시, `protocol_id`, 원본 입력 해시가 같고, 다른 manifest 키는 폴더 경로(`config`)와 전처리 소스 해시뿐 (`audit/cycle12/prep_check_v7_F4.txt`, 실행한 스크립트 포함) |
+| 빈 fold 목록 (I-91) | `run(folds=[])`은 plan을 만들기 전에 멈추고, 명령줄 `--folds`만 주면 argparse가 종료 코드 2로 거부(테스트) |
+| 비교 도구 (I-92) | 0개 비교, 새 출력에만 있는 파일, 없는 비교 대상, JSON이 아닌 파일의 `#keys`가 통과하지 못함. JSON은 형까지 비교(테스트). Cycle 11 비교 29행을 새 도구로 다시 하면 I-89 전 그림인 v7 `pipeline.*` 3개만 다름. 다시 만든 그림 폴더 2개(52개)는 새 도구로도 모두 같고 새 출력에만 있는 파일 없음(출력 저장 안 함) |
+| 끝난 GNN 작업의 job object 오류 (I-93) | 이미 끝난 실제 프로세스는 job object에 못 들어감(OSError, 테스트). 그런 작업은 종료 코드로 "GNN job failed"를 내고, 아직 도는 작업이면 오류가 그대로 나며 작업은 종료됨(테스트) |
+| 다른 장치의 정확한 재현 (I-94) | 공개로 처리(`reproducibility.md`) |
+| 문서 정정 (I-95) | 재현 비교 개수(29행, 출력 28개), `--require-unchanged` 실패 원인(5026680에서 다시 실행: v6·v7 모두 종료 코드 1, 바뀐 파일 v7 4개·v6 5개, 추가된 테스트 v7 12개·v6 13개, plan 해시는 각 plan commit과 일치. 출력 저장 안 함), Cycle 9 가드 변이 시간 |
+| 회귀 테스트 | 작업 폴더 145/145 (v7 venv, 출력은 저장하지 않음). 커밋 5026680의 새 worktree + lock venv: 144 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle12/postcommit_5026680_pytest.txt`). `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_5026680_sha256.txt`). 주석만 고친 8feac9b도 144 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_8feac9b_*.txt`) |
+| 가드 변이 H1–H54 (H49 바깥 manifest를 먼저 씀, H50 빈 fold 목록 허용, H51 끝난 작업의 job object 오류를 그대로 냄, H52 0개 비교 통과, H53 JSON 형 무시, H54 새 출력에만 있는 파일 무시. H46은 바뀐 코드에 맞게 대상 문구 수정. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 5026680 코드로 실행(시작 때 커밋 안 된 것은 문서 2개와 `audit/cycle12/`뿐이고 실행 중에 코드를 고치지 않음), 54/54 검출, 수정 안 한 사본 59 통과. 04:28:49–05:45:08 UTC (`audit/cycle12/guard_mutants.json`, `guard_mutants_cycle12_log.txt`) |
+| 변이 테스트 17개 (§11), 커밋 2f1767c 그대로(사본의 `rolling_protocol.py`·`policy_evaluation.py`·`data_protocol.py`·`stats_tools.py`가 2f1767c와 같음, `audit/cycle12/mutation_scratch_vs_commit.json`. 사본은 시작 때 한 번 만들어져, 실행 중 작업 폴더의 Cycle 12 수정은 들어가지 않음) | 공식 `mutation_results.json`과 바이트 단위로 같음 (17/17, 03:47:29–04:36:35 UTC, `audit/cycle12/mutation_results_2f1767c.json`, `mutation_2f1767c_run.txt`) |

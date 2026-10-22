@@ -1,0 +1,50 @@
+code: working tree equal to commit 5026680 for data_protocol.py and rolling_protocol.py (committed right after this run)
+run from Model/paper_revision_codex with the v7 venv and BLAS threads 1, script on stdin:
+---- script
+import json, sys, time
+from datetime import datetime, timezone
+from pathlib import Path
+sys.path.insert(0, '.')
+import rolling_protocol as rp
+from data_protocol import sha256
+rp.use_protocol('v7')
+fold = rp.FOLDS[0]
+root = Path('audit_runs/cycle12/prep_check')
+print('fold', fold['name'], 'started', datetime.now(timezone.utc).isoformat())
+t = time.time()
+prepared, _ = rp.prepare_fold(fold, root, Path('../../data').resolve())
+print('seconds', round(time.time() - t))
+ref = Path('audit_runs/v7') / fold['name'] / 'prepared'
+out = {}
+for d in ('', 'validation'):
+    a = json.loads((prepared / d / 'manifest.json').read_text(encoding='utf-8'))
+    b = json.loads((ref / d / 'manifest.json').read_text(encoding='utf-8'))
+    out[d or 'outer'] = {'differing_keys': sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k)),
+                         'files_equal': all(sha256(prepared / d / n) == sha256(ref / d / n) for n in a['hashes'] | a['audit_hashes']),
+                         'protocol_id_equal': a['protocol_id'] == b['protocol_id']}
+out['outer']['input_hashes_equal'] = json.loads((prepared / 'manifest.json').read_text())['input_hashes'] == json.loads((ref / 'manifest.json').read_text())['input_hashes']
+print(json.dumps(out, indent=2))
+print('finished', datetime.now(timezone.utc).isoformat())
+---- output
+fold F4_unseen started 2026-10-22T04:15:58.143911+00:00
+seconds 39
+{
+  "outer": {
+    "differing_keys": [
+      "config",
+      "preprocessing_source_hash"
+    ],
+    "files_equal": true,
+    "protocol_id_equal": true,
+    "input_hashes_equal": true
+  },
+  "validation": {
+    "differing_keys": [
+      "config",
+      "preprocessing_source_hash"
+    ],
+    "files_equal": true,
+    "protocol_id_equal": true
+  }
+}
+finished 2026-10-22T04:16:37.610369+00:00

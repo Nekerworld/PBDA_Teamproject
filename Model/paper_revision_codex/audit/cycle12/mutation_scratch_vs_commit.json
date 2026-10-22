@@ -1,0 +1,22 @@
+{
+  "rolling_protocol.py": {
+    "committed_sha256_lf": "acab76aad948b9ba7856e175a86a7570c4bf14648fe8cad76b27df5eb67fce3a",
+    "scratch_sha256_lf": "acab76aad948b9ba7856e175a86a7570c4bf14648fe8cad76b27df5eb67fce3a",
+    "equal": true
+  },
+  "policy_evaluation.py": {
+    "committed_sha256_lf": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+    "scratch_sha256_lf": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+    "equal": true
+  },
+  "data_protocol.py": {
+    "committed_sha256_lf": "48178d815d5bccea7629df749f3c2c9843869ac68eeba54aad99b2355d131899",
+    "scratch_sha256_lf": "48178d815d5bccea7629df749f3c2c9843869ac68eeba54aad99b2355d131899",
+    "equal": true
+  },
+  "stats_tools.py": {
+    "committed_sha256_lf": "4b7ca4cd4489480679ef172907da9a1a9e6ed01ad957143c47d077f615beb1de",
+    "scratch_sha256_lf": "4b7ca4cd4489480679ef172907da9a1a9e6ed01ad957143c47d077f615beb1de",
+    "equal": true
+  }
+}
