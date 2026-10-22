@@ -191,7 +191,7 @@ def git_state():
             return None
     return {'commit': run('rev-parse', 'HEAD'), 'branch': run('rev-parse', '--abbrev-ref', 'HEAD'),
             'dirty_files': [line for line in (run('status', '--porcelain', '--', '.') or '').splitlines()
-                            if line.strip() and not line[3:].startswith(('audit_runs', 'Model/paper_revision_codex/audit_runs'))]}
+                            if line.strip() and not line[3:].startswith(('audit_runs/', 'Model/paper_revision_codex/audit_runs/'))]}
 
 
 def native_threads():
