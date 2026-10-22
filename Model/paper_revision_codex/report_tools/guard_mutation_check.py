@@ -77,7 +77,7 @@ M = {
  'H50 empty fold list runs every fold': ('rolling_protocol.py', "    if folds is not None and not folds:\n        raise", "    if False:\n        raise"),
  'H51 job object error hides an ended job': ('rolling_protocol.py', "if process.poll() is None:  # a job that already ended",
                                              "if True:  # a job that already ended"),
- 'H52 zero compared files pass': ('report_tools/compare_outputs.py', "'all_equal': bool(rows) and all(", "'all_equal': all("),
+ 'H52 zero compared files pass': ('report_tools/compare_outputs.py', "'all_equal': bool(rows) and not empty_pairs and all(", "'all_equal': all("),
  'H53 JSON compared without types': ('report_tools/compare_outputs.py', "    if type(x) is not type(y):\n        return False\n", ""),
  'H54 files only in NEW ignored': ('report_tools/compare_outputs.py', "for name in sorted(listed(new) - listed(committed))]",
                                    "for name in []]"),
