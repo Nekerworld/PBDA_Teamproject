@@ -1,0 +1,8 @@
+utc: 2026-10-22T14:27:43.611687+00:00
+head: 0a0ca406725083ad70f3ec059673bb77dea59cc1
+audit_runs entries in git status --ignored: ['!! Model/paper_revision_codex/audit_runs/']
+git_state dirty_files: [" M Model/paper_revision_codex/audit/issue_register.md", " M Model/paper_revision_codex/audit/v7_feasibility.md", " M Model/paper_revision_codex/audit/validation_report.md", " M Model/paper_revision_codex/professor_materials/MEETING_NOTES_KO.md", " M Model/paper_revision_codex/professor_materials/README_KO.md", " M Model/paper_revision_codex/professor_materials/professor_briefing_ko.md", " M Model/paper_revision_codex/report_tools/guard_mutation_check.py", " M Model/paper_revision_codex/rolling_protocol.py", " M Model/paper_revision_codex/test_cycle16_guards.py", "?? Model/paper_revision_codex/audit/cycle17/", "?? Model/paper_revision_codex/test_cycle17_guards.py"]
+plain git status --porcelain -- . (same set expected): [" M Model/paper_revision_codex/audit/issue_register.md", " M Model/paper_revision_codex/audit/v7_feasibility.md", " M Model/paper_revision_codex/audit/validation_report.md", " M Model/paper_revision_codex/professor_materials/MEETING_NOTES_KO.md", " M Model/paper_revision_codex/professor_materials/README_KO.md", " M Model/paper_revision_codex/professor_materials/professor_briefing_ko.md", " M Model/paper_revision_codex/report_tools/guard_mutation_check.py", " M Model/paper_revision_codex/rolling_protocol.py", " M Model/paper_revision_codex/test_cycle16_guards.py", "?? Model/paper_revision_codex/audit/cycle17/", "?? Model/paper_revision_codex/test_cycle17_guards.py"]
+status.showUntrackedFiles config: ''
+v6 payload equal: True sha equal: True committed dirty_files: []
+v7 payload equal: True sha equal: True committed dirty_files: []

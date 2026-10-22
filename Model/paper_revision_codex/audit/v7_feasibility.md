@@ -52,7 +52,7 @@ F3의 쌍대 비교 95% CI 반폭을 사용자 수 비율(√(628/413) ≈ 1.23)
 | ALS | factors {64,128,256}, reg {.02,.2}, α {2,10}, iter {32,256} | factors 256(최대), α 10(최대), iter 32(최소) |
 | BPR | lr {.001,.005}, reg {.003,.03}, epoch 체크포인트 ≤ 256 | lr .005(최대), reg .003(최소), 256(최대) |
 | GNN | layers {2,3}, dim {64,128}, lr {.001,.003} | dim 128(최대) 세 fold 모두, lr .001(최소) 세 fold 모두 |
-| Hybrid | α, ω, γ, 후보 수 | repeat: 후보 수 F2/F3에서 경계 (곡선 평평), F3에서 α .75(최대). novel: F1에서 γ 1.5(최대), F2에서 α .75(최대) (Cycle 4 정정: 처음 표에서 γ 누락. Cycle 13 정정: `hybrid_at_grid_boundary`에 α 축이 없어 α 끝도 누락, `audit/cycle13/hybrid_boundary_recheck.json`) |
+| Hybrid | α, ω, γ, 후보 수 | repeat: 후보 수 F2/F3에서 경계 (곡선 평평), F3에서 α .75(최대). novel: F1에서 γ 1.5(최대), F2에서 α .75(최대). Hybrid의 GNN backbone(단독 GNN과 같은 grid): F1 layers 2·dim 64·lr .003, F2 2·128·.001, F3 2·128·.003으로 F1·F3의 lr이 최대(값이 둘뿐인 축이라 모든 값이 끝이고, v7에서도 lr 최대 .003은 그대로이며 다시 선택됨, `validation_report.md` §12.2) (Cycle 4 정정: 처음 표에서 γ 누락. Cycle 13 정정: `hybrid_at_grid_boundary`에 α 축이 없어 α 끝도 누락, `audit/cycle13/hybrid_boundary_recheck.json`) |
 
 ALS만 넓히면 반대 방향으로 불공정해진다. 학습하는 모델군(ALS·BPR·GNN)에 같은 규칙을 적용해야 한다. Hybrid의 결합 grid(α, ω, γ, 후보 수)는 v7에서 넓히지 않았다(위 표처럼 v6에서도 끝에 걸린 축이 있었음. 승인 범위는 아래 7항).
 

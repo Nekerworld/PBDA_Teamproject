@@ -1,0 +1,5 @@
+started_utc: 2026-10-22T14:27:38Z
+=========================== short test summary info ===========================
+FAILED test_cycle5_guards.py::test_git_state_keeps_the_status_column_of_the_first_line
+1 failed, 159 passed, 1 warning in 333.74s (0:05:33)
+finished_utc: 2026-10-22T14:33:13Z

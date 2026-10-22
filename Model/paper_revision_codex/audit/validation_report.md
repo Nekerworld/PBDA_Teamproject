@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§25는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§26는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -21,7 +21,8 @@
 | 회귀 테스트 (Cycle 13) | `test_cycle13_guards.py` 4개 추가 후 149/149 (v7 venv, 출력 저장 안 함). 커밋 cb22505와 db3653e의 새 worktree + lock venv 각각 148 통과, 1 건너뜀 → §22 |
 | 회귀 테스트 (Cycle 14) | `test_cycle14_guards.py` 2개 추가 후 151/151 (v7 venv, 출력 저장 안 함). 커밋 41ba20d의 새 worktree + lock venv 150 통과, 1 건너뜀 → §23 |
 | 회귀 테스트 (Cycle 15) | `test_cycle15_guards.py` 6개(매개변수화) 추가 후 157/157 (v7 venv, 출력 저장 안 함). 커밋 4c1ddfb의 새 worktree + lock venv 156 통과, 1 건너뜀 → §24 |
-| 회귀 테스트 (Cycle 16) | `test_cycle16_guards.py` 1개 추가 후 158/158 (v7 venv, `audit/cycle16/precommit_pytest.txt`). 커밋 6ce754d의 새 worktree + lock venv 157 통과, 1 건너뜀 |
+| 회귀 테스트 (Cycle 16) | `test_cycle16_guards.py` 1개 추가 후 158/158 (v7 venv, `audit/cycle16/precommit_pytest.txt`). 커밋 6ce754d의 새 worktree + lock venv 157 통과, 1 건너뜀 → §25 |
+| 회귀 테스트 (Cycle 17) | `test_cycle17_guards.py` 2개 추가, `test_cycle16_guards.py`를 실제 git으로 바꾼 뒤 160/160 (v7 venv, `audit/cycle17/precommit_pytest.txt`). 커밋 cf1a3fe의 새 worktree + lock venv 159 통과, 1 건너뜀 → §26 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -205,7 +206,7 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
    - BPR의 fold별 최고 증가폭은 +0.0002 – +0.0044로 작다.
    - 따라서 v6 시험의 ALS와 ALS+BPR baseline은 덜 튜닝된 상태일 수 있다. Hybrid도 ALS를 구성요소로 쓰므로 영향의 방향을 단정할 수 없다.
    - 세 fold의 시험을 이미 열었으므로 v6 fold는 다시 실행하지 않았다. 대신 사용자 승인을 받아, 쓰지 않은 구간 F4에서 ALS·BPR·GNN의 grid를 넓힌 v7(Hybrid grid와 ALS+BPR α는 v6와 같음)을 사전등록해 실행했다 (§12). v7에서도 Hybrid와 ALS+BPR의 차이는 네 칸 모두 비유의로, "가장 강한 baseline보다 일관되게 유의하게 높지는 않다"는 v6의 결론이 유지됐다. v6 표의 ALS·ALS+BPR 수치 자체는 덜 튜닝된 조건의 값으로 남는다.
-2. **F1 시험 구간은 v1–v5에서 반복 노출됐고, F2 시험 구간(이벤트 비율 0.60–0.80)의 대부분(0.64–0.80, 이벤트의 80%)은 v1–v5에서 설정을 고를 때 쓴 내부 validation 구간이다** (`rolling_protocol.py`의 F2 설명, `v7_feasibility.md` §1 표). F2는 시험으로는 처음 연 구간이지만, v1–v5에서 정한 고정 설계와 독립적이지 않다. 평가·선택에 쓰인 적 없는 시험 구간은 F3와 v7의 F4뿐이고, 데이터셋도 하나(RetailRocket 2015)뿐이다.
+2. **F1 시험 구간은 v1–v5에서 반복 노출됐고, F2 시험 구간(이벤트 비율 0.60–0.80)의 대부분(0.64–0.80, 이벤트의 80%)은 v1–v5에서 설정을 고를 때 쓴 내부 validation 구간이다** (`rolling_protocol.py`의 F2 설명, `v7_feasibility.md` §1 표). F2는 시험으로는 처음 연 구간이지만, v1–v5에서 정한 고정 설계와 독립적이지 않다. v6 전에 평가·선택에 쓰인 적 없는 시험 구간은 F3와 v7의 F4뿐이다(F3 시험 구간의 80%는 같은 v6 실행에서 F2의 내부 validation, 즉 F2 설정 선택에 쓰였지만 F3 자신의 학습·선택에는 들어가지 않음). 데이터셋도 하나(RetailRocket 2015)뿐이다.
 3. 평가 사용자가 수백 명이고, 그중 맞힌 사용자는 약 160–205명이다. 작은 차이는 검정력이 부족하다.
 4. 사후 분석(후보 수, gamma, IF)은 F1의 seed 42 하나로만 했다.
 5. **novel 정책에서 튜닝이 비대칭이다 (I-63, P1)**: 사전등록 규칙상 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, 추론 설정만 정책마다 다시 고른다. 그래서 novel에서 Hybrid는 결합 설정 2,808개를, ALS+BPR은 α를 novel validation으로 다시 고르지만, ALS·BPR·GNN 단독은 repeat에서 고른 설정 그대로다. 같은 grid 안에서 novel validation으로 골랐다면 (`report_tools/policy_tuning_gap.py`, `audit/cycle7/policy_tuning_gap_v6.json`, `_v7.json`. validation 점수 mean(NDCG@50, Recall@50), seed 42):
@@ -555,3 +556,15 @@ Cycle 15 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD c0
 | dirty 검사 (I-108) | 사전등록 실행 전 dirty 검사가 `audit_runs`로 시작하는 모든 경로(예: `audit_runs_patch.py`)를 빼던 것을 `audit_runs/` 폴더만 빼도록 고침. 실제 저장소에서 `git_state()`는 커밋 안 된 코드·문서를 모두 나열하고 gitignore 대상 `audit_runs/`는 나오지 않음, v6·v7 plan 내용·해시 그대로 (`audit/cycle16/git_state_and_plan_check.txt`) |
 | 회귀 테스트 | 커밋 전 작업 폴더 158/158 (v7 venv, 12:34:23–12:40:13 UTC, `audit/cycle16/precommit_pytest.txt`). 커밋 6ce754d의 새 worktree + lock venv: 157 통과, 1 건너뜀 (`audit/cycle16/postcommit_6ce754d_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_6ce754d_sha256.txt`). Cycle 15 문서 커밋 c0b52c0: 156 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_c0b52c0_*.txt`) |
 | 가드 변이 H1–H63 (H63 dirty 검사의 접두사 면제. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 6ce754d 코드로 실행(시작 때 커밋 안 된 것은 문서 7개와 `audit/cycle16/`뿐이고 실행 중에 코드를 고치지 않음), 63/63 검출, 수정 안 한 사본 72 통과. 12:40:29–14:12:07 UTC (`audit/cycle16/guard_mutants.json`, `guard_mutants_cycle16_log.txt`) |
+
+## 26. Cycle 17: dirty 검사를 git pathspec으로, GNN spec 절대 경로, 문서 정정 (I-109 – I-111)
+
+Cycle 16 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 0a0ca40)에서 찾은 항목이다. 새 P0·P1·P2는 없다 (코드 감사 P3 2건, 문서 감사 P3 6건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| dirty 검사 (I-110, I-108 수정이 불완전) | 출력 문자열 대신 `git status --porcelain --untracked-files=normal -- . ':(exclude)audit_runs'`로 git이 `audit_runs`를 뺌. 임시 git 저장소 테스트: `status.showUntrackedFiles=no`에서도 새 코드가 나오고, `audit_runs/`에서 코드 경로로의 이름 변경은 새 경로가 나오며, 따옴표로 싼 `audit_runs/` 경로는 빠짐. 실제 저장소에서 `git_state()` 목록이 일반 `git status`와 같고 `audit_runs/`는 없음, v6·v7 plan 내용·해시 그대로, 커밋된 두 plan의 `dirty_files`는 비어 있음 (`audit/cycle17/git_state_and_plan_check.txt`, cf1a3fe 커밋 전 작업 폴더, 코드는 cf1a3fe와 같은 수정) |
+| GNN job spec 경로 (I-111) | spec 폴더를 절대 경로로 넘김. 다른 폴더에서 상대 root로 실행하는 테스트에서 넘긴 경로가 절대 경로이고 파일이 있음 |
+| 문서 정정 (I-109) | F3 시험 구간의 80%가 v6 F2의 validation이었음(§8 항목 2, I-106), 등록부 머리말, 가드 변이 docstring, 교수 자료 md 두 개의 감사 후 안내(PDF는 수정 안 함, `professor_materials/README_KO.md`), §1 Cycle 16 행, `v7_feasibility.md` §4의 Hybrid backbone lr 끝 |
+| 회귀 테스트 | 커밋 전 작업 폴더 첫 실행은 159 통과 1 실패(Cycle 5 상태 열 테스트가 옛 출력 형식의 가짜 git 출력을 씀, `audit/cycle17/precommit_pytest_first_run_1_failed.txt`). 그 테스트를 git이 지금 돌려주는 출력과 제외 pathspec 요구로 바꾼 뒤 160/160 (`precommit_pytest.txt`). 커밋 cf1a3fe의 새 worktree + lock venv: 159 통과, 1 건너뜀 (`postcommit_cf1a3fe_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 16 문서 커밋 0a0ca40: 157 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_0a0ca40_*.txt`) |
+| 가드 변이 H1–H65 (H63을 새 방식의 제외 pathspec 삭제로 바꿈, H64 `--untracked-files` 없음, H65 상대 spec 경로. 끝까지 돌리는 재현 테스트는 시간 때문에, git 이력을 읽는 `test_cycle4_guards.py`의 `verify_plan_code` 테스트는 사본이 git 저장소 밖이라 제외. 앞의 것은 그 테스트가 생긴 Cycle 10(4e166c5)부터, 뒤의 것은 Cycle 5(fd9bcca)부터 늘 제외됨) | 커밋 cf1a3fe 코드로 실행(시작 때 커밋 안 된 것은 문서 6개와 `audit/cycle17/`뿐이고 실행 중에 코드를 고치지 않음), 65/65 검출(바꾼 Cycle 5 테스트로 H14도 검출), 수정 안 한 사본 74 통과. 14:40:12–16:12:56 UTC (`audit/cycle17/guard_mutants.json`, `guard_mutants_cycle17_log.txt`) |

@@ -544,3 +544,32 @@
 
 **F. 커밋 후 재검증**
 - 6ce754d: 새 worktree, lock venv 157 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle16/postcommit_6ce754d_*.txt`).
+- Cycle 16 문서 커밋 0a0ca40: 157 통과, 1 건너뜀, 60/60, 28/28 (`audit/cycle17/postcommit_0a0ca40_*.txt`).
+
+## Cycle 17 (2026-10-22): Cycle 16 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD 0a0ca40)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1·P2 없음)**
+- 코드 감사 P3 2건: I-110 I-108 수정이 불완전(git 설정·이름 변경에 따라 dirty 검사가 코드를 놓침), I-111 상대 `--root`에서 GNN spec 경로.
+- 문서 감사 P3 6건 (I-109): F3 시험 구간도 v6 F2의 validation이었음, 머리말·docstring·§1 행 누락, 교수 자료 md 안내, v6 Hybrid backbone lr 끝.
+- 미확정 의심: `audit_runs`가 junction·symlink일 때(제외 pathspec은 경로 이름으로 맞추므로 지금은 빠질 것으로 보지만 확인하지 않음), `assume-unchanged` 표시 파일(plan 코드 해시가 내용을 잡음), 가드 변이가 end-to-end 재현 말고 `test_cycle4_guards`의 한 테스트도 뺌.
+
+**C. 수정**
+- 코드: dirty 검사를 git 제외 pathspec과 `--untracked-files=normal`로, GNN spec 폴더를 절대 경로로.
+- 테스트: `test_cycle16_guards.py`를 실제 git으로, `test_cycle17_guards.py` 2개, Cycle 5 상태 열 테스트의 가짜 출력을 지금 git 출력으로(제외 pathspec 요구). 가드 변이 H63 대상 변경, H64·H65.
+- 문서: I-109 – I-111.
+
+**D. 검증**
+- H63–H65를 해당 테스트만으로 먼저 확인: 모두 검출, 수정 안 한 사본 3 통과(출력 저장 안 함). 처음 넣은 `--no-renames` 변이는 살아남아(제외 pathspec만으로 충분) 옵션과 변이를 뺌. 65개 대상이 모두 한 번씩 있음.
+- 작업 폴더 전체 테스트: 첫 실행 159 통과 1 실패(Cycle 5 상태 열 테스트), 고친 뒤 160/160 (`audit/cycle17/precommit_pytest*.txt`).
+- 실제 저장소: `git_state()` 목록이 일반 `git status`와 같고 `audit_runs/`는 빠짐. v6·v7 plan 내용·해시 그대로 (`audit/cycle17/git_state_and_plan_check.txt`).
+- 가드 변이 H1–H65를 커밋 cf1a3fe 코드로 실행: 65/65, 수정 안 한 사본 74 통과 (`audit/cycle17/guard_mutants.json`).
+
+**E. 커밋**
+- cf1a3fe: 코드, 테스트, 가드 변이 H63–H65, docstring (I-110, I-111)
+- 이 문서와 함께: 문서 정정(I-109), Cycle 17 기록과 증거
+
+**F. 커밋 후 재검증**
+- cf1a3fe: 새 worktree, lock venv 159 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle17/postcommit_cf1a3fe_*.txt`).
