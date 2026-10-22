@@ -154,9 +154,8 @@ def plan_payload():
                          f'{GNN_CAP_EXTENSION_EPOCHS} and the extended run replaces it.'),
         'mf_alphas': MF_ALPHAS, 'hybrid_backbones': f'top {HYBRID_BACKBONES} GNN configurations by validation score',
         'hybrid_grid_size': len(HYBRID_GRID), 'candidate_ks': CANDIDATE_KS,
-        'hybrid_grid_axes': {'alpha': [.25, .5, .75], 'strategy': ['blend', 'balanced_union'],
-                             'fusion': ['minmax', 'rrf'], 'omega': [.1, .2, .3, .4, .5, .6, .7, .8, .9],
-                             'gamma': [1., 1.1, 1.25, 1.5]},
+        'hybrid_grid_axes': {key: list(dict.fromkeys(c[key] for c in HYBRID_GRID))
+                             for key in ('alpha', 'strategy', 'fusion', 'omega', 'gamma')},
         'baselines': BASELINES, 'ks': list(KS), 'primary_k': PRIMARY_K,
         'statistics': ('Per policy and fold: user-level paired bootstrap 95% CI (10,000) and two-sided sign-flip '
                        'test (10,000) on seed-averaged per-user metrics; Holm correction over the family of '
