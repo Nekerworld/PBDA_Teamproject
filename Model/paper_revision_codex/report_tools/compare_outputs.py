@@ -4,8 +4,9 @@ Each pair is NEW=COMMITTED; a directory pair compares every file of COMMITTED (e
 generated) with the same relative path in NEW. NEW=COMMITTED#k1,k2 compares only those top-level JSON keys, for
 outputs that are meant to change over time (verify_plan_code lists the files added since the plan). For every file the output records both sha256 digests, whether the bytes are equal apart from line endings, and for
 JSON files whether the parsed values are equal (same types too: 1, 1.0 and true differ; NaN equals NaN) and which
-top-level keys differ. A file that only NEW has, a comparison of zero files, or #keys on a non-JSON file makes the
-result unequal or an error, so a wrong path cannot pass. Nothing is re-run here.
+top-level keys differ. A file that only NEW has, a comparison of zero files (in any pair), or #keys on a non-JSON
+file, a non-object JSON or a key one of the files lacks makes the result unequal or an error, so a wrong path or key
+cannot pass. Nothing is re-run here.
 
 Usage: python report_tools/compare_outputs.py --output audit_runs/repro/compare.json \
            audit_runs/repro/stamp_code_v7.json=audit/cycle9/stamp_code_v7.json audit_runs/repro/figures_v7=audit/figures_v7
@@ -41,8 +42,13 @@ def compare_file(new, committed, keys=None):
     if committed.suffix == '.json':
         x, y = json.loads(a), json.loads(b)
         if keys:
+            if not (isinstance(x, dict) and isinstance(y, dict)):
+                raise ValueError(f'#keys needs a JSON object: {committed}')
+            missing = [k for k in keys if k not in x or k not in y]
+            if missing:
+                raise ValueError(f'#keys not in both files ({committed}): {missing}')
             row['compared_keys'] = keys
-            x, y = {k: x.get(k) for k in keys}, {k: y.get(k) for k in keys}
+            x, y = {k: x[k] for k in keys}, {k: y[k] for k in keys}
         row['json_equal'] = same(x, y)
         if isinstance(x, dict) and isinstance(y, dict):
             row['differing_top_level_keys'] = sorted(k for k in set(x) | set(y)
@@ -58,7 +64,7 @@ def listed(folder):
 
 
 def main(pairs, output):
-    rows = []
+    rows, empty_pairs = [], []
     for pair in pairs:
         new, target = pair.split('=', 1)
         committed, _, keys = target.partition('#')
@@ -68,6 +74,8 @@ def main(pairs, output):
         if committed.is_dir():
             if keys:
                 raise ValueError(f'#keys needs a JSON file, not a folder: {committed}')
+            if not listed(committed):
+                empty_pairs.append(pair)
             rows += [compare_file(new / name, committed / name) for name in sorted(listed(committed))]
             rows += [{'new': (new / name).as_posix(), 'committed': (committed / name).as_posix(), 'new_exists': True,
                       'committed_exists': False, 'equal': False}
@@ -75,12 +83,15 @@ def main(pairs, output):
         else:
             rows.append(compare_file(new, committed, keys))
     result = {'compared_utc': datetime.now(timezone.utc).isoformat(),
-              'all_equal': bool(rows) and all(r['equal'] for r in rows), 'files': len(rows), 'rows': rows}
+              'all_equal': bool(rows) and not empty_pairs and all(r['equal'] for r in rows), 'files': len(rows),
+              'pairs_without_committed_files': empty_pairs, 'rows': rows}
     if output:
         Path(output).parent.mkdir(parents=True, exist_ok=True)
         Path(output).write_text(json.dumps(result, indent=2), encoding='utf-8')
     for r in rows:
         print('equal' if r['equal'] else 'DIFFERENT', r['committed'], r.get('differing_top_level_keys', ''))
+    for pair in empty_pairs:
+        print('NO COMMITTED FILES', pair)
     print('all_equal', result['all_equal'], 'files', len(rows))
     return result
 

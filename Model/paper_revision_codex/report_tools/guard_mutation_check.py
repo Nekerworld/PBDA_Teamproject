@@ -1,5 +1,5 @@
-"""Put the pre-fix behaviour of each cycle-5..12 guard (H1-H54) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10/11/12_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
+"""Put the pre-fix behaviour of each cycle-5..13 guard (H1-H60) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11/12/13_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
 from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
 as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
@@ -81,6 +81,31 @@ M = {
  'H53 JSON compared without types': ('report_tools/compare_outputs.py', "    if type(x) is not type(y):\n        return False\n", ""),
  'H54 files only in NEW ignored': ('report_tools/compare_outputs.py', "for name in sorted(listed(new) - listed(committed))]",
                                    "for name in []]"),
+ 'H55 #keys reads missing keys as None': ('report_tools/compare_outputs.py',
+                                          "            if not (isinstance(x, dict) and isinstance(y, dict)):\n"
+                                          "                raise ValueError(f'#keys needs a JSON object: {committed}')\n"
+                                          "            missing = [k for k in keys if k not in x or k not in y]\n"
+                                          "            if missing:\n"
+                                          "                raise ValueError(f'#keys not in both files ({committed}): {missing}')\n"
+                                          "            row['compared_keys'] = keys\n"
+                                          "            x, y = {k: x[k] for k in keys}, {k: y[k] for k in keys}",
+                                          "            row['compared_keys'] = keys\n"
+                                          "            x, y = {k: x.get(k) for k in keys}, {k: y.get(k) for k in keys}"),
+ 'H56 #keys on a non-object JSON': ('report_tools/compare_outputs.py',
+                                    "            if not (isinstance(x, dict) and isinstance(y, dict)):\n"
+                                    "                raise ValueError(f'#keys needs a JSON object: {committed}')\n", ""),
+ 'H57 empty committed folder hidden by another pair': ('report_tools/compare_outputs.py',
+                                                       "            if not listed(committed):\n"
+                                                       "                empty_pairs.append(pair)\n", ""),
+ 'H58 precision check reads an outer-test folder': ('report_tools/check_score_precision.py',
+                                                    "    if role != 'validation':", "    if False:"),
+ 'H59 use_protocol v6 keeps v7 values': ('rolling_protocol.py',
+                                         "PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7}",
+                                         "PROTOCOLS = {'v6': {}, 'v7': V7}"),
+ 'H60 Hybrid grid-end flags without alpha, candidate ends of blend only': (
+     'rolling_protocol.py', "    grid = [c for c in HYBRID_GRID if c['strategy'] == best['strategy']]\n",
+     "    return {'candidate_k': str(best['candidate_k']) in (str(CANDIDATE_KS[0]), str(CANDIDATE_KS[-1])),\n"
+     "            'omega': float(best['omega']) in (.1, .9), 'gamma': float(best['gamma']) in (1., 1.5)}\n"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
@@ -99,7 +124,7 @@ def fresh():
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)

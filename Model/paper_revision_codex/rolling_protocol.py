@@ -111,7 +111,7 @@ V7 = dict(
                        'for differences of v6 size.'),
         'posthoc_test_analyses': 'none'},
 )
-PROTOCOLS = {'v6': {}, 'v7': V7}
+PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7}
 
 
 def use_protocol(name):
@@ -126,6 +126,18 @@ def grid_edges(selected, grid):
         if len(values) > 1 and value in (values[0], values[-1]):
             edges[key] = 'min' if value == values[0] else 'max'
     return edges
+
+
+def hybrid_at_grid_boundary(best):
+    """Hybrid axes where the selected value is a grid end, over the grid of the selected strategy
+    (balanced_union has no 'all', so its largest candidate count is 20000)."""
+    grid = [c for c in HYBRID_GRID if c['strategy'] == best['strategy']]
+    flags = {}
+    for key, cast in (('alpha', float), ('candidate_k', str), ('omega', float), ('gamma', float)):
+        values = list(dict.fromkeys(cast(c[key]) for c in grid))
+        ends = (values[0], values[-1]) if key == 'candidate_k' else (min(values), max(values))
+        flags[key] = cast(best[key]) in ends
+    return flags
 
 
 def plan_payload():
@@ -1154,9 +1166,7 @@ def run_fold(root, fold, raw, plan_hash):
         best['candidate_k'] = best['candidate_k'] if str(best['candidate_k']) == 'all' else int(best['candidate_k'])
         unrestricted = best_row(grid_rows[policy], keys)
         policies[policy].update(hybrid=best, unrestricted_best_backbone=unrestricted['backbone'],
-                                hybrid_at_grid_boundary={
-                                    'candidate_k': str(best['candidate_k']) in (str(CANDIDATE_KS[0]), str(CANDIDATE_KS[-1])),
-                                    'omega': float(best['omega']) in (.1, .9), 'gamma': float(best['gamma']) in (1., 1.5)})
+                                hybrid_at_grid_boundary=hybrid_at_grid_boundary(best))
     gnn_results = list(results['gnn']) + list(extension_results)
     selection = {'plan_sha256': plan_hash, 'fold': fold['name'], 'mf': mf, 'gnn': gnn_rows[0],
                  'hybrid_backbone': next(r for r in gnn_rows if r['name'] == repeat_backbone),

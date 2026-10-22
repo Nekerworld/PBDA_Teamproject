@@ -12,10 +12,14 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 import rolling_protocol as rp  # noqa: E402  (first: it forces single-threaded BLAS before numpy loads)
 import numpy as np  # noqa: E402
+from data_protocol import require_protocol  # noqa: E402
 from policy_evaluation import POLICIES, EvaluationContext, FactorScores  # noqa: E402
 
 
 def main(mf_dir, output):
+    role = require_protocol(mf_dir)['role']
+    if role != 'validation':
+        raise ValueError(f'{mf_dir} is a {role} folder; this check reads inner validation only')
     rows = []
     for policy in POLICIES:
         context = EvaluationContext(mf_dir, policy)
