@@ -1,7 +1,8 @@
-"""Put the pre-fix behaviour of each cycle-5..18 guard (H1-H70) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
+"""Put the pre-fix behaviour of each cycle-5..19 guard (H1-H73) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
 the verify_plan_code test because the copy is outside git). H63, H64 and H66 take out a part of a fix rather than put back
-the exact pre-fix code; H67 puts back the I-108 prefix exemption in pathspec form. The output records the git HEAD and uncommitted files the copy was taken
+the exact pre-fix code; H67 puts back the I-108 prefix exemption in pathspec form; H72 is no old code
+but the failure the H71 check refuses (selection jobs on the outer split). The output records the git HEAD and uncommitted files the copy was taken
 from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
 as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
@@ -136,6 +137,12 @@ M = {
      "capture_output=True, text=True,\n                                  check=True)"),
  'H70 detached launch from any folder': (
      'report_tools/launch_detached.py', "    if Path.cwd().resolve() != HERE:", "    if False:"),
+ 'H71 GNN selection job on any data': (
+     'rolling_protocol.py', "    if mode == 'select' and json.loads(", "    if False and json.loads("),
+ 'H72 GNN selection grid on the outer split': (
+     'rolling_protocol.py', "config_name('gnn', c), val_dir, c, SELECTION_SEED", "config_name('gnn', c), prepared, c, SELECTION_SEED"),
+ 'H73 cached GNN data not compared': (
+     'report_tools/check_cached_runs.py', "            if protocol_id(source) is None or protocol_id(fold_dir / job) != protocol_id(source):", "            if False:"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, encoding='utf-8').stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
@@ -154,7 +161,7 @@ def fresh():
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_cycle19_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)

@@ -191,10 +191,15 @@ def test_cache_audit_compares_with_what_the_plan_and_selection_request(tmp_path)
         (d / 'mf_fit.json').write_text(json.dumps(dict(mf, seed=42)), encoding='utf-8')
     (fold / 'selection.json').write_text(json.dumps({'mf': mf, 'gnn': gnn_row, 'hybrid_backbone': gnn_row}), encoding='utf-8')
     (fold / 'validation_gnn.json').write_text(json.dumps([dict(gnn_row, job_dir='x/g')]), encoding='utf-8')
+    data = {'select': 'inner', 'refit': 'outer'}
+    for folder, protocol_id in ((fold / 'prepared', 'outer'), (fold / 'prepared' / 'validation', 'inner')):
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / 'manifest.json').write_text(json.dumps({'protocol_id': protocol_id}), encoding='utf-8')
 
     def trained(job, **spec):
         (fold / job).mkdir(parents=True, exist_ok=True)
         (fold / job / 'job_result.json').write_text(json.dumps({'spec': dict(spec, fixed=plan['gnn_fixed'])}), encoding='utf-8')
+        (fold / job / 'manifest.json').write_text(json.dumps({'protocol_id': data[spec['mode']]}), encoding='utf-8')
     trained(Path('gnn_val') / rp.config_name('gnn', config), config=config, seed=42, mode='select', epochs=400)
     trained(Path('runs') / 'gnn_seed_42', config=config, seed=42, mode='refit', epochs=90)
     clean = check_cached_runs.main(tmp_path, tmp_path / 'ok.json')

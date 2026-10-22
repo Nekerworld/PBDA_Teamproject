@@ -3,7 +3,8 @@
 The requested identities are rebuilt the way run_fold builds them, from plan.json (GNN grid, fixed
 settings, epoch cap, seeds), validation_gnn.json (which top configurations were extended to the
 cap-extension epochs) and selection.json (refit configurations and epochs, MF configuration). Each is
-compared with what the cached job_result.json / mf_fit.json says was trained. The specs saved in
+compared with what the cached job_result.json / mf_fit.json says was trained, and each GNN job's data
+(manifest protocol_id) with the split it must use: prepared/validation for selection, prepared for refit. The specs saved in
 job_specs/ are not used: they are the same file the job copied into job_result.json.
 Reads no labels and trains nothing.
 
@@ -21,6 +22,11 @@ import rolling_protocol as rp  # noqa: E402
 
 def read(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
+
+
+def protocol_id(folder):
+    path = Path(folder) / 'manifest.json'
+    return read(path)['protocol_id'] if path.exists() else None
 
 
 def requested_gnn(fold_dir, plan, selection):
@@ -55,8 +61,11 @@ def main(root, output):
         for job, wanted in requested_gnn(fold_dir, plan, selection):
             path = fold_dir / job / 'job_result.json'
             trained = read(path)['spec'] if path.exists() else {}
-            gnn.append({'job': str((fold_dir / job).relative_to(root)), 'exists': path.exists(),
-                        'differs': [k for k in rp.GNN_JOB_IDENTITY if trained.get(k) != wanted[k]]})
+            differs = [k for k in rp.GNN_JOB_IDENTITY if trained.get(k) != wanted[k]]
+            source = fold_dir / 'prepared' / ('validation' if wanted['mode'] == 'select' else '')
+            if protocol_id(source) is None or protocol_id(fold_dir / job) != protocol_id(source):
+                differs.append('data')
+            gnn.append({'job': str((fold_dir / job).relative_to(root)), 'exists': path.exists(), 'differs': differs})
         fits = [(fold_dir / 'val_mf', plan['selection_seed'])] + [(fold_dir / 'runs' / f'seed_{s}', s) for s in plan['seeds']]
         for directory, seed in fits:
             cached = read(directory / 'mf_fit.json')
