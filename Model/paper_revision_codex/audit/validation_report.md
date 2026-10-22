@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§24는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§25는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -21,6 +21,7 @@
 | 회귀 테스트 (Cycle 13) | `test_cycle13_guards.py` 4개 추가 후 149/149 (v7 venv, 출력 저장 안 함). 커밋 cb22505와 db3653e의 새 worktree + lock venv 각각 148 통과, 1 건너뜀 → §22 |
 | 회귀 테스트 (Cycle 14) | `test_cycle14_guards.py` 2개 추가 후 151/151 (v7 venv, 출력 저장 안 함). 커밋 41ba20d의 새 worktree + lock venv 150 통과, 1 건너뜀 → §23 |
 | 회귀 테스트 (Cycle 15) | `test_cycle15_guards.py` 6개(매개변수화) 추가 후 157/157 (v7 venv, 출력 저장 안 함). 커밋 4c1ddfb의 새 worktree + lock venv 156 통과, 1 건너뜀 → §24 |
+| 회귀 테스트 (Cycle 16) | `test_cycle16_guards.py` 1개 추가 후 158/158 (v7 venv, `audit/cycle16/precommit_pytest.txt`). 커밋 6ce754d의 새 worktree + lock venv 157 통과, 1 건너뜀 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -49,7 +50,7 @@ F1, F2, F3 모두 28/28 통과 (`F*/leakage_check.json`). 검사 항목:
 |---|---|---|---|---|---|---|
 | F1_hist | v1–v5 시험 구간 (이미 노출) | repeat | 854 | 429 | 409 | 58,556 |
 | | | novel | 717 | 342 | 316 | |
-| F2_mid | F1 학습 구간의 마지막 25% | repeat | 897 | 458 | 431 | 47,979 |
+| F2_mid | F1 학습 구간의 마지막 25% (대부분 v1–v5의 내부 validation 구간) | repeat | 897 | 458 | 431 | 47,979 |
 | | | novel | 755 | 372 | 342 | |
 | F3_early | 처음 사용하는 앞쪽 구간 | repeat | 628 | 326 | 305 | 39,284 |
 | | | novel | 505 | 248 | 225 | |
@@ -203,8 +204,8 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
    - 첫 probe는 BLAS 스레드 결함(I-25와 같은 원인)과 F2 설정 하드코딩이 있어 `mf_boundary_probe_run1_blas24.csv`로 보존만 한다.
    - BPR의 fold별 최고 증가폭은 +0.0002 – +0.0044로 작다.
    - 따라서 v6 시험의 ALS와 ALS+BPR baseline은 덜 튜닝된 상태일 수 있다. Hybrid도 ALS를 구성요소로 쓰므로 영향의 방향을 단정할 수 없다.
-   - 세 fold의 시험을 이미 열었으므로 v6 fold는 다시 실행하지 않았다. 대신 사용자 승인을 받아, 쓰지 않은 구간 F4에서 모든 모델군의 grid를 넓힌 v7을 사전등록해 실행했다 (§12). v7에서도 Hybrid와 ALS+BPR의 차이는 네 칸 모두 비유의로, "가장 강한 baseline보다 일관되게 유의하게 높지는 않다"는 v6의 결론이 유지됐다. v6 표의 ALS·ALS+BPR 수치 자체는 덜 튜닝된 조건의 값으로 남는다.
-2. **F1 시험 구간은 v1–v5에서 반복 노출됐다.** F2/F3가 독립적인 확인이지만 데이터셋은 하나(RetailRocket 2015)뿐이다.
+   - 세 fold의 시험을 이미 열었으므로 v6 fold는 다시 실행하지 않았다. 대신 사용자 승인을 받아, 쓰지 않은 구간 F4에서 ALS·BPR·GNN의 grid를 넓힌 v7(Hybrid grid와 ALS+BPR α는 v6와 같음)을 사전등록해 실행했다 (§12). v7에서도 Hybrid와 ALS+BPR의 차이는 네 칸 모두 비유의로, "가장 강한 baseline보다 일관되게 유의하게 높지는 않다"는 v6의 결론이 유지됐다. v6 표의 ALS·ALS+BPR 수치 자체는 덜 튜닝된 조건의 값으로 남는다.
+2. **F1 시험 구간은 v1–v5에서 반복 노출됐고, F2 시험 구간(이벤트 비율 0.60–0.80)의 대부분(0.64–0.80, 이벤트의 80%)은 v1–v5에서 설정을 고를 때 쓴 내부 validation 구간이다** (`rolling_protocol.py`의 F2 설명, `v7_feasibility.md` §1 표). F2는 시험으로는 처음 연 구간이지만, v1–v5에서 정한 고정 설계와 독립적이지 않다. 평가·선택에 쓰인 적 없는 시험 구간은 F3와 v7의 F4뿐이고, 데이터셋도 하나(RetailRocket 2015)뿐이다.
 3. 평가 사용자가 수백 명이고, 그중 맞힌 사용자는 약 160–205명이다. 작은 차이는 검정력이 부족하다.
 4. 사후 분석(후보 수, gamma, IF)은 F1의 seed 42 하나로만 했다.
 5. **novel 정책에서 튜닝이 비대칭이다 (I-63, P1)**: 사전등록 규칙상 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, 추론 설정만 정책마다 다시 고른다. 그래서 novel에서 Hybrid는 결합 설정 2,808개를, ALS+BPR은 α를 novel validation으로 다시 고르지만, ALS·BPR·GNN 단독은 repeat에서 고른 설정 그대로다. 같은 grid 안에서 novel validation으로 골랐다면 (`report_tools/policy_tuning_gap.py`, `audit/cycle7/policy_tuning_gap_v6.json`, `_v7.json`. validation 점수 mean(NDCG@50, Recall@50), seed 42):
@@ -359,7 +360,7 @@ GNN·ALS+BPR 대비 95% CI 반폭은 0.004 – 0.010이다. 사전 추정은 pla
 - validation과 시험의 순위가 다르다. ALS는 validation에서 단일 모델군(ALS·BPR·GNN) 중 1위였지만(0.2176 vs GNN 0.2169, BPR 0.2154. 결합 모델인 ALS+BPR 0.2219, Hybrid 0.2250은 더 높음), 시험 repeat NDCG에서는 단일 모델군 중 최하위다 (ALS 0.1726, GNN 0.1824, BPR 0.1901). validation 모집단이 294명이라 선택 자체에 잡음이 크다.
 - `Hybrid_ALS_only`(같은 후보에서 결합 점수의 MF 부분만 ALS로 바꾼 ablation, 사전등록 비교 대상 아님, 검정 안 함)는 repeat NDCG 0.1814로 Hybrid보다 0.0127 낮다. v6에서는 F3 novel(두 지표)과 F1 repeat Recall에서 반대였다. 후보 생성에는 BPR이 남아 있고 검정도 하지 않았으므로, 이 결과로 BPR의 기여를 판단할 수는 없다.
 - v7의 수치를 v6 fold와 평균하지 않는다. grid와 구간이 달라 같은 실험이 아니다.
-- 남은 한계: ALS factors·α, BPR factors, GNN layers·dim·lr이 v7에서도 끝에 걸렸다. 사전등록 규칙에 따라 다시 넓히지 않았다.
+- 남은 한계: ALS factors·α, BPR factors, GNN layers·dim·lr이 v7에서도 끝에 걸렸다. 사전등록 규칙에 따라 다시 넓히지 않았다. Hybrid grid는 v6와 같게 두었고(v6에서도 끝에 걸린 축이 있었음), v7에서도 repeat 후보 수(최소), novel α(최대)·후보 수(balanced_union의 최대)가 끝에 걸렸다 (§12.2). 따라서 "baseline을 충분히 튜닝해도"라는 위 답은 Hybrid 쪽 결합 설정까지 충분히 탐색했다는 뜻이 아니다.
 
 ## 13. Cycle 4: 재개·시험 열람 가드와 기록 (I-39 – I-46)
 
@@ -541,3 +542,16 @@ Cycle 14 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 12
 | 문서 정정 (I-103) | 출력이 남지 않은 Cycle 13 시각 표시, 공식 변이 테스트 재실행의 동시 실행 기록(Cycle 8–10·12·13) |
 | 회귀 테스트 | 작업 폴더 157/157 (v7 venv, 출력 저장 안 함). 커밋 4c1ddfb의 새 worktree + lock venv: 156 통과, 1 건너뜀 (`audit/cycle15/postcommit_4c1ddfb_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_4c1ddfb_sha256.txt`). Cycle 14 문서 커밋 121b40a: 150 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_121b40a_*.txt`) |
 | 가드 변이 H1–H62 (H62 plan에 grid sha256 없음. H61은 새 sha256만으로도 해시가 바뀌어 살아남으므로, Cycle 14 테스트에 기록된 축 확인을 더함. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 4c1ddfb 코드로 실행(시작 때 커밋 안 된 것은 문서 3개뿐이고 실행 중에 코드를 고치지 않음), 62/62 검출, 수정 안 한 사본 71 통과. 10:50:02–12:18:48 UTC (`audit/cycle15/guard_mutants.json`, `guard_mutants_cycle15_log.txt`) |
+
+## 25. Cycle 16: v7 grid와 F2 구간 서술, dirty 검사 (I-105 – I-108)
+
+Cycle 15 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD c0b52c0)에서 찾은 항목이다. 새 P0·P1은 없다 (코드 감사 P2 1건·P3 1건, 문서 감사 P2 1건·P3 3건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다. 바뀐 것은 해석의 한정(§8 항목 2, §12.5 남은 한계)이다.
+
+| 검사 | 결과 |
+|---|---|
+| v7 grid 서술 (I-105) | v7은 ALS·BPR·GNN grid만 넓혔고 Hybrid grid(2,808개)와 ALS+BPR α(11개)는 v6와 같음: 커밋된 두 plan의 `hybrid_grid_size`·`mf_alphas`가 같고, 하나의 봉인 grid sha256이 두 plan에 맞음 (`audit/cycle15/plan_hash_check.txt`). "모든 모델군 grid 확장" 6곳을 고치고, §12.5와 I-23 남은 한계에 v7 Hybrid의 끝 축(§12.2)을 더함 |
+| F2 시험 구간 (I-106) | F2 시험 구간의 이벤트 80%가 v1–v5 내부 validation 구간 (`v7_feasibility.md` §1 표, `rolling_protocol.py` F2 설명). "F2/F3가 독립적인 확인" 서술을 고침 (§3 표, §8 항목 2, I-01 수정 설명, `manuscript_alignment.md`) |
+| 문서 정정 (I-107) | 재현 5단계의 49분 38초는 Cycle 4 재실행 시간(`audit/cycle4/mutation_cycle4_start.txt`), Cycle 3 기준 실행은 시각 출력 없음. Cycle 11 재실행과 재현 실행(`audit/cycle11/repro_run.txt`)의 겹침 추가. Cycle 13 가드 첫 실행 로그가 보존 안 됐음을 `cycle_log.md`에도 표시 |
+| dirty 검사 (I-108) | 사전등록 실행 전 dirty 검사가 `audit_runs`로 시작하는 모든 경로(예: `audit_runs_patch.py`)를 빼던 것을 `audit_runs/` 폴더만 빼도록 고침. 실제 저장소에서 `git_state()`는 커밋 안 된 코드·문서를 모두 나열하고 gitignore 대상 `audit_runs/`는 나오지 않음, v6·v7 plan 내용·해시 그대로 (`audit/cycle16/git_state_and_plan_check.txt`) |
+| 회귀 테스트 | 커밋 전 작업 폴더 158/158 (v7 venv, 12:34:23–12:40:13 UTC, `audit/cycle16/precommit_pytest.txt`). 커밋 6ce754d의 새 worktree + lock venv: 157 통과, 1 건너뜀 (`audit/cycle16/postcommit_6ce754d_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_6ce754d_sha256.txt`). Cycle 15 문서 커밋 c0b52c0: 156 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_c0b52c0_*.txt`) |
+| 가드 변이 H1–H63 (H63 dirty 검사의 접두사 면제. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 6ce754d 코드로 실행(시작 때 커밋 안 된 것은 문서 7개와 `audit/cycle16/`뿐이고 실행 중에 코드를 고치지 않음), 63/63 검출, 수정 안 한 사본 72 통과. 12:40:29–14:12:07 UTC (`audit/cycle16/guard_mutants.json`, `guard_mutants_cycle16_log.txt`) |

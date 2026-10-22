@@ -127,7 +127,7 @@
 - v7 완료 후: I-35 (그림 제목 하드코딩), I-36 (`requirements.txt`와 실행 환경 불일치, launcher 미추적), I-37 (첫 안내 문서들이 v5 주장을 그대로 제시)
 
 **C. 수정**
-- v7 프로토콜 추가 (모든 모델군 grid 확장, F4 한 fold). 사용자 승인 후 사전등록.
+- v7 프로토콜 추가 (ALS·BPR·GNN grid 확장, Hybrid grid·ALS+BPR α는 v6와 같음, F4 한 fold). 사용자 승인 후 사전등록.
 - `pytest.ini`, v7 구간을 원본 타임스탬프로 확인하는 테스트.
 - 보조 스크립트: `plot_rolling_results.py`, `cross_machine_repro.py`, `device_check.py`, `mutation_check.py`, `recompute_test_metrics.py`, `launch_detached.py`.
 - `test_cycle3_consistency.py` (테스트 함수 8개, 하나가 정책별로 나뉘어 수집 9개). v7 실행 중에는 코드 해시 잠금 때문에 추가하지 않고, v7 완료 후 추가함.
@@ -439,7 +439,7 @@
 - 도구: `compare_outputs.py`의 키·객체 확인과 쌍별 빈 폴더 표시, 가드 변이 H55–H60.
 - 테스트: `test_cycle13_guards.py` 4개.
 - 문서: §12.2 Hybrid novel 행과 `v7_feasibility.md` §4의 끝 축(커밋된 `selection.json`은 고치지 않음), I-96 항목들, 재현 문서(plan commit으로 다시 실행하면 옛 끝 표시가 나옴).
-- 가드 변이 첫 실행이 H52에서 "대상 문구 없음"으로 멈춤(H1–H51은 모두 검출): cb22505에서 바꾼 `all_equal` 줄을 H52가 옛 문구로 가리켰음. 대상을 고치고(db3653e) 60개 대상이 모두 한 번씩 있는지 확인한 뒤 처음부터 다시 실행.
+- 가드 변이 첫 실행이 H52에서 "대상 문구 없음"으로 멈춤(H1–H51은 모두 검출): cb22505에서 바꾼 `all_equal` 줄을 H52가 옛 문구로 가리켰음. 대상을 고치고(db3653e) 60개 대상이 모두 한 번씩 있는지 확인한 뒤 처음부터 다시 실행. 첫 실행의 로그는 다시 실행할 때 덮어써 보존 안 됨(H1–H51 검출은 그 로그를 본 기록).
 
 **D. 검증**
 - 새 테스트와 관련 테스트 13개 통과. H52·H55–H60을 해당 테스트만으로 먼저 확인: 일곱 다 검출, 수정 안 한 사본 6 통과(출력 저장 안 함).
@@ -514,3 +514,33 @@
 **F. 커밋 후 재검증**
 - 4c1ddfb: 새 worktree, lock venv 156 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle15/postcommit_4c1ddfb_*.txt`).
 - Cycle 14 문서 커밋 121b40a: 150 통과, 1 건너뜀, 60/60, 28/28 (`audit/cycle15/postcommit_121b40a_*.txt`).
+- Cycle 15 문서 커밋 c0b52c0: 156 통과, 1 건너뜀, 60/60, 28/28 (`audit/cycle16/postcommit_c0b52c0_*.txt`).
+
+## Cycle 16 (2026-10-22): Cycle 15 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD c0b52c0)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1 없음)**
+- 문서 감사 P2 1건: I-105 v7을 "모든 모델군 grid 확장"으로 서술(Hybrid grid·ALS+BPR α는 v6와 같음).
+- 코드 감사 P2 1건: I-106 F2 시험 구간을 "독립적인 확인"으로 서술(이벤트 80%가 v1–v5 내부 validation 구간).
+- 문서 감사 P3 3건 (I-107), 코드 감사 P3 1건 (I-108 dirty 검사의 접두사 면제).
+- 코드 감사는 4c1ddfb의 회귀가 없음을 확인(v6→v7→v6 전환 뒤에도 plan 내용·해시가 커밋된 값과 같음, plan payload를 따로 다시 계산하는 곳 없음). 미확정 의심(GNN 시험 경로 float32, `tie_safe_cutoff`와 `int(len·end)`의 반올림, 빈 줄 있는 접근 로그는 실패하는 방향 등)은 실제 데이터에서 차이 없음.
+
+**C. 수정**
+- 코드: dirty 검사 면제를 `audit_runs/` 폴더로 한정.
+- 테스트: `test_cycle16_guards.py` 1개. 가드 변이 H63.
+- 문서: I-105 – I-108.
+
+**D. 검증**
+- H63을 해당 테스트만으로 먼저 확인: 고친 코드 1 통과, H63을 넣은 사본 1 실패(출력 저장 안 함). 63개 대상이 모두 한 번씩 있음.
+- 작업 폴더 전체 테스트: 158/158 (v7 venv, `audit/cycle16/precommit_pytest.txt`).
+- 실제 저장소: `git_state()`가 커밋 안 된 코드·문서를 모두 나열하고 `audit_runs/`는 빠짐. v6·v7 plan 내용·해시가 커밋된 `plan.json`과 같음 (`audit/cycle16/git_state_and_plan_check.txt`).
+- 가드 변이 H1–H63을 커밋 6ce754d 코드로 실행: 63/63, 수정 안 한 사본 72 통과 (`audit/cycle16/guard_mutants.json`).
+
+**E. 커밋**
+- 6ce754d: 코드, 테스트, 가드 변이 H63 (I-108)
+- 이 문서와 함께: 문서 정정(I-105 – I-107), Cycle 16 기록과 증거
+
+**F. 커밋 후 재검증**
+- 6ce754d: 새 worktree, lock venv 157 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle16/postcommit_6ce754d_*.txt`).

@@ -1,0 +1,10 @@
+commit: c0b52c06d311651ad9d0f36ac70eceff148cd46e
+worktree: /c/Users/chris/AppData/Local/Temp/pc_c0b52c0
+status: 0 changed files
+venv: C:/Users/chris/venvs/pbda_lockcheck
+started_utc: 2026-10-22T12:19:29Z
+    adjacency_tensor = torch.sparse_coo_tensor(indices_tensor, values_tensor, torch.Size(normalized.shape))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+156 passed, 1 skipped, 1 warning in 410.47s (0:06:50)
+finished_utc: 2026-10-22T12:26:22Z

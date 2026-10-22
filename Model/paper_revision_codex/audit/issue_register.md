@@ -4,7 +4,7 @@
 상태: `해결·검증` / `수정·검증 대기(실험 필요)` / `환경 제약` / `원고 수정 필요` / `공개·한정`(시험으로 확인할 수 없어 공개하고 해석을 한정함) / `미해결`.
 "검증"은 이 PC에서 실제로 실행한 테스트·스크립트만 가리킨다. 결과 JSON을 읽은 것만으로는 검증으로 치지 않는다.
 
-> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (3 fold의 봉인 평가 결과가 커밋됨. 종료 코드 0은 v6 PC의 실행 로그 기준). I-23 확인을 위한 v7(처음 쓰는 구간 F4, 모든 모델군 grid 확장)도 완료됨. Cycle 4 재감사 항목(I-39 – I-47), Cycle 5 재감사 항목(I-48 – I-57), Cycle 6 재감사 항목(I-58 – I-62), Cycle 7 재감사 항목(I-63 – I-68), Cycle 8 재감사 항목(I-69 – I-73), Cycle 9 재감사 항목(I-74 – I-79), Cycle 10 재감사 항목(I-80 – I-84), Cycle 11 재감사 항목(I-85 – I-89), Cycle 12 재감사 항목(I-90 – I-95), Cycle 13 재감사 항목(I-96 – I-100), Cycle 14 재감사 항목(I-101 – I-102), Cycle 15 재감사 항목(I-103 – I-104) 처리 완료. 단 I-63(novel 튜닝 비대칭, P1)은 시험 구간을 다시 열 수 없어 공개·해석 한정으로 처리함.
+> **현재 상태 (2026-10-22 KST)**: v6 실제 데이터 실행이 3 fold 모두 완료됨 (3 fold의 봉인 평가 결과가 커밋됨. 종료 코드 0은 v6 PC의 실행 로그 기준). I-23 확인을 위한 v7(처음 쓰는 구간 F4, ALS·BPR·GNN grid 확장)도 완료됨. Cycle 4 재감사 항목(I-39 – I-47), Cycle 5 재감사 항목(I-48 – I-57), Cycle 6 재감사 항목(I-58 – I-62), Cycle 7 재감사 항목(I-63 – I-68), Cycle 8 재감사 항목(I-69 – I-73), Cycle 9 재감사 항목(I-74 – I-79), Cycle 10 재감사 항목(I-80 – I-84), Cycle 11 재감사 항목(I-85 – I-89), Cycle 12 재감사 항목(I-90 – I-95), Cycle 13 재감사 항목(I-96 – I-100), Cycle 14 재감사 항목(I-101 – I-102), Cycle 15 재감사 항목(I-103 – I-104), Cycle 16 재감사 항목(I-105 – I-108) 처리 완료. 단 I-63(novel 튜닝 비대칭, P1)은 시험 구간을 다시 열 수 없어 공개·해석 한정으로 처리함.
 > - 시험 열람: v6는 fold마다 봉인 평가 1회, F1에서만 사후 분석 2회 추가 (`audit/results_v6/test_access_log.jsonl`). v7은 F4 봉인 평가 1회 (`audit/results_v7/test_access_log.jsonl`).
 > - 결과와 검증: `validation_report.md` (v7은 §12).
 > - Cycle 2 재감사에서 I-23 – I-26, Cycle 2 커밋 후 검증(418e7dd)에서 I-27, Cycle 3에서 I-28 – I-37, Cycle 3 커밋 후 검증에서 I-38, Cycle 4 재감사에서 I-39 – I-47, Cycle 5 재감사에서 I-48 – I-57, Cycle 6 재감사에서 I-58 – I-62, Cycle 7 재감사에서 I-63 – I-68, Cycle 8 재감사에서 I-69 – I-73, Cycle 9 재감사에서 I-74 – I-79, Cycle 10 재감사에서 I-80 – I-84, Cycle 11 재감사에서 I-85 – I-89, Cycle 12 재감사에서 I-90 – I-95, Cycle 13 재감사에서 I-96 – I-100, Cycle 14 재감사에서 I-101 – I-102, Cycle 15 재감사에서 I-103 – I-104를 찾음.
@@ -33,7 +33,7 @@
 | I-20 | P3 | v6 `selection.json`의 `job_dir`가 절대경로 | 미해결 (봉인된 산출물이라 고치지 않음. 다른 PC에서는 `refits.json`의 상대경로를 씀) | - |
 | I-21 | P3 | v5 성공 기준이 "평균이 모든 baseline보다 높음" (유의성 아님) | 원고 수정 필요 (`manuscript_alignment.md`) | - |
 | I-22 | P3 | 원고 파일이 저장소에 없음 | 원고 수정 필요 (대조표 제공) | - |
-| I-23 | P1 | v6의 ALS/BPR이 grid 경계에서 선택됨. 경계 밖에서 ALS validation이 +0.011 – +0.027 | 해결·검증 (한계 공개): 사용자 승인으로 처음 쓰는 구간 F4에서 모든 모델군 grid를 넓힌 v7 실행. ALS가 validation에서 GNN을 앞섰지만(0.2176 vs 0.2169) 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의 (v6는 NDCG 6칸 비유의, Recall 3칸 유의). "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론 유지. v6 F1–F3 수치는 덜 튜닝된 조건으로 남고, v7에서도 일부 축이 끝에 걸림(사전등록 규칙상 재확장 안 함) | c9d3e49, dea0f20 |
+| I-23 | P1 | v6의 ALS/BPR이 grid 경계에서 선택됨. 경계 밖에서 ALS validation이 +0.011 – +0.027 | 해결·검증 (한계 공개): 사용자 승인으로 처음 쓰는 구간 F4에서 ALS·BPR·GNN grid를 넓힌 v7 실행(Hybrid grid·ALS+BPR α는 v6와 같음). ALS가 validation에서 GNN을 앞섰지만(0.2176 vs 0.2169) 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의 (v6는 NDCG 6칸 비유의, Recall 3칸 유의). "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론 유지. v6 F1–F3 수치는 덜 튜닝된 조건으로 남고, v7에서도 일부 축이 끝에 걸림(사전등록 규칙상 재확장 안 함) | c9d3e49, dea0f20 |
 | I-24 | P3 | ALS 결과가 BLAS 스레드 수에 따라 달라짐 | 문서화: v6·v7의 실제 스레드 수는 기록되지 않음. v6는 다른 PC 1스레드 재학습과 비트 단위 일치(§9), v7은 F4 seed 42 ALS가 1스레드 재학습과 비트 단위 일치·24스레드와 불일치(Cycle 5)로 1스레드였음을 뒷받침. v6·v7 시점 코드는 다른 환경변수가 이미 있으면 그 값이 우선했음 → Cycle 4에서 강제 고정 (I-41) | Cycle 2 커밋 |
 | I-25 | P2 | `determinism_check.py`가 numpy를 import한 뒤 스레드 환경변수를 설정함 (거짓 비결정성 보고) | 해결·검증 | Cycle 2 커밋 |
 | I-26 | P2 | Hybrid 후보 수가 fold마다 다름 (20000 / 500 / all) | 해석 사항: validation 곡선이 평평함. 원고에서 후보 수를 핵심 설계로 주장하지 않음 | - |
@@ -115,6 +115,10 @@
 | I-102 | P3 | Cycle 14 문서 감사 4건: I-99 "파일을 읽기 전에 거부"(실제로는 `require_protocol`이 manifest의 파일 해시를 먼저 확인), Cycle 13 비교 재실행을 "커밋 cb22505의 도구"로 적음(실제로는 커밋 48초 전 작업 폴더), 가드 변이 동시 실행 목록에서 Cycle 8–10의 커밋 후 테스트와 Cycle 13 공식 변이 테스트의 겹침 누락, 등록부 머리말 목록에 Cycle 13 없음. 같이 확인한 의심 2건도 맞아 정정: Cycle 13 가드 첫 실행이 cb22505 커밋 전(06:06:59 UTC) 작업 폴더에서 시작, 가드 재실행과 겹친 코드 감사는 Cycle 14 것. I-96의 "4곳"은 3종 5곳 | 해결: 문구와 시각 정정(증거 시각은 각 출력 파일의 시작·종료 시각과 커밋 시각. Cycle 13 가드 첫 실행 시작 06:06:59와 작업 폴더 전체 테스트 06:07–06:13은 출력이 남지 않아 셸 기록의 시각이며 그렇게 표시함, I-103) | Cycle 14 문서 커밋 |
 | I-103 | P3 | Cycle 15 문서 감사 2건: Cycle 13 가드 첫 실행 시작(06:06:59 UTC)과 작업 폴더 전체 테스트(06:07–06:13) 시각은 커밋된 출력이 없는데 표시 없음, 공식 변이 테스트(재현 5단계)를 "다른 GPU 작업이 없을 때 실행"이라 하면서 Cycle 8–10·12 재실행이 커밋 후 전체 테스트·가드 변이와 겹친 것을 적지 않음(I-102 정정이 가드 변이 쪽만 고침) | 해결: 두 시각에 "셸 기록의 시각, 출력 저장 안 함" 표시, 5단계의 "다른 GPU 작업 없음"을 Cycle 3 기준 실행으로 한정하고 재실행별 겹침을 각 출력 파일·커밋 후 테스트 출력의 시각으로 적음 | Cycle 15 문서 커밋 |
 | I-104 | P3 | I-101 수정이 불완전: plan의 축과 `candidate_ks`만으로는 grid가 고정되지 않아, grid 안의 후보 깊이 값(예: 500→300), 전략과 후보 깊이의 짝(예: 20000을 blend 전용으로, `all`을 두 전략 모두에), 순서만 바꾼 grid(`best_row`의 동점 처리를 정함)도 봉인된 plan 해시가 됨(감사자가 임시 사본에서 재현). 코드 해시 가드가 코드 변경을 따로 잡으므로 v6·v7 결과 영향 없음. v7 F4 novel의 최고점은 balanced_union 20,000과 blend `all`이 동점(validation 카탈로그 22,760개라 두 후보 집합이 사실상 같음)이고 grid 순서로 앞의 것이 선택됨(감사자 확인, 저장 안 함) | 해결·검증: grid가 봉인된 v6·v7 grid와 다르면 순서 있는 grid 전체의 sha256(`hybrid_grid_sha256`)을 plan에 추가. 봉인된 grid는 예전 형식 그대로라 v6·v7 plan 내용과 해시가 커밋된 `plan.json`과 같음(`audit/cycle15/plan_hash_check.txt`, HEAD 4c1ddfb). 세 가지 변경 모두 v6·v7에서 해시가 바뀜(테스트 6개), Cycle 14 테스트에 기록된 축이 grid를 따르는지 추가(H61이 살아남지 않게). 변이 H62 | 4c1ddfb |
+| I-105 | P2 | Cycle 16 문서 감사: 다섯 문서(6곳, 원고용 권장 문구 포함)가 v7을 "모든 모델군 grid 확장"으로 서술. 실제로는 ALS·BPR·GNN만 넓혔고 Hybrid grid(2,808개)와 ALS+BPR α(11개)는 v6와 같음(두 plan, 하나의 봉인 grid sha256). v6·v7 모두 Hybrid 선택이 grid 끝에 걸렸는데 남은 한계에는 학습 모델군의 끝만 적힘 | 해결: 6곳을 "ALS·BPR·GNN grid 확장(Hybrid grid·ALS+BPR α는 v6와 같음)"으로 고침, `validation_report.md` §12.5와 I-23 남은 한계에 v7 Hybrid의 끝 축과 "baseline을 충분히 튜닝해도"가 Hybrid 결합 설정의 충분한 탐색을 뜻하지 않음을 더함, `v7_feasibility.md` §4에 Hybrid grid를 넓히지 않았음을 적음. 수치 변화 없음 | Cycle 16 커밋 |
+| I-106 | P2 | Cycle 16 코드 감사: `validation_report.md` §8 항목 2가 "F2/F3가 독립적인 확인", I-01 수정 설명이 "F2/F3는 처음 쓰는 시험 구간"이라고 함. F2 시험 구간(이벤트 0.60–0.80)의 80%(0.64–0.80)는 v1–v5에서 설정을 고를 때 쓴 내부 validation 구간이라(`rolling_protocol.py`의 F2 설명, `v7_feasibility.md` §1 표) v1–v5의 고정 설계와 독립적이지 않음 | 해결: §8 항목 2, §3 표의 F2 행, I-01 수정 설명, `manuscript_alignment.md`의 단일 분할 행을 "F2는 시험으로는 처음 열었지만 대부분 v1–v5 validation 구간, 평가·선택에 쓰인 적 없는 시험 구간은 F3·F4"로 고침. 수치 변화 없음 | Cycle 16 커밋 |
+| I-107 | P3 | Cycle 16 문서 감사 3건: 재현 5단계의 49분 38초가 Cycle 3 기준 실행 시간처럼 적힘(실제는 Cycle 4 재실행, Cycle 3 기준 실행은 시각 출력 없음), 공식 변이 재실행의 겹침 목록에 Cycle 11(재현 실행과 겹침)이 빠지고 Cycle 4는 근거 없이 "겹침"에 포함, `cycle_log.md`의 Cycle 13 가드 첫 실행 결과에 로그 미보존 표시 없음 | 해결: 5단계에 각 시간의 출처(70f5106의 Cycle 3 기록, 6364ad4부터 적힌 Cycle 4 재실행 시각)와 Cycle 4 겹침 기록 없음, Cycle 11 겹침, 독립 감사 에이전트의 동시 실행 가능성(시각 저장 안 됨)을 적음. `cycle_log.md`에 미보존 표시 | Cycle 16 커밋 |
+| I-108 | P3 | Cycle 16 코드 감사: `git_state`의 dirty 검사 면제가 슬래시 없는 접두사(`audit_runs`)라, 커밋 안 된 `audit_runs_patch.py` 같은 코드 파일도 빠져 사전등록 실행 전 거부가 일어나지 않음(감사자가 porcelain 출력을 바꿔 재현). v6·v7 실행 때 그런 파일은 없었음 | 해결: 면제를 `audit_runs/` 폴더로만 한정, `test_cycle16_guards.py`, 가드 변이 H63. 실제 저장소에서 커밋 안 된 코드·문서가 모두 나열되고 v6·v7 plan 해시 그대로 (`audit/cycle16/git_state_and_plan_check.txt`) | Cycle 16 커밋 |
 
 ---
 
@@ -124,7 +128,7 @@
 - **재현**: v3 `result.json`의 `success: false`를 확인한 다음 v4/v5 계획이 작성됨. v5 backbone(`l2_uniform`, `l3_uniform`, `l2_mf_mixed`)은 v3 validation 상위 3개와 다름.
 - **근본 원인**: 수치 선택은 validation으로 했지만, 탐색 공간(후보 수 최대 20,000, backbone, 독립 GNN 비교 대상)은 시험 결과를 본 뒤 사람이 정함.
 - **영향**: v5의 시험 결과는 selection bias가 있어 일반화 성능 추정치로 볼 수 없음.
-- **수정**: `rolling_protocol.py`(v6). 모든 grid·fold·seed·선택 규칙을 실행 전에 `plan.json`에 고정하고 해시로 잠금. fold마다 시험을 한 번만 열고 `test_access_log.jsonl`에 기록. plan이 바뀌면 같은 fold를 다시 열 수 없음. F1은 v1–v5 시험 구간 그대로(이미 노출됐다고 명시), F2/F3는 처음 쓰는 시험 구간.
+- **수정**: `rolling_protocol.py`(v6). 모든 grid·fold·seed·선택 규칙을 실행 전에 `plan.json`에 고정하고 해시로 잠금. fold마다 시험을 한 번만 열고 `test_access_log.jsonl`에 기록. plan이 바뀌면 같은 fold를 다시 열 수 없음. F1은 v1–v5 시험 구간 그대로(이미 노출됐다고 명시), F2/F3는 시험으로는 처음 여는 구간(단 F2 시험 구간의 이벤트 80%는 v1–v5에서 설정을 고를 때 쓴 내부 validation 구간이라 설계와 독립적이지 않음, I-106).
 - **회귀 테스트**: `test_access_log_blocks_reopening_under_new_plan`, `test_rolling_protocol_end_to_end`(재실행해도 시험 접근이 추가되지 않음, plan 변경 시 거부), `test_plan_freezes_grids_and_rules`.
 - **기록 보존**: v5 결과와 코드는 그대로 둠. `robust_hybrid.py`에 `BACKBONE_PROVENANCE`를 추가해 시험을 본 뒤 정한 선택임을 기록.
 
@@ -250,7 +254,7 @@ Cycle 2에서 `report_tools/mf_boundary_probe.py`로 **validation 구간만** �
 **Cycle 3 처리 (v7)**: F1–F3를 다시 여는 대신, 한 번도 평가하지 않은 구간 F4(이벤트 앞 36%)에서 ALS·BPR·GNN grid를 모두 넓힌 v7을 사전등록하고 사용자 승인 후 실행함 (`v7_feasibility.md`, `validation_report.md` §12).
 - ALS: factors 1024, α 80 (둘 다 새 grid의 끝), validation 0.2176. 단독 GNN 최고 0.2169보다 높음.
 - 시험: Hybrid − ALS+BPR은 repeat/novel × NDCG/Recall 4칸 모두 Holm 보정 후 비유의 (+0.0013 – +0.0077). v6(NDCG 6칸 비유의, Recall 3칸 유의)와 합쳐 보면 "가장 강한 baseline보다 일관되게 유의하게 높지 않다"는 결론이 같음.
-- 남은 한계: v6 표의 ALS·ALS+BPR 수치는 고칠 수 없음. v7에서도 ALS factors·α, BPR factors, GNN layers·dim·lr이 끝에 걸렸고, 사전등록 규칙대로 더 넓히지 않음. F4 한 fold, 시험 사용자 repeat 413명 / novel 306명이라 0.01 이하의 차이는 판정할 수 없음.
+- 남은 한계: v6 표의 ALS·ALS+BPR 수치는 고칠 수 없음. v7에서도 ALS factors·α, BPR factors, GNN layers·dim·lr이 끝에 걸렸고, 사전등록 규칙대로 더 넓히지 않음. Hybrid grid는 v6와 같게 두었고(v6에서도 끝에 걸린 축이 있었음), v7에서도 repeat 후보 수(최소), novel α(최대)·후보 수(balanced_union의 최대)가 끝에 걸렸다. F4 한 fold, 시험 사용자 repeat 413명 / novel 306명이라 0.01 이하의 차이는 판정할 수 없음.
 
 ## I-24 (P3) BLAS 스레드 수
 
