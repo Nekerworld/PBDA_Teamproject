@@ -184,11 +184,13 @@ class UnifiedPreprocessor:
         val_train, val_test, val_cutoff = chronological_split(train, self.validation_size)
         self._write_partition(val_train, val_test, properties, categories, val_cutoff,
                               self.processed_dir / "validation", "validation", len(train))
+        # The outer manifest marks the folder complete for a resume, so it is written once, by finalize_outer.
         manifest = self._write_partition(train, test, properties, categories, cutoff,
-                                         self.processed_dir, "test", len(events))
+                                         self.processed_dir, "test", len(events), write_manifest=False)
         return self.finalize_outer(manifest, self.processed_dir, events, clean, invalid)
 
-    def _write_partition(self, train, test, properties, categories, cutoff, out, role, raw_count):
+    def _write_partition(self, train, test, properties, categories, cutoff, out, role, raw_count,
+                         write_manifest=True):
         out.mkdir(parents=True, exist_ok=True)
         past_props = properties.loc[(properties.timestamp < cutoff) &
                                      properties.itemid.isin(train.itemid.unique())].copy()
@@ -320,7 +322,8 @@ class UnifiedPreprocessor:
         manifest['data_quality_warnings'] = health
         for warning in health:
             logging.warning('%s: %s', role, warning)
-        dump_json(out / "manifest.json", manifest)
+        if write_manifest:
+            dump_json(out / "manifest.json", manifest)
         return manifest
 
     def finalize_outer(self, manifest, out, events, clean, invalid):
@@ -335,7 +338,8 @@ class UnifiedPreprocessor:
         manifest["audit_hashes"]["dataset_statistics.csv"] = sha256(out / "dataset_statistics.csv")
         manifest["input_hashes"] = {name: sha256(self.data_dir / name) for name in (
             "events.csv", "item_properties_part1.csv", "item_properties_part2.csv", "category_tree.csv")}
-        dump_json(out / "manifest.json", manifest)
+        dump_json(out / "manifest.json.partial", manifest)
+        (out / "manifest.json.partial").replace(out / "manifest.json")
         return manifest
 
 

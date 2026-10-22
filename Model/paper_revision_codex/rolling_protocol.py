@@ -535,7 +535,11 @@ def run_gnn_jobs(root, specs, stop=None):
                     logfile.close()
                     raise
                 running.append((process, spec, logfile))
-                kill_with_parent(process)
+                try:
+                    kill_with_parent(process)
+                except OSError:
+                    if process.poll() is None:  # a job that already ended cannot join; its exit code is read below
+                        raise
             time.sleep(5)
             for entry in list(running):
                 process, spec, logfile = entry
@@ -1223,6 +1227,9 @@ def write_reports(root):
 def run(root, raw, folds=None, posthoc=True, protocol=None):
     if protocol:
         use_protocol(protocol)
+    if folds is not None and not folds:
+        raise ValueError('An empty fold list (e.g. --folds with an empty shell variable) would run every fold; '
+                         'leave out --folds to run them all')
     unknown = sorted(set(folds or ()) - {f['name'] for f in FOLDS})
     if unknown:
         raise ValueError(f'Unknown folds {unknown}; this protocol has {[f["name"] for f in FOLDS]}')
@@ -1276,7 +1283,7 @@ if __name__ == '__main__':
     r = sub.add_parser('run')
     r.add_argument('--root', type=Path, required=True)
     r.add_argument('--raw', type=Path, required=True)
-    r.add_argument('--folds', nargs='*')
+    r.add_argument('--folds', nargs='+')
     r.add_argument('--no-posthoc', action='store_true')
     r.add_argument('--protocol', choices=sorted(PROTOCOLS), default='v6')
     j = sub.add_parser('gnn-job')

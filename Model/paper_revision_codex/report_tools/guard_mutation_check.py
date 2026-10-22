@@ -1,5 +1,5 @@
-"""Put the pre-fix behaviour of each cycle-5..11 guard (H1-H48) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10/11_guards.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
+"""Put the pre-fix behaviour of each cycle-5..12 guard (H1-H54) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11/12_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
 from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
 as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
@@ -67,11 +67,20 @@ M = {
      "        try:\n            os.link(source / name, destination / name)\n"
      "        except OSError as error:\n            raise OSError(f'Could not hard-link {name} from {source} to {destination}') from error\n"
      "    if (source / 'validation').exists():\n        clone_protocol(source / 'validation', destination / 'validation')\n"),
- 'H46 GNN job not tied to the run': ('rolling_protocol.py', "                running.append((process, spec, logfile))\n                kill_with_parent(process)\n",
-                                     "                running.append((process, spec, logfile))\n"),
+ 'H46 GNN job not tied to the run': ('rolling_protocol.py', "                try:\n                    kill_with_parent(process)\n",
+                                     "                try:\n                    pass\n"),
  'H47 job object without kill-on-close': ('rolling_protocol.py', "LimitFlags = 0x2000", "LimitFlags = 0"),
  'H48 failed launch leaves its log open': ('rolling_protocol.py', "                except BaseException:\n                    logfile.close()\n                    raise",
                                            "                except BaseException:\n                    raise"),
+ 'H49 outer manifest written before finalize_outer': ('data_protocol.py', '"test", len(events), write_manifest=False)',
+                                                      '"test", len(events), write_manifest=True)'),
+ 'H50 empty fold list runs every fold': ('rolling_protocol.py', "    if folds is not None and not folds:\n        raise", "    if False:\n        raise"),
+ 'H51 job object error hides an ended job': ('rolling_protocol.py', "if process.poll() is None:  # a job that already ended",
+                                             "if True:  # a job that already ended"),
+ 'H52 zero compared files pass': ('report_tools/compare_outputs.py', "'all_equal': bool(rows) and all(", "'all_equal': all("),
+ 'H53 JSON compared without types': ('report_tools/compare_outputs.py', "    if type(x) is not type(y):\n        return False\n", ""),
+ 'H54 files only in NEW ignored': ('report_tools/compare_outputs.py', "for name in sorted(listed(new) - listed(committed))]",
+                                   "for name in []]"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
@@ -90,7 +99,7 @@ def fresh():
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        'test_cycle11_guards.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)

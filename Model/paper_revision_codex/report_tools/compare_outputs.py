@@ -3,7 +3,9 @@
 Each pair is NEW=COMMITTED; a directory pair compares every file of COMMITTED (except .gitattributes, which is not
 generated) with the same relative path in NEW. NEW=COMMITTED#k1,k2 compares only those top-level JSON keys, for
 outputs that are meant to change over time (verify_plan_code lists the files added since the plan). For every file the output records both sha256 digests, whether the bytes are equal apart from line endings, and for
-JSON files whether the parsed values are equal and which top-level keys differ. Nothing is re-run here.
+JSON files whether the parsed values are equal (same types too: 1, 1.0 and true differ; NaN equals NaN) and which
+top-level keys differ. A file that only NEW has, a comparison of zero files, or #keys on a non-JSON file makes the
+result unequal or an error, so a wrong path cannot pass. Nothing is re-run here.
 
 Usage: python report_tools/compare_outputs.py --output audit_runs/repro/compare.json \
            audit_runs/repro/stamp_code_v7.json=audit/cycle9/stamp_code_v7.json audit_runs/repro/figures_v7=audit/figures_v7
@@ -11,9 +13,21 @@ Usage: python report_tools/compare_outputs.py --output audit_runs/repro/compare.
 import argparse
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def same(x, y):
+    if type(x) is not type(y):
+        return False
+    if isinstance(x, dict):
+        return x.keys() == y.keys() and all(same(x[k], y[k]) for k in x)
+    if isinstance(x, list):
+        return len(x) == len(y) and all(same(a, b) for a, b in zip(x, y))
+    if isinstance(x, float) and math.isnan(x):
+        return math.isnan(y)
+    return x == y
 
 
 def compare_file(new, committed, keys=None):
@@ -29,11 +43,18 @@ def compare_file(new, committed, keys=None):
         if keys:
             row['compared_keys'] = keys
             x, y = {k: x.get(k) for k in keys}, {k: y.get(k) for k in keys}
-        row['json_equal'] = x == y
+        row['json_equal'] = same(x, y)
         if isinstance(x, dict) and isinstance(y, dict):
-            row['differing_top_level_keys'] = sorted(k for k in set(x) | set(y) if x.get(k) != y.get(k))
+            row['differing_top_level_keys'] = sorted(k for k in set(x) | set(y)
+                                                     if k not in x or k not in y or not same(x[k], y[k]))
         row['equal'] = row['json_equal']
+    elif keys:
+        raise ValueError(f'#keys needs a JSON file: {committed}')
     return row
+
+
+def listed(folder):
+    return {f.relative_to(folder) for f in folder.rglob('*') if f.is_file() and f.name != '.gitattributes'}
 
 
 def main(pairs, output):
@@ -42,13 +63,19 @@ def main(pairs, output):
         new, target = pair.split('=', 1)
         committed, _, keys = target.partition('#')
         new, committed, keys = Path(new), Path(committed), [k for k in keys.split(',') if k]
+        if not committed.exists():
+            raise FileNotFoundError(f'Committed evidence not found: {committed}')
         if committed.is_dir():
-            rows += [compare_file(new / f.relative_to(committed), f) for f in sorted(committed.rglob('*'))
-                     if f.is_file() and f.name != '.gitattributes']
+            if keys:
+                raise ValueError(f'#keys needs a JSON file, not a folder: {committed}')
+            rows += [compare_file(new / name, committed / name) for name in sorted(listed(committed))]
+            rows += [{'new': (new / name).as_posix(), 'committed': (committed / name).as_posix(), 'new_exists': True,
+                      'committed_exists': False, 'equal': False}
+                     for name in sorted(listed(new) - listed(committed))] if new.is_dir() else []
         else:
             rows.append(compare_file(new, committed, keys))
-    result = {'compared_utc': datetime.now(timezone.utc).isoformat(), 'all_equal': all(r['equal'] for r in rows),
-              'files': len(rows), 'rows': rows}
+    result = {'compared_utc': datetime.now(timezone.utc).isoformat(),
+              'all_equal': bool(rows) and all(r['equal'] for r in rows), 'files': len(rows), 'rows': rows}
     if output:
         Path(output).parent.mkdir(parents=True, exist_ok=True)
         Path(output).write_text(json.dumps(result, indent=2), encoding='utf-8')
