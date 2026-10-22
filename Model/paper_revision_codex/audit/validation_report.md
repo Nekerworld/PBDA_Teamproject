@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§28는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§29는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -25,6 +25,7 @@
 | 회귀 테스트 (Cycle 17) | `test_cycle17_guards.py` 2개 추가, `test_cycle16_guards.py`를 실제 git으로 바꾼 뒤 160/160 (v7 venv, `audit/cycle17/precommit_pytest.txt`). 커밋 cf1a3fe의 새 worktree + lock venv 159 통과, 1 건너뜀 → §26 |
 | 회귀 테스트 (Cycle 18) | `test_cycle18_guards.py` 5개 추가 후 165/165 (v7 venv, `audit/cycle18/precommit_pytest.txt`). 커밋 0e80a80의 새 worktree + lock venv 164 통과, 1 건너뜀 → §27 |
 | 회귀 테스트 (Cycle 19) | `test_cycle19_guards.py` 3개 추가 후 168/168 (v7 venv, `audit/cycle19/precommit_pytest.txt`). 커밋 d92de19의 새 worktree + lock venv 167 통과, 1 건너뜀 → §28 |
+| 회귀 테스트 (Cycle 20) | `test_cycle20_guards.py` 2개 추가 후 170/170 (v7 venv, `audit/cycle20/precommit_pytest.txt`). 커밋 a22f6ea의 새 worktree + lock venv 169 통과, 1 건너뜀 → §29 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -226,6 +227,7 @@ F3 seed 42를 같은 설정으로 다시 학습해 비교했다.
    - v7 F4에서는 novel로 고른 GNN(4층 256차원)이 validation에서 Hybrid보다 높다. Hybrid의 backbone 후보도 repeat 상위 3개(모두 1층)뿐이라 이 GNN을 쓰지 못한다.
    - "grid 최고"는 여러 설정 중 최댓값이라 낙관적으로 치우친 값이다 (Hybrid 선택값도 2,808개 중 최댓값). 시험에서 어떻게 될지는 알 수 없고, 이미 연 시험 구간을 다시 열 수 없어 확인하지 않았다.
    - 따라서 novel 정책의 유의한 결과 중 Hybrid − GNN (F2 NDCG·Recall, F3 NDCG, F4 Recall)과 Hybrid − ALS (F2 NDCG·Recall, F3 Recall, F4 Recall)는 "repeat로 튜닝된 단독 모델 대비"로만 해석해야 하며, novel에서 GNN·ALS보다 우수하다는 근거로 쓰면 안 된다. Hybrid − BPR의 novel 결과는 이 문제의 영향을 받지 않는다.
+6. **재고 신호는 Hybrid에만 있다**: `available`과 γ는 Hybrid(와 ablation `Hybrid_ALS_only`)에만 들어가고 baseline 7종에는 없으며, 선택된 γ는 모든 fold·정책에서 1보다 크다. 그래서 Hybrid − baseline 차이에는 GNN 결합 외에 재고 가중의 효과도 들어 있다. 그 크기는 F1 repeat·seed 42에서만 쟀다(Hybrid − ALS+BPR의 NDCG 약 79%, Recall 약 53%. §6.2). 다른 fold·정책에서 얼마인지는 모른다.
 
 ## 9. 다른 PC에서 교차 재현 (Cycle 3, `audit/cross_machine/cross_machine_F3_early.json`)
 
@@ -593,8 +595,20 @@ Cycle 18 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD cf
 | 검사 | 결과 |
 |---|---|
 | GNN 선택 작업의 데이터 분할 (I-118) | `gnn_spec`은 `select` 작업에 role `validation`이 아닌 데이터를 주면 거부. `check_cached_runs`는 각 GNN 작업의 데이터 `protocol_id`를 비교. 실제 v7 root: GNN 작업 39개(선택 36개, 재학습 3개) 모두 맞는 분할, 출력은 `audit/cycle5/cache_identity_v7.json`과 같음. 실제 F4 `prepared`로 선택 작업을 만들면 거부, 음성 대조에서 `data` 불일치 1건 (`audit/cycle19/gnn_data_split_check.txt`) |
-| 변이 먼저 확인 | H71–H73은 `test_cycle19_guards.py`만으로 검출, 상한 연장 줄을 바깥 분할로 바꾼 변이는 smoke 테스트 2개가 새 거부 메시지로 실패. 수정 안 한 사본은 통과 (`audit/cycle19/quick_mutants.txt`. 첫 줄은 테스트 이름을 잘못 줘 아무 테스트도 돌지 않은 실행이고, 마지막 두 줄이 바른 이름으로 다시 돌린 결과) |
+| 변이 먼저 확인 | H71–H73은 `test_cycle19_guards.py`만으로 검출, 상한 연장 줄을 바깥 분할로 바꾼 변이는 smoke 테스트 2개가 새 거부 메시지로 실패. 수정 안 한 사본은 통과 (`audit/cycle19/quick_mutants.txt`. 첫 줄은 테스트 이름을 잘못 줘 아무 테스트도 돌지 않은 실행이고, 끝에서 두 번째 줄이 바른 이름으로 다시 돌린 수정 안 한 사본, 마지막 줄은 상한 연장 변이를 실패 이유를 남기려고 다시 돌린 결과) |
 | 재고 신호 크기, 원고 지침 (I-119, I-120) | §6.2에 Recall 효과(+0.0065)와 F1 repeat·seed 42의 Hybrid − ALS+BPR 분해(NDCG 약 79%, Recall 약 53%가 γ 1 대비 효과)를 적음. `manuscript_alignment.md` 공개 사항 9와 금지 표현 추가 |
 | 재현 3단계, 날짜 (I-121, I-122) | dirty 검사 범위를 코드대로 적음. 날짜를 커밋 시각(KST)에 맞춤 |
 | 회귀 테스트 | 커밋 전 작업 폴더 168/168 (v7 venv, `audit/cycle19/precommit_pytest.txt`). 커밋 d92de19의 새 worktree + lock venv: 167 통과, 1 건너뜀 (`postcommit_d92de19_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 18 문서 커밋 cf03fd7: 164 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_cf03fd7_*.txt`) |
 | 가드 변이 H1–H73 (H71 선택 작업 역할 검사 끔, H72 선택 grid를 바깥 분할로, H73 캐시 데이터 비교 끔) | 커밋 d92de19 코드로 실행(시작 때 커밋 안 된 것은 문서 6개와 `audit/cycle19/`뿐이고 실행 중에 코드를 고치지 않음), 73/73 검출, 수정 안 한 사본 82 통과. 19:06:48–20:50:06 UTC (`audit/cycle19/guard_mutants.json`, `guard_mutants_cycle19_log.txt`) |
+
+## 29. Cycle 20: GNN 선택 작업은 자기 fold의 validation만, 근거 파일과 서술 정정 (I-123 – I-126)
+
+Cycle 19 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 73177ee)에서 찾은 항목이다. 새 P0·P1·P2는 없다 (코드 감사 P3 1건, 문서 감사 P3 3건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| 다른 fold의 validation (I-123) | `gnn_spec`은 `select` 작업의 데이터가 그 작업이 속한 fold의 `prepared/validation`(role `validation`)이 아니면 거부. 실제 v7 F4 validation을 다른 fold의 작업에 주면 거부하고 F4 자신의 작업에는 받음. 합성 데이터로 준비한 v6 F1·F2에서 F2 선택 작업에 F1 validation을 주면 거부. 실제 v7 캐시 검사 출력은 `audit/cycle5/cache_identity_v7.json`과 같음 (`audit/cycle20/gnn_fold_check.txt`) |
+| 변이 먼저 확인 | H71(대상 이동)·H74·H75는 `test_cycle19_guards.py`와 `test_cycle20_guards.py`만으로 검출, 수정 안 한 사본은 이 테스트 5개와 smoke 테스트 2개(상한 연장 작업 포함) 통과 (`audit/cycle20/quick_mutants.txt`) |
+| 근거 파일, 서술 (I-124 – I-126) | `audit/cycle19/postcommit_d92de19_*.txt` 커밋, provenance 해시 서술에 CRLF 조건, §28의 `quick_mutants.txt` 설명 정정. 문서 감사의 미확정 의심을 받아 §8 한계에 재고 신호 비대칭(항목 6)을 추가 |
+| 회귀 테스트 | 커밋 전 작업 폴더 170/170 (v7 venv, `audit/cycle20/precommit_pytest.txt`). 커밋 a22f6ea의 새 worktree + lock venv: 169 통과, 1 건너뜀 (`postcommit_a22f6ea_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 19 문서 커밋 73177ee: 167 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_73177ee_*.txt`) |
+| 가드 변이 H1–H75 (H71 대상을 바뀐 조건으로 옮김, H74 어느 fold의 validation이든 통과, H75 role 검사 끔) | GUARD_RESULT |

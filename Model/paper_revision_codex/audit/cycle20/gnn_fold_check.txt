@@ -1,0 +1,10 @@
+started_utc 2026-10-22T21:06:19.731967+00:00
+head 73177eec7f752910f74b139cb4a1e162614a7b57 + uncommitted Cycle 20 code changes
+sha256 rolling_protocol.py (working copy, CRLF) d63b442f8c1a494875c3536458399f5b00d86761b735f610397d2abd8fda92cf
+1) real v7: select job in F4_unseen/gnn_val on its own prepared/validation: select
+2) real v7 validation (role validation) given to a job of another fold refused: A GNN selection job must train on the inner validation split of its own fold, not C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\audit_runs\v7\F4_unseen\prepared\validation
+3) synthetic v6 folds: F2 selection job on F1 validation refused: RuntimeError
+4) synthetic v6 folds: F2 selection job on F2 validation: select
+{'root': 'audit_runs\\v7', 'gnn_requested': 39, 'gnn_results_on_disk': 39, 'gnn_mismatches': 0, 'mf_fits': 4, 'mf_mismatches': 0}
+5) check_cached_runs on audit_runs/v7 equals audit/cycle5/cache_identity_v7.json: True
+finished_utc 2026-10-22T21:06:20.605942+00:00

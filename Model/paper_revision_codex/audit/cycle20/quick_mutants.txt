@@ -1,0 +1,5 @@
+unmutated ['test_cycle19_guards.py', 'test_cycle20_guards.py'] -> passed | 5 passed in 7.21s
+H71 GNN selection job on any data ['test_cycle19_guards.py', 'test_cycle20_guards.py'] -> FAILED | 3 failed, 2 passed in 9.06s
+H74 GNN selection job on the validation of another fold ['test_cycle19_guards.py', 'test_cycle20_guards.py'] -> FAILED | 1 failed, 4 passed in 6.43s
+H75 GNN selection job data role not read ['test_cycle19_guards.py', 'test_cycle20_guards.py'] -> FAILED | 1 failed, 4 passed in 6.42s
+unmutated ['test_v6_smoke.py'] -> passed | 2 passed in 103.95s (0:01:43)

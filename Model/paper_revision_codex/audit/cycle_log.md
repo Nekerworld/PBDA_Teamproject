@@ -627,7 +627,36 @@
 
 **E. 커밋**
 - d92de19: 코드, 테스트, 가드 변이 (I-118)
-- 이 문서와 함께: 문서 정정(I-119 – I-122), Cycle 19 기록과 증거
+- 73177ee: 문서 정정(I-119 – I-122), Cycle 19 기록과 증거
 
 **F. 커밋 후 재검증**
-- d92de19: 새 worktree, lock venv 167 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle19/postcommit_d92de19_*.txt`).
+- d92de19: 새 worktree, lock venv 167 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle19/postcommit_d92de19_*.txt`. 이 두 파일은 Cycle 20 문서 커밋에서 커밋함, I-124).
+- 73177ee: 새 worktree, lock venv 167 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle20/postcommit_73177ee_*.txt`).
+
+## Cycle 20 (2026-10-23 KST): Cycle 19 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD 73177ee)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1·P2 없음)**
+- 코드 감사 P3 1건: I-123 I-118 수정이 다른 fold의 validation을 통과시킴(합성 데이터로 재현. v6·v7 영향 없음).
+- 문서 감사 P3 3건: I-124 d92de19 커밋 후 재검증 파일이 커밋되지 않음, I-125 provenance 해시 서술의 CRLF 조건, I-126 §28의 `quick_mutants.txt` 설명.
+- 미확정 의심(결함 수에 넣지 않음): `check_cached_runs`는 IF ablation 학습을 검사하지 않음(재현 7단계에 이미 "대상 아님"으로 적혀 있음), `refit`에는 데이터 출처 검사가 없음(`device_check`가 일부러 validation에서 재학습. 사후 도구가 잡음), `run_gnn_jobs` 캐시 식별에 `source`가 없음, 사후 분석의 MF 정규화 정밀도, `stamp_code_check`의 경고, v6 실행의 데이터 출처는 코드로만 확인(v6 실행 폴더는 다른 PC), 음성 대조 스크립트는 `audit_runs/`에만 있음, §8 한계에 재고 신호 비대칭이 없음(받아들여 항목 6 추가).
+
+**C. 수정**
+- 코드: `gnn_spec`이 선택 작업의 데이터를 그 작업 fold의 `prepared/validation`으로 한정.
+- 테스트: `test_cycle20_guards.py` 2개, `test_cycle19_guards.py` spec 테스트의 작업 폴더 배치. 가드 변이 H71 대상 이동, H74·H75.
+- 문서: I-123 – I-126, §8 항목 6.
+
+**D. 검증**
+- 바뀌거나 새로 넣은 가드 변이(H71, H74, H75)를 해당 테스트만으로 먼저 확인: 모두 검출, 수정 안 한 사본과 smoke 테스트 통과 (`audit/cycle20/quick_mutants.txt`). 75개 대상이 모두 한 번씩 있음.
+- 작업 폴더 전체 테스트 170/170 (`audit/cycle20/precommit_pytest.txt`).
+- 실제 v7 manifest와 합성 v6 F1·F2로 다른 fold 거부 확인 (`audit/cycle20/gnn_fold_check.txt`).
+- GUARD_LINE
+
+**E. 커밋**
+- a22f6ea: 코드, 테스트, 가드 변이 (I-123)
+- 이 문서와 함께: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거
+
+**F. 커밋 후 재검증**
+- a22f6ea: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle20/postcommit_a22f6ea_*.txt`).
