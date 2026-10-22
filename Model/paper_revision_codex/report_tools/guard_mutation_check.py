@@ -1,5 +1,5 @@
-"""Put the pre-fix behaviour of each cycle-5..14 guard (H1-H61) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10/11/12/13/14_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
+"""Put the pre-fix behaviour of each cycle-5..15 guard (H1-H62) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11/12/13/14/15_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
 from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
 as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
@@ -112,6 +112,9 @@ M = {
      "        'hybrid_grid_axes': {'alpha': [.25, .5, .75], 'strategy': ['blend', 'balanced_union'],\n"
      "                             'fusion': ['minmax', 'rrf'], 'omega': [.1, .2, .3, .4, .5, .6, .7, .8, .9],\n"
      "                             'gamma': [1., 1.1, 1.25, 1.5]},"),
+ 'H62 plan without the Hybrid grid digest': (
+     'rolling_protocol.py', "    grid_record = {} if digest == SEALED_HYBRID_GRID_SHA256 else {'hybrid_grid_sha256': digest}",
+     "    grid_record = {}"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
@@ -130,7 +133,7 @@ def fresh():
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)

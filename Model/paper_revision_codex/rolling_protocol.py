@@ -140,7 +140,18 @@ def hybrid_at_grid_boundary(best):
     return flags
 
 
+SEALED_HYBRID_GRID_SHA256 = '093a7858916b8055f5cf2b9b8b3eb273256a1d9ac772374f53a84d45e6dcec8f'
+
+
+def hybrid_grid_sha256(grid):
+    return hashlib.sha256(json.dumps(grid, sort_keys=True).encode()).hexdigest()
+
+
 def plan_payload():
+    # The sealed v6/v7 plans predate the grid digest, so it is only added for any other grid (values, pairing or
+    # order); the sealed grid keeps the sealed plan hashes.
+    digest = hybrid_grid_sha256(HYBRID_GRID)
+    grid_record = {} if digest == SEALED_HYBRID_GRID_SHA256 else {'hybrid_grid_sha256': digest}
     return {
         'protocol': PROTOCOL, 'folds': FOLDS, 'seeds': SEEDS, 'selection_seed': SELECTION_SEED,
         'selection_rule': 'maximize mean(NDCG@50, Recall@50) on inner validation, identical for every model family',
@@ -156,6 +167,7 @@ def plan_payload():
         'hybrid_grid_size': len(HYBRID_GRID), 'candidate_ks': CANDIDATE_KS,
         'hybrid_grid_axes': {key: list(dict.fromkeys(c[key] for c in HYBRID_GRID))
                              for key in ('alpha', 'strategy', 'fusion', 'omega', 'gamma')},
+        **grid_record,
         'baselines': BASELINES, 'ks': list(KS), 'primary_k': PRIMARY_K,
         'statistics': ('Per policy and fold: user-level paired bootstrap 95% CI (10,000) and two-sided sign-flip '
                        'test (10,000) on seed-averaged per-user metrics; Holm correction over the family of '
