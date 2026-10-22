@@ -476,7 +476,8 @@ KILL_ON_CLOSE_JOB = []  # Windows job object holding the GNN jobs, created on fi
 def kill_with_parent(process):
     """Put a GNN job in a Windows job object that the system kills when this process ends, however it ends
     (a forced kill skips every Python cleanup). Without it a resumed run would start the same job beside a
-    survivor writing to the same folder. Not available elsewhere: on POSIX stop the whole process group."""
+    survivor writing to the same folder. Not available elsewhere: on POSIX the jobs outlive a killed run, so end
+    the leftover gnn-job processes by hand before resuming."""
     if os.name != 'nt':
         return
     import ctypes
