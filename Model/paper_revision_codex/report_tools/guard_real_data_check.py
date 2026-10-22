@@ -10,7 +10,7 @@ F4's and reports what the start check (nominal shares) and the opening check (ti
 for each fold a record opened, whether its logged selection hash is the selection.json kept there and the decision
 an exact reproduction would have to match (``rp.opened_decision``).
 
-Usage: python report_tools/guard_real_data_check.py --raw ../../data --output audit/cycle7/guard_real_data.json
+Usage: python report_tools/guard_real_data_check.py --raw ../../data --output audit_runs/repro/guard_real_data.json
 """
 import argparse
 import json

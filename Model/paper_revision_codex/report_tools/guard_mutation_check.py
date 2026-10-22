@@ -1,5 +1,5 @@
-"""Put the pre-fix behaviour of each cycle-5..10 guard (H1-H44) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10_guards.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
+"""Put the pre-fix behaviour of each cycle-5..11 guard (H1-H48) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11_guards.py fail (the end-to-end reproduction run is left out for time). The output records the git HEAD and uncommitted files the copy was taken
 from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
 as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
@@ -54,6 +54,24 @@ M = {
  'H42 stop ignored by the GNN job loop': ('rolling_protocol.py', "            if stop is not None and stop.is_set():\n                raise", "            if False:\n                raise"),
  'H43 unknown fold name accepted': ('rolling_protocol.py', "    if unknown:\n        raise ValueError", "    if False:\n        raise ValueError"),
  'H44 background worker keeps only ordinary errors': ('rolling_protocol.py', "        except BaseException as error:  # surfaced below", "        except Exception as error:  # surfaced below"),
+ 'H45 clone links straight into the destination': ('experiments.py',
+     "    partial = destination.with_name(destination.name + '.partial')\n    if partial.exists():\n"
+     "        shutil.rmtree(partial)  # hard links left by an interrupted clone; the source files are untouched\n"
+     "    partial.mkdir(parents=True)\n    for name in sorted({'manifest.json', *manifest['hashes'], *manifest['audit_hashes']}):\n"
+     "        try:\n            os.link(source / name, partial / name)\n"
+     "        except OSError as error:\n            raise OSError(f'Could not hard-link {name} from {source} to {destination}') from error\n"
+     "    if (source / 'validation').exists():\n        clone_protocol(source / 'validation', partial / 'validation')\n"
+     "    if destination.exists():\n        destination.rmdir()\n    os.replace(partial, destination)\n",
+     "    destination.mkdir(parents=True, exist_ok=True)\n"
+     "    for name in {'manifest.json', *manifest['hashes'], *manifest['audit_hashes']}:\n"
+     "        try:\n            os.link(source / name, destination / name)\n"
+     "        except OSError as error:\n            raise OSError(f'Could not hard-link {name} from {source} to {destination}') from error\n"
+     "    if (source / 'validation').exists():\n        clone_protocol(source / 'validation', destination / 'validation')\n"),
+ 'H46 GNN job not tied to the run': ('rolling_protocol.py', "                running.append((process, spec, logfile))\n                kill_with_parent(process)\n",
+                                     "                running.append((process, spec, logfile))\n"),
+ 'H47 job object without kill-on-close': ('rolling_protocol.py', "LimitFlags = 0x2000", "LimitFlags = 0"),
+ 'H48 failed launch leaves its log open': ('rolling_protocol.py', "                except BaseException:\n                    logfile.close()\n                    raise",
+                                           "                except BaseException:\n                    raise"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, text=True).stdout.rstrip('\n')
 run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
@@ -72,7 +90,7 @@ def fresh():
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 rows = []
 d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)

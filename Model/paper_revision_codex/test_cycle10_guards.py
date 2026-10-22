@@ -128,6 +128,7 @@ def test_stopped_gnn_jobs_are_terminated(tmp_path, monkeypatch):
             return 1
     monkeypatch.setattr(rp.subprocess, 'Popen', Job)
     monkeypatch.setattr(rp, 'require_frozen_code', lambda root: None)
+    monkeypatch.setattr(rp, 'kill_with_parent', lambda process: None)  # fake processes have no OS handle
     sleeps = []
 
     def sleep(seconds):

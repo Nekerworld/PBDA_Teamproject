@@ -7,7 +7,7 @@ compared with what the cached job_result.json / mf_fit.json says was trained. Th
 job_specs/ are not used: they are the same file the job copied into job_result.json.
 Reads no labels and trains nothing.
 
-Usage: python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit/cycle5/cache_identity_v7.json
+Usage: python report_tools/check_cached_runs.py --root audit_runs/v7 --output audit_runs/repro/cache_identity_v7.json
 """
 import argparse
 import json

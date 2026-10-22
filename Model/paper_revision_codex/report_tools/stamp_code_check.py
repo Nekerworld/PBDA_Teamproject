@@ -9,7 +9,7 @@ so they are compared directly. A 'sha256-lf' plan hashes line-ending-normalised 
 compared with; for it each file is read from the plan's git commit, checked against the plan hash, and the stamp
 must equal that content with LF or CRLF line endings.
 
-Usage: python report_tools/stamp_code_check.py --root audit_runs/v7 --output audit/cycle8/stamp_code_v7.json
+Usage: python report_tools/stamp_code_check.py --root audit_runs/v7 --output audit_runs/repro/stamp_code_v7.json
 """
 import argparse
 import hashlib

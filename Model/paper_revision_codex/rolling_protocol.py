@@ -470,6 +470,44 @@ def gnn_job(spec_path):
 
 
 GNN_JOB_IDENTITY = ('config', 'fixed', 'seed', 'mode', 'epochs')
+KILL_ON_CLOSE_JOB = []  # Windows job object holding the GNN jobs, created on first use
+
+
+def kill_with_parent(process):
+    """Put a GNN job in a Windows job object that the system kills when this process ends, however it ends
+    (a forced kill skips every Python cleanup). Without it a resumed run would start the same job beside a
+    survivor writing to the same folder. Not available elsewhere: on POSIX stop the whole process group."""
+    if os.name != 'nt':
+        return
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
+    kernel.SetInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD)
+    kernel.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
+    if not KILL_ON_CLOSE_JOB:
+        class Basic(ctypes.Structure):
+            _fields_ = [('PerProcessUserTimeLimit', ctypes.c_int64), ('PerJobUserTimeLimit', ctypes.c_int64),
+                        ('LimitFlags', wintypes.DWORD), ('MinimumWorkingSetSize', ctypes.c_size_t),
+                        ('MaximumWorkingSetSize', ctypes.c_size_t), ('ActiveProcessLimit', wintypes.DWORD),
+                        ('Affinity', ctypes.c_size_t), ('PriorityClass', wintypes.DWORD),
+                        ('SchedulingClass', wintypes.DWORD)]
+
+        class Extended(ctypes.Structure):
+            _fields_ = [('BasicLimitInformation', Basic), ('IoInfo', ctypes.c_uint64 * 6),
+                        ('ProcessMemoryLimit', ctypes.c_size_t), ('JobMemoryLimit', ctypes.c_size_t),
+                        ('PeakProcessMemoryUsed', ctypes.c_size_t), ('PeakJobMemoryUsed', ctypes.c_size_t)]
+        job = kernel.CreateJobObjectW(None, None)
+        if not job:
+            raise ctypes.WinError(ctypes.get_last_error())
+        info = Extended()
+        info.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not kernel.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):  # extended limits
+            raise ctypes.WinError(ctypes.get_last_error())
+        KILL_ON_CLOSE_JOB.append(job)
+    if not kernel.AssignProcessToJobObject(KILL_ON_CLOSE_JOB[0], int(process._handle)):
+        raise ctypes.WinError(ctypes.get_last_error())
 
 
 def run_gnn_jobs(root, specs, stop=None):
@@ -490,9 +528,14 @@ def run_gnn_jobs(root, specs, stop=None):
                 dump_json(path, spec)
                 Path(spec['job_dir']).parent.mkdir(parents=True, exist_ok=True)
                 logfile = open(Path(spec['job_dir'] + '.log'), 'w', encoding='utf-8')
-                process = subprocess.Popen([sys.executable, str(HERE / 'rolling_protocol.py'), 'gnn-job', str(path)],
-                                           cwd=HERE, stdout=logfile, stderr=subprocess.STDOUT)
+                try:
+                    process = subprocess.Popen([sys.executable, str(HERE / 'rolling_protocol.py'), 'gnn-job', str(path)],
+                                               cwd=HERE, stdout=logfile, stderr=subprocess.STDOUT)
+                except BaseException:
+                    logfile.close()
+                    raise
                 running.append((process, spec, logfile))
+                kill_with_parent(process)
             time.sleep(5)
             for entry in list(running):
                 process, spec, logfile = entry

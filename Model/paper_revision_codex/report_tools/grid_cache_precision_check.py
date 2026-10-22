@@ -4,7 +4,7 @@ For every fold of a result root: how many rows the default CSV float parser chan
 re-serialises the file exactly apart from line endings (CRLF in the run folder), whether the score order differs, and how many float values of
 selection.json are found exactly among the parsed grid values. Reads validation files only (no test data).
 
-Usage: python report_tools/grid_cache_precision_check.py --root audit_runs/v7 --output audit/cycle8/grid_cache_precision_v7.json
+Usage: python report_tools/grid_cache_precision_check.py --root audit_runs/v7 --output audit_runs/repro/grid_cache_precision_v7.json
 """
 import argparse
 import json

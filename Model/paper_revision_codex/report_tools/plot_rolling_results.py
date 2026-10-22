@@ -188,7 +188,7 @@ def pipeline(o):
     fig, ax = plt.subplots(figsize=(12, 2.6))
     ax.axis('off')
     texts = ['Chronological split\n(rolling origins; inner\nvalidation for selection)',
-             'ALS + BPR scores\nmin-max, blend weight alpha\n-> candidate set',
+             'ALS + BPR min-max scores\ncandidates: alpha-blend top-n\nor ALS/BPR top-n/2 union',
              'User-item bipartite graph\nLightGCN propagation (mean\nof layers), InfoNCE, 32 neg.',
              'Fusion on candidates\nomega * MF + (1 - omega) * GNN\n(min-max or RRF)',
              'Inventory weight\nx gamma if available\nbefore cutoff -> Top-K']
@@ -224,6 +224,6 @@ def main(results, out):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--results', type=Path, default=HERE / 'audit' / 'results_v6')
-    parser.add_argument('--output', type=Path, default=HERE / 'audit' / 'figures_v6')
+    parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     main(args.results.resolve(), args.output.resolve())

@@ -1,5 +1,6 @@
 """Reproducible filter and architecture runs. Gamma is chosen on validation only."""
 import os
+import shutil
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
@@ -297,19 +298,28 @@ def write_dataset_statistics_tables(datasets_dir, output_dir, condition='if_even
 
 
 def clone_protocol(source, destination):
-    """Immutable shared data are hard-linked; model artifacts stay run-local."""
+    """Immutable shared data are hard-linked; model artifacts stay run-local.
+
+    The links are made in a sibling ``<name>.partial`` folder that is renamed into place at the end, so an
+    interrupted clone never leaves a destination that a resume (which checks for manifest.json) takes as complete."""
     source, destination = Path(source), Path(destination)
     manifest = require_protocol(source)
     if destination.exists() and any(destination.iterdir()):
         raise FileExistsError(destination)
-    destination.mkdir(parents=True, exist_ok=True)
-    for name in {'manifest.json', *manifest['hashes'], *manifest['audit_hashes']}:
+    partial = destination.with_name(destination.name + '.partial')
+    if partial.exists():
+        shutil.rmtree(partial)  # hard links left by an interrupted clone; the source files are untouched
+    partial.mkdir(parents=True)
+    for name in sorted({'manifest.json', *manifest['hashes'], *manifest['audit_hashes']}):
         try:
-            os.link(source / name, destination / name)
+            os.link(source / name, partial / name)
         except OSError as error:
             raise OSError(f'Could not hard-link {name} from {source} to {destination}') from error
     if (source / 'validation').exists():
-        clone_protocol(source / 'validation', destination / 'validation')
+        clone_protocol(source / 'validation', partial / 'validation')
+    if destination.exists():
+        destination.rmdir()
+    os.replace(partial, destination)
 
 
 def available_share(records, available_ids, k):
