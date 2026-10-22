@@ -457,9 +457,11 @@ def gnn_device():
 
 
 def gnn_spec(job_dir, source, config, seed, mode, epochs):
-    # A selection job early-stops on the labels of its source, so the source must be an inner validation split.
-    if mode == 'select' and json.loads((Path(source) / 'manifest.json').read_text(encoding='utf-8')).get('role') != 'validation':
-        raise RuntimeError(f'A GNN selection job must train on an inner validation split, not {source}')
+    # A selection job early-stops on the labels of its source, so the source must be the inner validation split of
+    # the job's own fold (<fold>/gnn_val/<job>): another fold's validation labels can lie in this fold's test window.
+    if mode == 'select' and (Path(source).resolve() != Path(job_dir).resolve().parents[1] / 'prepared' / 'validation'
+                             or json.loads((Path(source) / 'manifest.json').read_text(encoding='utf-8')).get('role') != 'validation'):
+        raise RuntimeError(f'A GNN selection job must train on the inner validation split of its own fold, not {source}')
     return {'job_dir': str(Path(job_dir).resolve()), 'source': str(Path(source).resolve()), 'config': config,
             'fixed': GNN_FIXED, 'device': gnn_device(), 'seed': seed, 'mode': mode, 'epochs': epochs}
 

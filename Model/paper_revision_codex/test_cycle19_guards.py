@@ -22,10 +22,11 @@ def manifest(folder, **fields):
 def test_selection_spec_refuses_data_that_is_not_an_inner_validation_split(tmp_path):
     outer = manifest(tmp_path / 'prepared', role='test')
     inner = manifest(outer / 'validation', role='validation')
-    assert rp.gnn_spec(tmp_path / 'job', inner, {}, 42, 'select', 4)['source'] == str(inner.resolve())
+    job = tmp_path / 'gnn_val' / 'job'
+    assert rp.gnn_spec(job, inner, {}, 42, 'select', 4)['source'] == str(inner.resolve())
     with pytest.raises(RuntimeError, match='inner validation split'):
-        rp.gnn_spec(tmp_path / 'job', outer, {}, 42, 'select', 4)
-    assert rp.gnn_spec(tmp_path / 'job', outer, {}, 42, 'refit', 4)['mode'] == 'refit'
+        rp.gnn_spec(job, outer, {}, 42, 'select', 4)
+    assert rp.gnn_spec(job, outer, {}, 42, 'refit', 4)['mode'] == 'refit'
 
 
 class Stop(Exception):
