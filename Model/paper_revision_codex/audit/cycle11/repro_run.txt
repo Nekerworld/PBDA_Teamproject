@@ -1,0 +1,33 @@
+head: 8d8d0d55048550e2a5fb3a495a7dace52b33634c (outputs made with the tools committed there; compare_outputs.py added in the Cycle 11 commit)
+started_utc: 2026-10-22T00:08:16Z
+finished_utc: 2026-10-22T00:08:47Z
+outputs: audit_runs/repro/ (git-ignored); comparison: audit/cycle11/repro_compare.json
+== audit_runs/repro/log_plan_code.txt
+    "test_stamp_code_check.py"
+  ]
+}
+== audit_runs/repro/log_recompute.txt
+  "duplicates": 0,
+  "listed_items": 487749
+}
+== audit_runs/repro/log_step10a.txt
+  "mismatch_count": 0,
+  "mismatches": []
+}
+== audit_runs/repro/log_step10b.txt
+    "found_with_default": 11
+  }
+}
+== audit_runs/repro/log_step4.txt
+    "pipeline.png/.pdf/.svg"
+  ]
+}
+== audit_runs/repro/log_step7.txt
+{'root': 'audit_runs\\v7', 'gnn_requested': 39, 'gnn_results_on_disk': 39, 'gnn_mismatches': 0, 'mf_fits': 4, 'mf_mismatches': 0}
+== audit_runs/repro/log_step8.txt
+F4_unseen repeat: Hybrid 0.2250; selected/best GNN 0.2169/0.2169, ALS 0.2176/0.2176, BPR 0.2154/0.2154, ALS+BPR 0.2219/0.2219
+F4_unseen novel: Hybrid 0.0612; selected/best GNN 0.0526/0.0659, ALS 0.0541/0.0571, BPR 0.0475/0.0475, ALS+BPR 0.0552/0.0552
+== audit_runs/repro/log_step9.txt
+v7_folds/v6_plan ['F4_unseen'] 2
+v7_folds/v7_plan ['F4_unseen'] 2
+v7_folds/new_plan ['F4_unseen'] 2

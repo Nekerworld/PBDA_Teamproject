@@ -31,7 +31,7 @@
 | 계산 효율 (retrieve-then-rank) | 후보 수는 fold마다 500–전체로 바뀌고, Hybrid 경로는 GNN 단독 전체 카탈로그 점수 계산보다 10배 이상 느림 | 효율성 주장을 삭제하거나 "후보 500개에서도 정확도 유지"로 한정하되, 근거가 F1·seed 42 한 번의 사후 분석(시험 구간, 선택에 쓰지 않음, `validation_report.md` §6.1)임을 함께 적음 |
 | 재고 인식 추천 | 정확도 효과는 NDCG +0.002 수준 | "선택된 γ에서는 노출 구성을 재고 있는 상품 쪽으로 바꾸고 정확도 손실은 없었다" 정도로 한정하고, F1·seed 42 한 번의 사후 분석(§6.2)임을 적음. γ=2.0에서는 NDCG가 중립값보다 낮음(0.1140 vs 0.1151) |
 | 이종 그래프(속성·카테고리 노드), BPR 손실, IF 기반 정제 | 최종 구현은 이분 그래프, InfoNCE(음성 32개, 온도 0.2), IF 없음 | 식 6–9, 구조도, 손실 함수를 구현에 맞춰 다시 씀 (`model.py`, `recommendation_scoring.py`) |
-| 최종 점수 = ALS + GNN | 구현은 ALS+BPR min-max 결합(α) 후 후보 안에서 GNN과 결합(ω) × γ | 식 8을 고침 |
+| 최종 점수 = ALS + GNN | 구현은 ALS+BPR min-max 결합(α) 후 후보 안에서 GNN과 결합(ω, min-max 또는 RRF) × γ. 후보 생성 방식도 fold·정책마다 validation으로 고름: `blend`(α 결합 점수 상위 n개) 또는 `balanced_union`(ALS 상위 ⌈n/2⌉ ∪ BPR 상위 ⌊n/2⌋, 모자라면 α 결합 점수로 채우고 α 결합 점수 순으로 정렬, `policy_evaluation.candidate_indices`). 봉인된 설정 8개(v6 3 fold + v7 F4, 정책 2개) 중 5개가 `balanced_union`, 2개가 RRF | 식 8과 후보 생성 설명을 고침 (구조도 `audit/figures_v*/pipeline.*`는 Cycle 11에서 두 방식을 모두 적도록 고침) |
 | 단일 분할 결과 | 시간 변동(fold 간 SD)이 모델 간 차이보다 큼 | rolling-origin 3 fold 결과를 주 결과로 쓰고, F1은 "이전 버전에서 노출된 구간"이라고 명시 |
 | baseline (ALS/BPR/ALS+BPR/GNN) | 단순 규칙 baseline이 없었음. 반복 추천 비중이 큼 | Popularity, Recent, RecentPop과 novel 정책 결과를 추가 (`validation_report.md` §4) |
 | 튜닝 공정성 | v6에서도 ALS가 grid 경계에서 선택됨 (I-23) | 한계로 명시: 경계 밖 validation 탐색에서 ALS가 +0.011 – +0.027 좋아짐 (`mf_boundary_probe.csv`). 확인 실험으로 v7을 보고: 처음 쓰는 구간 F4에서 모든 모델군 grid를 넓혔더니 ALS가 validation에서 GNN을 앞섰지만, 시험에서 Hybrid − ALS+BPR은 4칸 모두 비유의 (`validation_report.md` §12) |
@@ -40,7 +40,7 @@
 ## 3. 원고에 넣어야 할 공개 사항
 
 1. v1–v5의 개발 이력: v3 시험 결과를 본 뒤 탐색 공간을 바꿨다. v6는 사전등록 프로토콜로 다시 평가했다 (`experiment_provenance.md`).
-2. 평가 모집단: 원본 학습 기간에 관측된 사용자 중 시험 양성 상품이 학습 카탈로그에 있는 사람만 평가한다. 전체 서비스 이용자에 대한 결과가 아니다.
+2. 평가 모집단: 필터링 전 원본 학습 기간에 관측된 사용자 중, 원본 학습 기간에 등장한 상품에 시험 기간 양성 반응(장바구니·구매)을 하나 이상 남긴 사람만 평가한다 (`data_protocol.py`의 `reference`. core·IF 필터로 학습 데이터에서 빠진 사용자도 포함되며, 학습 벡터가 없는 사용자는 0점으로 계산된다). repeat 정답 집합에는 그 사용자의 시험 기간 양성 상품이 모두 들어간다(학습 카탈로그 밖 상품 포함, 분모에 들어감). novel은 여기서 원본 학습 기간에 접촉한 상품을 빼고, 남는 정답이 없는 사용자는 모집단에서 빠진다 (`policy_evaluation.py` 머리말). 전체 서비스 이용자에 대한 결과가 아니다.
 3. 반복 추천 허용 평가와 신규 상품 평가를 따로 보고한다.
 4. 투고본의 수치(NDCG 0.3710, Recall 0.7113. 원고 그림 스크립트 `Model/paper/viz.py` 7–8행의 "5. ALS+GNN" 값)와 v6 수치는 분할, 후보 처리, 분모가 달라 직접 비교할 수 없다.
 5. 통계 방법: 사용자 단위 paired bootstrap 95% CI, sign-flip 검정, Holm 보정(비교 7개 × 지표 2개, 정책·fold별), seed 3개.

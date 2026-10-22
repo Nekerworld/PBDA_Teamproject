@@ -130,7 +130,7 @@
 - v7 프로토콜 추가 (모든 모델군 grid 확장, F4 한 fold). 사용자 승인 후 사전등록.
 - `pytest.ini`, v7 구간을 원본 타임스탬프로 확인하는 테스트.
 - 보조 스크립트: `plot_rolling_results.py`, `cross_machine_repro.py`, `device_check.py`, `mutation_check.py`, `recompute_test_metrics.py`, `launch_detached.py`.
-- `test_cycle3_consistency.py` (8개). v7 실행 중에는 코드 해시 잠금 때문에 추가하지 않고, v7 완료 후 추가함.
+- `test_cycle3_consistency.py` (테스트 함수 8개, 하나가 정책별로 나뉘어 수집 9개). v7 실행 중에는 코드 해시 잠금 때문에 추가하지 않고, v7 완료 후 추가함.
 - `requirements-v7-lock.txt`, 안내 문서 맨 앞의 감사 안내 (원문 보존).
 
 **D. 검증**
@@ -348,8 +348,8 @@
 - 문서: I-80 항목들, 시험 열람 가드 설명(결정 비교, 결정이 다르면 학습 뒤에 거부됨), 백그라운드 작업 동작.
 
 **D. 검증**
-- 작업 폴더 136/136 (v7 venv). 감사자의 원본부터 재현 스크립트를 고친 코드로 다시 실행해 두 번째 root가 완료됨.
-- 실제 기록 5개의 결정 확인. 재현 7–10단계 출력 5개가 커밋된 증거와 같음.
+- 작업 폴더 136/136 (v7 venv). 감사자의 원본부터 재현 스크립트를 고친 코드로 다시 실행해 두 번째 root가 완료됨(출력 저장 안 함. 같은 내용을 `test_exact_reproduction_from_raw_reaches_its_test_opening`이 확인).
+- 실제 기록 5개의 결정 확인. 4e166c5 전에 재현 7–10단계 출력 5개가 당시의 커밋된 증거와 같음(비교 결과 저장 안 함. Cycle 11에 저장된 비교로 다시 확인).
 - 가드 변이 H1–H44를 커밋 4e166c5 코드로 실행: 44/44.
 - 공식 변이 테스트를 커밋 ac9b865 그대로 다시 실행: 공식 결과와 완전히 같음.
 
@@ -359,3 +359,34 @@
 
 **F. 커밋 후 재검증 (4e166c5)**
 - 새 worktree, lock venv: 135 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle10/`에 보존.
+
+## Cycle 11 (2026-10-22): Cycle 10 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1 없음)**
+- 문서 P2 1건, P3 6건 (I-85): plan 코드 확인 명령이 커밋된 Cycle 3 증거를 덮어씀, 그림·재계산 명령과 도구 사용 예의 출력 경로, §19 서술 3곳, 저장 안 한 확인 표시, 테스트 개수.
+- 코드 P3 4건: I-86 끊긴 hard link 복제가 완성본으로 남음, I-87 실행 프로세스를 강제로 끝내면 GNN 작업이 남음(Popen 실패 때 로그도 안 닫힘), I-88 평가 모집단 서술이 코드와 다름, I-89 구조도·식 8 행이 `balanced_union`을 빠뜨림.
+
+**C. 수정**
+- 코드: `clone_protocol`을 `.partial` 폴더에 만든 뒤 옮김, GNN 작업을 KILL_ON_JOB_CLOSE job object에 넣음(`kill_with_parent`), Popen 실패 때 로그 닫기.
+- 도구: `compare_outputs.py` 추가, 도구 4개의 사용 예와 재현 명령 출력을 `audit_runs/repro/`로, `plot_rolling_results.py`의 `--output` 필수, 구조도 후보 생성 문구, 가드 변이 H45–H48.
+- 테스트: `test_cycle11_guards.py` 3개(실제 부모 프로세스를 강제 종료하는 확인 포함), `test_compare_outputs.py` 1개. `test_cycle10_guards.py`의 가짜 작업 테스트는 `kill_with_parent`를 대체함.
+- 문서: I-85 항목들, 평가 모집단과 식 8 행(`manuscript_alignment.md`), 재현 문서의 job object(POSIX에는 없음)와 원자적 복제.
+
+**D. 검증**
+- 재현 4, 7–10단계·plan 코드 확인·재계산을 8d8d0d5 도구로 다시 실행해 29개 파일이 모두 커밋된 증거와 같음(`audit/cycle11/repro_compare.json`).
+- 공식 변이 테스트를 커밋 8d8d0d5 그대로 다시 실행: 공식 결과와 완전히 같음(17/17).
+- 구조도를 다시 만들어 52개 중 `pipeline.*` 6개만 바뀜. 봉인된 설정 8개 중 `balanced_union` 5개를 커밋된 `selection.json`에서 다시 셈.
+- `audit_runs/v7`의 protocol 폴더 51개가 모두 완전함(남은 `.partial` 없음).
+- H45–H48을 `test_cycle11_guards.py`만으로 먼저 확인: 넷 다 검출, 수정 안 한 사본 3 통과(출력 저장 안 함).
+- 작업 폴더 140/140 (v7 venv, 출력 저장 안 함).
+- 가드 변이 H1–H48을 커밋 318186b 코드로 실행: 48/48, 수정 안 한 사본 53 통과.
+
+**E. 커밋**
+- 318186b: 코드, 테스트, 도구 (I-86, I-87, I-85·I-89의 도구 부분, H45–H48)
+- 이 문서와 함께: 문서 정정(I-85, I-88, I-89), 다시 만든 구조도, Cycle 11 기록과 증거
+
+**F. 커밋 후 재검증 (318186b)**
+- 새 worktree, lock venv: 139 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle11/`에 보존.

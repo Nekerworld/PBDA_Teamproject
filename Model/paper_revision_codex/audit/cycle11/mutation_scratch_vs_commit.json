@@ -1,0 +1,12 @@
+{
+  "rolling_protocol.py": {
+    "committed_sha256_lf": "a2b455e9a79fd0ba131eabb5759f53c9bc22e648bc269394702e43a62c11aead",
+    "scratch_sha256_lf": "a2b455e9a79fd0ba131eabb5759f53c9bc22e648bc269394702e43a62c11aead",
+    "equal": true
+  },
+  "policy_evaluation.py": {
+    "committed_sha256_lf": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+    "scratch_sha256_lf": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+    "equal": true
+  }
+}
