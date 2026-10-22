@@ -485,3 +485,32 @@
 **F. 커밋 후 재검증**
 - 41ba20d: 새 worktree, lock venv 150 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle14/postcommit_41ba20d_*.txt`).
 - Cycle 13 문서 커밋 dcbfd0a: 148 통과, 1 건너뜀, 60/60, 28/28 (`audit/cycle14/postcommit_dcbfd0a_*.txt`).
+
+## Cycle 15 (2026-10-22): Cycle 14 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD 121b40a)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1·P2 없음)**
+- 코드 감사 P3 1건: I-104 I-101 수정이 불완전(후보 깊이 값, 전략과 후보 깊이의 짝, grid 순서가 plan 해시에 들어가지 않음).
+- 코드 감사의 미확정 의심: `load_factors`가 팩터 파일을 `als_artifacts.json`과 대조하지 않음(파일을 일부러 바꿔야 문제), 원자적이지 않은 JSON 기록(끊기면 실패하는 방향), 같은 root 동시 실행 잠금 없음, novel 정책의 Recent·RecentPop이 Holm 가족에 남음(보수적 방향, 공개됨), 행동 가중치가 plan에 없음(코드 해시가 보호), `recompute_test_metrics`가 접근 로그 없이 시험 라벨을 읽음(검증 전용).
+- 문서 감사 P3 2건 (I-103). 문서 감사의 미확정 의심 중 F3 사용자 수 77,237(`v7_feasibility.md` §2)은 커밋된 파일로 확인되지 않음.
+
+**C. 수정**
+- 코드: grid가 봉인된 v6·v7 grid와 다르면 plan에 grid sha256 추가 (v6·v7 plan 해시 그대로).
+- 테스트: `test_cycle15_guards.py` 6개, Cycle 14 테스트에 기록된 축 확인 추가. 가드 변이 H62.
+- 문서: I-103 항목들, I-101 행에 불완전 표시.
+
+**D. 검증**
+- H61·H62를 해당 테스트만으로 먼저 확인: 처음에는 H61이 살아남아(새 sha256만으로 해시가 바뀜) 기록된 축 확인을 추가한 뒤 둘 다 검출, 수정 안 한 사본 8 통과(출력 저장 안 함). 62개 대상이 모두 한 번씩 있음.
+- 작업 폴더 157/157 (v7 venv, 출력 저장 안 함).
+- 실제 데이터: v6·v7 grid가 봉인된 grid와 같고 plan 내용과 해시가 커밋된 `plan.json`과 같음 (`audit/cycle15/plan_hash_check.txt`).
+- 가드 변이 H1–H62를 커밋 4c1ddfb 코드로 실행: 62/62, 수정 안 한 사본 71 통과 (`audit/cycle15/guard_mutants.json`).
+
+**E. 커밋**
+- 4c1ddfb: 코드, 테스트, 가드 변이 H62 (I-104)
+- 이 문서와 함께: 문서 정정(I-103), Cycle 15 기록과 증거
+
+**F. 커밋 후 재검증**
+- 4c1ddfb: 새 worktree, lock venv 156 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle15/postcommit_4c1ddfb_*.txt`).
+- Cycle 14 문서 커밋 121b40a: 150 통과, 1 건너뜀, 60/60, 28/28 (`audit/cycle15/postcommit_121b40a_*.txt`).

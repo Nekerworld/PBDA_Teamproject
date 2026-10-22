@@ -42,7 +42,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 151개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 157개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -55,9 +55,9 @@ python report_tools/launch_detached.py --log audit_runs/v7_run.log -- python -u 
 # 4)–11)의 출력은 gitignore 대상인 audit_runs/repro/에 쓰고, 표시한 커밋된 증거와 비교함 (커밋된 증거를 덮어쓰지 않도록. 5)·6) 도구의 기본 출력도 audit_runs/)
 # 4) 커밋된 요약에서 그림과 표 다시 만들기 (모델 학습 없음. 비교: audit/figures_v7, 줄바꿈 외 같음)
 python report_tools/plot_rolling_results.py --results audit/results_v7 --output audit_runs/repro/figures_v7
-# 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서, 다른 GPU 작업이 없을 때 실행. 비교: audit/mutation/mutation_results.json. Cycle 13 재실행(05:52:27–06:43:43 UTC)은 작업 폴더 전체 테스트(06:07–06:13), 가드 변이 첫 실행(06:06:59 이후), cb22505 커밋 후 테스트(06:15:38–06:22:35)와 겹쳤고 결과는 공식 결과와 바이트 단위로 같음)
+# 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서 실행. 비교: audit/mutation/mutation_results.json. 다른 GPU 작업이 없을 때 실행한 것은 이 기준 실행(Cycle 3)뿐이다. 이후 재실행은 다른 작업과 겹쳤고 결과는 모두 공식 결과와 바이트 단위로 같음: Cycle 8(343e75f, 20:14:17–21:08:52 UTC)·9(79b628d, 21:15:30–22:08:20)·10(ac9b865, 22:27:07–23:17:51)은 커밋 후 전체 테스트(b9e7134 20:38:42–20:44:29, ce97790 21:41:06–21:46:36, 4e166c5 23:06:45–23:13:08)와 같은 Cycle의 가드 변이, Cycle 12(2f1767c, 03:47:29–04:36:35)는 5026680 커밋 후 테스트(04:22:38–04:28:42)와 가드 변이(04:28:49 이후), Cycle 13(1e2b35e, 05:52:27–06:43:43)은 작업 폴더 전체 테스트(06:07–06:13, 셸 기록의 시각, 출력 저장 안 함), 가드 변이 첫 실행(06:06:59 이후, 셸 기록의 시각, 출력 저장 안 함), cb22505 커밋 후 테스트(06:15:38–06:22:35))
 python report_tools/mutation_check.py --output audit_runs/repro/mutation_results.json
-# 6) 가드 변이 테스트 (Cycle 5–14 가드의 옛 동작 61개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 출력 경로를 인자로 줌, 출력에 git HEAD와 커밋 안 된 파일 기록. Cycle 7에 셸 실행 시간 22분 14초, Cycle 8에 H1–H27을 36분 6초, Cycle 9에 H1–H35를 44분 53초, Cycle 10에 H1–H44를 52분 26초, Cycle 11에 H1–H48을 62분 55초, Cycle 12에 H1–H54를 76분 18초, Cycle 13에 H1–H60을 84분 18초, Cycle 14에 H1–H61을 85분 51초(출력의 시작·종료 시각). Cycle 10까지는 공식 변이 테스트와(Cycle 8–10은 커밋 후 전체 테스트와도: b9e7134 20:38:42–20:44:29, ce97790 21:41:06–21:46:36, 4e166c5 23:06:45–23:13:08 UTC), Cycle 11은 커밋 후 전체 테스트·독립 코드 감사와, Cycle 12는 공식 변이 테스트(04:36 UTC까지)와, Cycle 13은 db3653e 커밋 후 전체 테스트(07:24:30–07:30:37 UTC)·Cycle 14 독립 코드 감사(cb22505 대상)와 동시 실행. Cycle 13의 첫 실행(06:06:59 UTC 시작, H52에서 멈춤)은 커밋 전 작업 폴더 전체 테스트·공식 변이 테스트·cb22505 커밋 후 테스트와 겹쳤음. Cycle 14는 41ba20d 커밋 후 전체 테스트(09:03:38–09:09:53 UTC)·Cycle 14 독립 문서 감사와 동시 실행. 비교: audit/cycle14/guard_mutants.json)
+# 6) 가드 변이 테스트 (Cycle 5–15 가드의 옛 동작 62개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 출력 경로를 인자로 줌, 출력에 git HEAD와 커밋 안 된 파일 기록. Cycle 7에 셸 실행 시간 22분 14초, Cycle 8에 H1–H27을 36분 6초, Cycle 9에 H1–H35를 44분 53초, Cycle 10에 H1–H44를 52분 26초, Cycle 11에 H1–H48을 62분 55초, Cycle 12에 H1–H54를 76분 18초, Cycle 13에 H1–H60을 84분 18초, Cycle 14에 H1–H61을 85분 51초, Cycle 15에 H1–H62를 88분 46초(출력의 시작·종료 시각). Cycle 10까지는 공식 변이 테스트와(Cycle 8–10은 커밋 후 전체 테스트와도: b9e7134 20:38:42–20:44:29, ce97790 21:41:06–21:46:36, 4e166c5 23:06:45–23:13:08 UTC), Cycle 11은 커밋 후 전체 테스트·독립 코드 감사와, Cycle 12는 공식 변이 테스트(04:36 UTC까지)와, Cycle 13은 db3653e 커밋 후 전체 테스트(07:24:30–07:30:37 UTC)·Cycle 14 독립 코드 감사(cb22505 대상)와 동시 실행. Cycle 13의 첫 실행(06:06:59 UTC 시작(셸 기록의 시각, 출력 저장 안 함), H52에서 멈춤)은 커밋 전 작업 폴더 전체 테스트·공식 변이 테스트·cb22505 커밋 후 테스트와 겹쳤음. Cycle 14는 41ba20d 커밋 후 전체 테스트(09:03:38–09:09:53 UTC)·Cycle 14 독립 문서 감사와, Cycle 15는 4c1ddfb 커밋 후 전체 테스트(10:50:06–10:56:21 UTC)와 동시 실행. 비교: audit/cycle15/guard_mutants.json)
 python report_tools/guard_mutation_check.py audit_runs/repro/guard_mutants.json
 # 7) 끝난 root의 캐시가 plan·selection이 요청할 설정과 같은지 (학습·정답 읽기 없음.
 #    상한 연장 대상은 validation_gnn.json에서 읽고 규칙으로 다시 유도하지 않음. F1 IF ablation 재학습은 대상 아님)

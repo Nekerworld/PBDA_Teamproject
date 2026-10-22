@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§23은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§24는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -20,6 +20,7 @@
 | 회귀 테스트 (Cycle 12) | `test_cycle12_guards.py` 4개, `test_compare_outputs.py` 1개 추가 후 145/145 (v7 venv, 출력 저장 안 함). 커밋 5026680의 새 worktree + lock venv 144 통과, 1 건너뜀 → §21 |
 | 회귀 테스트 (Cycle 13) | `test_cycle13_guards.py` 4개 추가 후 149/149 (v7 venv, 출력 저장 안 함). 커밋 cb22505와 db3653e의 새 worktree + lock venv 각각 148 통과, 1 건너뜀 → §22 |
 | 회귀 테스트 (Cycle 14) | `test_cycle14_guards.py` 2개 추가 후 151/151 (v7 venv, 출력 저장 안 함). 커밋 41ba20d의 새 worktree + lock venv 150 통과, 1 건너뜀 → §23 |
+| 회귀 테스트 (Cycle 15) | `test_cycle15_guards.py` 6개(매개변수화) 추가 후 157/157 (v7 venv, 출력 저장 안 함). 커밋 4c1ddfb의 새 worktree + lock venv 156 통과, 1 건너뜀 → §24 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -516,7 +517,7 @@ Cycle 12 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서)에서 
 | protocol 전환 (I-100) | v6, v7, v7→v6, v6→v7→v6→v7 순서 모두 마지막 protocol의 plan 해시가 커밋된 `plan.json`과 같음 (`audit/cycle13/use_protocol_check.txt`) |
 | 문서 정정 (I-96) | Cycle 12 가드 변이와 동시 실행한 작업, 두 번째 PC 범위(§9–§21), I-95의 정정 이유(POSIX에서 `launch_detached.py`는 실행을 새 세션으로 띄우고 GNN 작업은 그 그룹을 이어받으므로 그룹 전체 종료도 맞음), "약 10ms"의 근거, 저장 안 한 확인 표시 |
 | 회귀 테스트 | 작업 폴더 149/149 (v7 venv, 출력 저장 안 함). 커밋 cb22505의 새 worktree + lock venv: 148 통과, 1 건너뜀(원본 데이터 상대경로 없음) (`audit/cycle13/postcommit_cb22505_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_cb22505_sha256.txt`). 변이 대상만 고친 db3653e도 148 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_db3653e_*.txt`) |
-| 가드 변이 H1–H60 (H55 `#keys`의 없는 키를 None으로 비교, H56 객체가 아닌 JSON의 `#keys`, H57 빈 커밋 폴더 쌍을 다른 쌍이 가림, H58 정밀도 도구가 시험 폴더를 읽음, H59 `use_protocol('v6')`가 v7 값을 남김, H60 α 없는 Hybrid 끝 표시. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 db3653e 코드로 실행(시작 때 커밋 안 된 것은 문서 6개와 `audit/cycle13/`뿐이고 실행 중에 코드를 고치지 않음), 60/60 검출, 수정 안 한 사본 63 통과. 07:24:16–08:48:34 UTC (`audit/cycle13/guard_mutants.json`, `guard_mutants_cycle13_log.txt`). 첫 실행(06:06:59 UTC 시작, cb22505 커밋 06:14:59 전의 작업 폴더. 코드는 cb22505와 같은 수정)은 H52 대상 문구가 없어 H52에서 멈춤(H1–H51 검출, 그 로그는 다시 실행할 때 덮어써 보존 안 됨) |
+| 가드 변이 H1–H60 (H55 `#keys`의 없는 키를 None으로 비교, H56 객체가 아닌 JSON의 `#keys`, H57 빈 커밋 폴더 쌍을 다른 쌍이 가림, H58 정밀도 도구가 시험 폴더를 읽음, H59 `use_protocol('v6')`가 v7 값을 남김, H60 α 없는 Hybrid 끝 표시. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 db3653e 코드로 실행(시작 때 커밋 안 된 것은 문서 6개와 `audit/cycle13/`뿐이고 실행 중에 코드를 고치지 않음), 60/60 검출, 수정 안 한 사본 63 통과. 07:24:16–08:48:34 UTC (`audit/cycle13/guard_mutants.json`, `guard_mutants_cycle13_log.txt`). 첫 실행(06:06:59 UTC 시작(셸 기록의 시각, 출력 저장 안 함), cb22505 커밋 06:14:59 전의 작업 폴더. 코드는 cb22505와 같은 수정)은 H52 대상 문구가 없어 H52에서 멈춤(H1–H51 검출, 그 로그는 다시 실행할 때 덮어써 보존 안 됨) |
 | 변이 테스트 17개 (§11), 커밋 1e2b35e 그대로(사본의 `.py` 37개가 모두 1e2b35e와 같음, `audit/cycle13/mutation_scratch_vs_commit.json`. 사본은 시작 때 한 번 만들어져 Cycle 13 수정은 들어가지 않음) | 공식 `mutation_results.json`과 바이트 단위로 같음 (17/17, 05:52:27–06:43:43 UTC, `audit/cycle13/mutation_results_1e2b35e.json`, `mutation_1e2b35e_run.txt`) |
 
 ## 23. Cycle 14: plan 해시와 Hybrid grid 값, 문서 정정 (I-101 – I-102)
@@ -529,3 +530,14 @@ Cycle 13 커밋 뒤 처음부터 다시 한 독립 감사(코드 HEAD cb22505, �
 | 문서 정정 (I-102) | I-99 거부 시점, Cycle 13 비교 재실행에 쓴 도구, 가드 변이·공식 변이 테스트의 동시 실행, 등록부 머리말, Cycle 13 가드 첫 실행의 시작 시점 |
 | 회귀 테스트 | 작업 폴더 151/151 (v7 venv, 출력 저장 안 함). 커밋 41ba20d의 새 worktree + lock venv: 150 통과, 1 건너뜀 (`audit/cycle14/postcommit_41ba20d_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_41ba20d_sha256.txt`). Cycle 13 문서 커밋 dcbfd0a(새 테스트 추가 전): 148 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_dcbfd0a_*.txt`) |
 | 가드 변이 H1–H61 (H61 plan에 손으로 적은 Hybrid 축. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 41ba20d 코드로 실행(시작 때 커밋 안 된 파일 없음), 61/61 검출, 수정 안 한 사본 65 통과. 09:03:32–10:29:23 UTC (`audit/cycle14/guard_mutants.json`, `guard_mutants_cycle14_log.txt`) |
+
+## 24. Cycle 15: plan 해시와 Hybrid grid 전체, 문서 정정 (I-103 – I-104)
+
+Cycle 14 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 121b40a)에서 찾은 항목이다. 새 P0·P1·P2는 없다 (코드 감사 P3 1건: I-101 수정이 불완전, 문서 감사 P3 2건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| plan의 Hybrid grid (I-104) | 봉인된 grid와 다른 grid는 순서 있는 grid 전체의 sha256을 plan에 기록. 실제 커밋 plan: v6·v7 모두 grid가 봉인된 grid와 같고 plan 내용과 해시가 커밋된 `plan.json`과 같음 (`audit/cycle15/plan_hash_check.txt`, HEAD 4c1ddfb, 커밋 안 된 `.py` 없음). 후보 깊이 값, 전략과 후보 깊이의 짝, 순서만 바꾼 grid는 v6·v7 모두 해시가 바뀜(테스트) |
+| 문서 정정 (I-103) | 출력이 남지 않은 Cycle 13 시각 표시, 공식 변이 테스트 재실행의 동시 실행 기록(Cycle 8–10·12·13) |
+| 회귀 테스트 | 작업 폴더 157/157 (v7 venv, 출력 저장 안 함). 커밋 4c1ddfb의 새 worktree + lock venv: 156 통과, 1 건너뜀 (`audit/cycle15/postcommit_4c1ddfb_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_4c1ddfb_sha256.txt`). Cycle 14 문서 커밋 121b40a: 150 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_121b40a_*.txt`) |
+| 가드 변이 H1–H62 (H62 plan에 grid sha256 없음. H61은 새 sha256만으로도 해시가 바뀌어 살아남으므로, Cycle 14 테스트에 기록된 축 확인을 더함. 끝까지 돌리는 재현 테스트는 시간 때문에 제외) | 커밋 4c1ddfb 코드로 실행(시작 때 커밋 안 된 것은 문서 3개뿐이고 실행 중에 코드를 고치지 않음), 62/62 검출, 수정 안 한 사본 71 통과. 10:50:02–12:18:48 UTC (`audit/cycle15/guard_mutants.json`, `guard_mutants_cycle15_log.txt`) |
