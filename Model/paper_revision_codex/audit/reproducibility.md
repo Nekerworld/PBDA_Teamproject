@@ -42,7 +42,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 149개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 151개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -55,9 +55,9 @@ python report_tools/launch_detached.py --log audit_runs/v7_run.log -- python -u 
 # 4)–11)의 출력은 gitignore 대상인 audit_runs/repro/에 쓰고, 표시한 커밋된 증거와 비교함 (커밋된 증거를 덮어쓰지 않도록. 5)·6) 도구의 기본 출력도 audit_runs/)
 # 4) 커밋된 요약에서 그림과 표 다시 만들기 (모델 학습 없음. 비교: audit/figures_v7, 줄바꿈 외 같음)
 python report_tools/plot_rolling_results.py --results audit/results_v7 --output audit_runs/repro/figures_v7
-# 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서, 다른 GPU 작업이 없을 때 실행. 비교: audit/mutation/mutation_results.json)
+# 5) 변이 테스트 (변이마다 테스트 묶음 두 개를 다시 돌림. RTX 3090 Ti PC에서 49분 38초. gitignore 대상 사본에서, 다른 GPU 작업이 없을 때 실행. 비교: audit/mutation/mutation_results.json. Cycle 13 재실행(05:52:27–06:43:43 UTC)은 작업 폴더 전체 테스트(06:07–06:13), 가드 변이 첫 실행(06:06:59 이후), cb22505 커밋 후 테스트(06:15:38–06:22:35)와 겹쳤고 결과는 공식 결과와 바이트 단위로 같음)
 python report_tools/mutation_check.py --output audit_runs/repro/mutation_results.json
-# 6) 가드 변이 테스트 (Cycle 5–13 가드의 옛 동작 60개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 출력 경로를 인자로 줌, 출력에 git HEAD와 커밋 안 된 파일 기록. Cycle 7에 셸 실행 시간 22분 14초, Cycle 8에 H1–H27을 36분 6초, Cycle 9에 H1–H35를 44분 53초, Cycle 10에 H1–H44를 52분 26초, Cycle 11에 H1–H48을 62분 55초, Cycle 12에 H1–H54를 76분 18초, Cycle 13에 H1–H60을 84분 18초(출력의 시작·종료 시각). Cycle 10까지는 공식 변이 테스트와, Cycle 11은 커밋 후 전체 테스트·독립 코드 감사와, Cycle 12는 공식 변이 테스트(04:36 UTC까지)와, Cycle 13은 db3653e 커밋 후 전체 테스트(07:24:30–07:30:37 UTC)·독립 코드 감사와 동시 실행. 비교: audit/cycle13/guard_mutants.json)
+# 6) 가드 변이 테스트 (Cycle 5–14 가드의 옛 동작 61개를 사본에 하나씩 넣고 가드 테스트가 실패하는지 확인. 출력 경로를 인자로 줌, 출력에 git HEAD와 커밋 안 된 파일 기록. Cycle 7에 셸 실행 시간 22분 14초, Cycle 8에 H1–H27을 36분 6초, Cycle 9에 H1–H35를 44분 53초, Cycle 10에 H1–H44를 52분 26초, Cycle 11에 H1–H48을 62분 55초, Cycle 12에 H1–H54를 76분 18초, Cycle 13에 H1–H60을 84분 18초, Cycle 14에 H1–H61을 85분 51초(출력의 시작·종료 시각). Cycle 10까지는 공식 변이 테스트와(Cycle 8–10은 커밋 후 전체 테스트와도: b9e7134 20:38:42–20:44:29, ce97790 21:41:06–21:46:36, 4e166c5 23:06:45–23:13:08 UTC), Cycle 11은 커밋 후 전체 테스트·독립 코드 감사와, Cycle 12는 공식 변이 테스트(04:36 UTC까지)와, Cycle 13은 db3653e 커밋 후 전체 테스트(07:24:30–07:30:37 UTC)·Cycle 14 독립 코드 감사(cb22505 대상)와 동시 실행. Cycle 13의 첫 실행(06:06:59 UTC 시작, H52에서 멈춤)은 커밋 전 작업 폴더 전체 테스트·공식 변이 테스트·cb22505 커밋 후 테스트와 겹쳤음. Cycle 14는 41ba20d 커밋 후 전체 테스트(09:03:38–09:09:53 UTC)·Cycle 14 독립 문서 감사와 동시 실행. 비교: audit/cycle14/guard_mutants.json)
 python report_tools/guard_mutation_check.py audit_runs/repro/guard_mutants.json
 # 7) 끝난 root의 캐시가 plan·selection이 요청할 설정과 같은지 (학습·정답 읽기 없음.
 #    상한 연장 대상은 validation_gnn.json에서 읽고 규칙으로 다시 유도하지 않음. F1 IF ablation 재학습은 대상 아님)
@@ -72,7 +72,7 @@ python report_tools/grid_cache_precision_check.py --root audit_runs/v7 --output 
 # 11) 다시 만든 출력과 커밋된 증거 비교 (4, 7–10단계와 아래 plan 코드 확인·재계산. plan 코드 확인은 시간이 지나며 늘어나는 목록을 빼고 비교)
 python report_tools/compare_outputs.py --output audit_runs/repro/compare.json audit_runs/repro/figures_v7=audit/figures_v7 audit_runs/repro/cache_identity_v7.json=audit/cycle5/cache_identity_v7.json audit_runs/repro/policy_tuning_gap_v7.json=audit/cycle8/policy_tuning_gap_v7.json audit_runs/repro/guard_real_data.json=audit/cycle10/guard_real_data.json audit_runs/repro/stamp_code_v7.json=audit/cycle9/stamp_code_v7.json audit_runs/repro/grid_cache_precision_v7.json=audit/cycle8/grid_cache_precision_v7.json audit_runs/repro/recompute_v7_F4_unseen.json=audit/recompute/recompute_v7_F4_unseen.json "audit_runs/repro/plan_code_v7.json=audit/plan_code/plan_code_v7.json#commit,scheme,files,all_plan_hashes_match_commit"
 #    Cycle 11 실행(커밋 8d8d0d5의 도구): 29행(다시 만든 출력 28개. plan 코드 확인 출력 하나를 Cycle 3·Cycle 6 증거 두 곳과 비교했고, 11단계 명령은 Cycle 3 쪽만 비교해 28행) 모두 같음 (audit/cycle11/repro_compare.json, repro_run.txt)
-#    Cycle 13 실행(커밋 cb22505의 도구, Cycle 11에 다시 만든 같은 출력): 28행 중 I-89 전에 만든 v7 `pipeline.*` 3개만 다름, 커밋 파일이 없는 쌍 없음 (audit/cycle13/compare_repro.json). `#keys`의 키가 한쪽에라도 없거나 JSON 객체가 아니면 오류로 멈춤(I-98)
+#    Cycle 13 실행(cb22505로 커밋된 수정이 들어간 커밋 직전 작업 폴더의 도구(06:14:11 UTC, 커밋 06:14:59), Cycle 11에 다시 만든 같은 출력): 28행 중 I-89 전에 만든 v7 `pipeline.*` 3개만 다름, 커밋 파일이 없는 쌍 없음 (audit/cycle13/compare_repro.json). `#keys`의 키가 한쪽에라도 없거나 JSON 객체가 아니면 오류로 멈춤(I-98)
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.
