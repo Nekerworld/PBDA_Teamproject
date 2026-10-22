@@ -185,15 +185,17 @@ def plan_payload():
 def git_state():
     def run(*args):
         try:
-            # rstrip only: porcelain lines start with a status column that may be a space
-            return subprocess.run(['git', *args], cwd=HERE, capture_output=True, text=True, check=True).stdout.rstrip('\n')
-        except (OSError, subprocess.CalledProcessError):
+            # rstrip only: porcelain lines start with a status column that may be a space. git writes paths in UTF-8
+            # (raw, not escaped, under core.quotePath=false), which the Windows locale codec cannot always read.
+            return subprocess.run(['git', *args], cwd=HERE, capture_output=True, encoding='utf-8',
+                                  check=True).stdout.rstrip('\n')
+        except (OSError, subprocess.CalledProcessError, UnicodeDecodeError):
             return None
     # The run outputs are left out by pathspec, not by parsing the output: untracked files are listed whatever
     # status.showUntrackedFiles says, and a code file renamed from audit_runs/ cannot hide behind that path.
     status = run('status', '--porcelain', '--untracked-files=normal', '--', '.', ':(exclude)audit_runs')
     return {'commit': run('rev-parse', 'HEAD'), 'branch': run('rev-parse', '--abbrev-ref', 'HEAD'),
-            'dirty_files': [line for line in (status or '').splitlines() if line.strip()]}
+            'dirty_files': None if status is None else [line for line in status.splitlines() if line.strip()]}
 
 
 def native_threads():
@@ -1269,7 +1271,7 @@ def run(root, raw, folds=None, posthoc=True, protocol=None):
             raise RuntimeError('plan.json differs from the code plan; use a new root (no silent re-planning).')
     else:
         state = git_state()
-        if not state['commit']:
+        if not state['commit'] or state['dirty_files'] is None:
             raise RuntimeError('A preregistered run needs its code in git; the git state could not be read.')
         if state['dirty_files']:
             raise RuntimeError(f'Commit code before a preregistered run; dirty: {state["dirty_files"]}')

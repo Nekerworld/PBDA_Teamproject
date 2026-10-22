@@ -19,9 +19,14 @@ HERE = Path(__file__).resolve().parents[1]
 CREATE_NEW_PROCESS_GROUP, CREATE_BREAKAWAY_FROM_JOB, CREATE_NO_WINDOW = 0x200, 0x01000000, 0x08000000
 PINNED = {'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1',
           'NUMEXPR_NUM_THREADS': '1', 'FOR_DISABLE_CONSOLE_CTRL_HANDLER': '1', 'PYTHONUNBUFFERED': '1'}
+STARTUP_SECONDS = 10
 
 
 def main(log, command):
+    # The command runs in HERE; from another folder its relative paths (script, --root, --raw) and --log would
+    # resolve against different folders, and a --root could land outside audit_runs/ where other roots are checked.
+    if Path.cwd().resolve() != HERE:
+        raise SystemExit(f'Run launch_detached.py from {HERE}: the command runs there, so its relative paths must too')
     log = Path(log).resolve()
     log.parent.mkdir(parents=True, exist_ok=True)
     flags = CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB | CREATE_NO_WINDOW if os.name == 'nt' else 0
@@ -29,7 +34,14 @@ def main(log, command):
         process = subprocess.Popen(command, cwd=HERE, env={**os.environ, **PINNED}, stdin=subprocess.DEVNULL,
                                    stdout=handle, stderr=subprocess.STDOUT, creationflags=flags,
                                    start_new_session=os.name != 'nt')
-    print(f'pid {process.pid}, log {log}')
+    try:
+        code = process.wait(timeout=STARTUP_SECONDS)
+    except subprocess.TimeoutExpired:
+        print(f'pid {process.pid}, log {log}')
+        return
+    if code:
+        raise SystemExit(f'The command ended within {STARTUP_SECONDS} s with exit code {code}; see {log}')
+    print(f'The command finished within {STARTUP_SECONDS} s; log {log}')
 
 
 if __name__ == '__main__':
