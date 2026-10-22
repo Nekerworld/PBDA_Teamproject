@@ -1,0 +1,8 @@
+commit: cf03fd7781c9d43c48631401518acbac44e1a598 + uncommitted Cycle 19 code/test changes
+venv: C:/Users/chris/venvs/pbda_v7
+started_utc: 2026-10-22T19:00:48Z
+    adjacency_tensor = torch.sparse_coo_tensor(indices_tensor, values_tensor, torch.Size(normalized.shape))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+168 passed, 1 warning in 338.16s (0:05:38)
+finished_utc: 2026-10-22T19:06:28Z

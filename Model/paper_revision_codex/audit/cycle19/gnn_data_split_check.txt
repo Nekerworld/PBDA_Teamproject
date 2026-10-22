@@ -1,0 +1,13 @@
+started_utc 2026-10-22T18:56:48.443562+00:00
+head cf03fd7781c9d43c48631401518acbac44e1a598 + uncommitted Cycle 19 changes
+sha256 rolling_protocol.py 320c054e7d4812cfbfc14d3d6afba36fd67126875e9dbb043e061f27dd35b02d
+sha256 report_tools/check_cached_runs.py 41b98ffb1276b70fcce9010766718401df598f95908366fdc58d0daad62efc9d
+1) gnn_spec select on prepared/validation (role validation): select
+2) gnn_spec select on prepared (role test) refused: A GNN selection job must train on an inner validation split, not audit_runs\v7\F4_unseen\prepared
+3) gnn_spec refit on prepared: refit
+{'root': 'audit_runs\\v7', 'gnn_requested': 39, 'gnn_results_on_disk': 39, 'gnn_mismatches': 0, 'mf_fits': 4, 'mf_mismatches': 0}
+4) check_cached_runs on audit_runs/v7: data mismatches 0 of 39
+   output equals audit/cycle5/cache_identity_v7.json: True
+{'root': 'audit_runs\\v7', 'gnn_requested': 39, 'gnn_results_on_disk': 39, 'gnn_mismatches': 1, 'mf_fits': 4, 'mf_mismatches': 0}
+5) negative control (job F4_unseen\gnn_val\gnn_layers1_embedding_dim64_learning_rate0p0005 read as trained on prepared): mismatches 1, differs ['data']
+finished_utc 2026-10-22T18:56:48.681236+00:00

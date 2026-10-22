@@ -598,7 +598,36 @@
 
 **E. 커밋**
 - 0e80a80: 코드, 테스트, 가드 변이 (I-114 일부, I-115 – I-117)
-- 이 문서와 함께: 문서 정정(I-112 – I-114), Cycle 18 기록과 증거
+- cf03fd7: 문서 정정(I-112 – I-114), Cycle 18 기록과 증거
 
 **F. 커밋 후 재검증**
 - 0e80a80: 새 worktree, lock venv 164 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle18/postcommit_0e80a80_*.txt`).
+- cf03fd7: 새 worktree, lock venv 164 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle19/postcommit_cf03fd7_*.txt`).
+
+## Cycle 19 (2026-10-23 KST): Cycle 18 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD cf03fd7)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1 없음)**
+- 코드 감사 P3 1건: I-118 GNN 선택 작업의 데이터 분할을 확인하는 장치가 없음(코드 두 줄에만 기댐. v6·v7 영향 없음).
+- 문서 감사 P2 2건: I-119 §6.2의 재고 신호 효과를 NDCG로만 적음, I-120 재고 신호 비대칭이 원고 지침에 없음. P3 2건: I-121 재현 3단계의 dirty 검사 범위, I-122 날짜.
+- 미확정 의심(결함 수에 넣지 않음): launcher의 10초 판정이 캐시가 빈 상태에서 넘칠 가능성, launcher의 10초 안 종료 코드 0 경로 테스트 없음, guard 도구의 git 출력 디코딩 오류 처리, 재고 효과는 F1 repeat·seed 42에서만 측정됨(§6.2에 한정으로 적음), H70은 launcher 폴더 검사만 덮음, Cycle 18 커밋 전 pytest 출력에 venv 기록 없음.
+
+**C. 수정**
+- 코드: `gnn_spec`의 선택 작업 역할 검사, `check_cached_runs`의 데이터 출처 비교.
+- 테스트: `test_cycle19_guards.py` 3개, `test_cycle5_guards.py` 캐시 fixture에 manifest. 가드 변이 H71–H73.
+- 문서: I-118 – I-122.
+
+**D. 검증**
+- 새 가드 변이 H71–H73을 `test_cycle19_guards.py`만으로, 상한 연장 줄 변이를 smoke 테스트로 먼저 확인: 모두 검출, 수정 안 한 사본 통과 (`audit/cycle19/quick_mutants.txt`). 73개 대상이 모두 한 번씩 있음.
+- 작업 폴더 전체 테스트 168/168 (`audit/cycle19/precommit_pytest.txt`).
+- 실제 v7 root에서 데이터 분할 검사와 음성 대조 (`audit/cycle19/gnn_data_split_check.txt`).
+- 가드 변이 H1–H73을 커밋 d92de19 코드로 실행: 73/73, 수정 안 한 사본 82 통과 (`audit/cycle19/guard_mutants.json`).
+
+**E. 커밋**
+- d92de19: 코드, 테스트, 가드 변이 (I-118)
+- 이 문서와 함께: 문서 정정(I-119 – I-122), Cycle 19 기록과 증거
+
+**F. 커밋 후 재검증**
+- d92de19: 새 worktree, lock venv 167 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle19/postcommit_d92de19_*.txt`).

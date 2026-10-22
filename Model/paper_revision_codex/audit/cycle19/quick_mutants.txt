@@ -1,0 +1,8 @@
+unmutated ['test_cycle19_guards.py', 'test_cycle5_guards.py::test_cached_gnn_jobs_are_checked_against_the_plan_and_selection'] -> FAILED | no tests ran in 5.57s
+H71 GNN selection job on any data ['test_cycle19_guards.py'] -> FAILED | 1 failed, 2 passed in 8.49s
+H72 GNN selection grid on the outer split ['test_cycle19_guards.py'] -> FAILED | 1 failed, 2 passed in 9.20s
+H73 cached GNN data not compared ['test_cycle19_guards.py'] -> FAILED | 1 failed, 2 passed in 6.47s
+unmutated ['test_v6_smoke.py'] -> passed | 2 passed, 1 warning in 103.75s (0:01:43)
+X cap-extension jobs on the outer split ['test_v6_smoke.py'] -> FAILED | 2 failed, 1 warning in 27.72s
+rerun unmutated test_cycle19 + cycle5 cache audit -> passed | 4 passed in 6.66s
+rerun X cap-extension -> FAILED | failing reason: ['E           RuntimeError: A GNN selection job must train on an inner validation split, not C:\\Users\\chris\\AppData\\Local\\Temp\\pytest-of-chris\\pytest-1363\\test_rolling_protocol_end_to_e0\\run\\F1_hist\\prepared', 'E           RuntimeError: A GNN selection job must train on an inner validation split, not C:\\Users\\chris\\AppData\\Local\\Temp\\pytest-of-chris\\pytest-1363\\test_v7_fold_runs_without_post0\\run\\F4_unseen\\prepared']
