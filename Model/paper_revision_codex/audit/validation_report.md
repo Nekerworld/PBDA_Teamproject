@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§26는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§27는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -23,6 +23,7 @@
 | 회귀 테스트 (Cycle 15) | `test_cycle15_guards.py` 6개(매개변수화) 추가 후 157/157 (v7 venv, 출력 저장 안 함). 커밋 4c1ddfb의 새 worktree + lock venv 156 통과, 1 건너뜀 → §24 |
 | 회귀 테스트 (Cycle 16) | `test_cycle16_guards.py` 1개 추가 후 158/158 (v7 venv, `audit/cycle16/precommit_pytest.txt`). 커밋 6ce754d의 새 worktree + lock venv 157 통과, 1 건너뜀 → §25 |
 | 회귀 테스트 (Cycle 17) | `test_cycle17_guards.py` 2개 추가, `test_cycle16_guards.py`를 실제 git으로 바꾼 뒤 160/160 (v7 venv, `audit/cycle17/precommit_pytest.txt`). 커밋 cf1a3fe의 새 worktree + lock venv 159 통과, 1 건너뜀 → §26 |
+| 회귀 테스트 (Cycle 18) | `test_cycle18_guards.py` 5개 추가 후 165/165 (v7 venv, `audit/cycle18/precommit_pytest.txt`). 커밋 0e80a80의 새 worktree + lock venv 164 통과, 1 건너뜀 → §27 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -53,7 +54,7 @@ F1, F2, F3 모두 28/28 통과 (`F*/leakage_check.json`). 검사 항목:
 | | | novel | 717 | 342 | 316 | |
 | F2_mid | F1 학습 구간의 마지막 25% (대부분 v1–v5의 내부 validation 구간) | repeat | 897 | 458 | 431 | 47,979 |
 | | | novel | 755 | 372 | 342 | |
-| F3_early | 처음 사용하는 앞쪽 구간 | repeat | 628 | 326 | 305 | 39,284 |
+| F3_early | v1–v5에서 평가·선택에 쓰지 않은 앞쪽 구간 (80%는 같은 v6 실행에서 F2의 내부 validation) | repeat | 628 | 326 | 305 | 39,284 |
 | | | novel | 505 | 248 | 225 | |
 
 - 모든 모델의 분모는 같다. 학습 벡터가 없는 사용자는 0점으로 포함한다.
@@ -163,7 +164,7 @@ fold 사이 표준편차(repeat, Hybrid)는 NDCG 0.0114, Recall 0.0165이다. �
 | 1.5 | 0.1160 | 0.1662 | 97.2% |
 | 2.0 | 0.1140 | 0.1614 | 99.6% |
 
-재고 가중의 정확도 효과는 작다 (최대 NDCG +0.0024). 노출되는 상품 구성은 크게 바뀐다. `available`은 학습 종료 시점 이전의 마지막 관측값이며, 시험 기간의 실시간 재고가 아니다.
+재고 가중의 정확도 효과는 작다 (최대 NDCG +0.0024). 재고 신호(`available`, γ)는 Hybrid에만 들어가고 baseline(ALS·BPR·ALS+BPR·GNN·Popularity·Recent·RecentPop)에는 없다. 선택된 γ는 모든 fold·정책에서 1보다 크므로, Hybrid − baseline 차이에는 이 신호의 효과(F1 repeat에서 γ 1 대비 NDCG +0.0024 수준, 사후 분석)도 들어 있다. 노출되는 상품 구성은 크게 바뀐다. `available`은 학습 종료 시점 이전의 마지막 관측값이며, 시험 기간의 실시간 재고가 아니다.
 
 ### 6.3 Isolation Forest (`if_ablation.csv`, `if_removal_by_event.csv`, `if_summary.json`)
 
@@ -568,3 +569,18 @@ Cycle 16 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 0a
 | 문서 정정 (I-109) | F3 시험 구간의 80%가 v6 F2의 validation이었음(§8 항목 2, I-106), 등록부 머리말, 가드 변이 docstring, 교수 자료 md 두 개의 감사 후 안내(PDF는 수정 안 함, `professor_materials/README_KO.md`), §1 Cycle 16 행, `v7_feasibility.md` §4의 Hybrid backbone lr 끝 |
 | 회귀 테스트 | 커밋 전 작업 폴더 첫 실행은 159 통과 1 실패(Cycle 5 상태 열 테스트가 옛 출력 형식의 가짜 git 출력을 씀, `audit/cycle17/precommit_pytest_first_run_1_failed.txt`). 그 테스트를 git이 지금 돌려주는 출력과 제외 pathspec 요구로 바꾼 뒤 160/160 (`precommit_pytest.txt`). 커밋 cf1a3fe의 새 worktree + lock venv: 159 통과, 1 건너뜀 (`postcommit_cf1a3fe_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 16 문서 커밋 0a0ca40: 157 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_0a0ca40_*.txt`) |
 | 가드 변이 H1–H65 (H63을 새 방식의 제외 pathspec 삭제로 바꿈, H64 `--untracked-files` 없음, H65 상대 spec 경로. 끝까지 돌리는 재현 테스트는 시간 때문에, git 이력을 읽는 `test_cycle4_guards.py`의 `verify_plan_code` 테스트는 사본이 git 저장소 밖이라 제외. 앞의 것은 그 테스트가 생긴 Cycle 10(4e166c5)부터, 뒤의 것은 Cycle 5(fd9bcca)부터 늘 제외됨) | 커밋 cf1a3fe 코드로 실행(시작 때 커밋 안 된 것은 문서 6개와 `audit/cycle17/`뿐이고 실행 중에 코드를 고치지 않음), 65/65 검출(바꾼 Cycle 5 테스트로 H14도 검출), 수정 안 한 사본 74 통과. 14:40:12–16:12:56 UTC (`audit/cycle17/guard_mutants.json`, `guard_mutants_cycle17_log.txt`) |
+
+## 27. Cycle 18: git 상태를 읽지 못하면 거부, UTF-8, launcher 실행 폴더, 문서 정정 (I-112 – I-117)
+
+Cycle 17 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 31b059c)에서 찾은 항목이다. 새 P0·P1은 없다 (문서 감사 P2 1건·P3 4건, 코드 감사 P3 3건 중 1건은 문서 감사의 미확정 의심과 같음). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| v5 매니페스트 해시 (I-112) | 교수 자료 md 세 개 모두 8e70037 원문을 CRLF로 바꾼 해시가 v5 매니페스트 값과 같음(Python으로 다시 계산. Cycle 17에 "맞지 않는다"고 적은 것은 끝에 줄바꿈이 없는 파일을 잘못 변환한 탓) |
+| F3 한정, H63 의미 (I-113, I-114) | §3 표 F3 행, `manuscript_alignment.md`, I-01 설명에 F3 한정을 넣음. I-108의 옛 접두사 면제를 되살린 H67 추가, 어떤 변이가 고친 부분을 뺀 상태인지 적음 |
+| git 상태를 읽지 못함 (I-115) | `git status`만 실패하면 `dirty_files`가 `None`이고 `run`이 plan을 만들지 않음. 고치기 전에는 실제 저장소에서 `git status`만 실패하게 바꾸면 `dirty_files == []`였음(출력 저장 안 함) |
+| 비ASCII 경로 (I-116) | git 출력을 UTF-8로 읽음. 임시 저장소(`core.quotePath=false`, `회의록.md`)에서 목록에 그대로 나옴(테스트). 실제 저장소의 `core.quotePath`는 전역 설정 false |
+| launcher 실행 폴더 (I-117) | 실제 launcher: 저장소 루트에서 부르면 거부하고 log를 만들지 않음, 종료 코드 3으로 바로 끝나는 명령은 실패로 알림, 15초 걸리는 명령은 pid를 출력 (`audit/cycle18/git_state_launch_check.txt`). 같은 파일에 실제 저장소의 `git_state()` 목록과 v6·v7 plan 내용·해시가 그대로임을 기록(0e80a80 커밋 전 작업 폴더, 코드는 0e80a80과 같은 수정) |
+| 재고 신호 공개 | 코드 감사의 미확정 의심(재고 신호는 Hybrid만 받음)을 확인: baseline에는 `available`·γ가 없고 선택된 γ는 모두 1보다 큼. §6.2에 명시 |
+| 회귀 테스트 | 커밋 전 작업 폴더 165/165 (v7 venv, `audit/cycle18/precommit_pytest.txt`. 코드 수정 도중에 돌던 앞선 실행은 버림). 커밋 0e80a80의 새 worktree + lock venv: 164 통과, 1 건너뜀 (`postcommit_0e80a80_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 17 문서 커밋 31b059c: 159 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_31b059c_*.txt`) |
+| 가드 변이 H1–H70 (H18 대상을 바뀐 줄로 옮김, H66 `None` 거부 없음, H67 I-108 접두사 면제, H68 실패한 status를 `[]`로, H69 기본 코덱, H70 아무 폴더에서 launcher 실행) | 커밋 0e80a80 코드로 실행(시작 때 커밋 안 된 것은 문서 5개와 `audit/cycle18/`뿐이고 실행 중에 코드를 고치지 않음), 70/70 검출, 수정 안 한 사본 79 통과. 16:48:06–18:29:30 UTC (`audit/cycle18/guard_mutants.json`, `guard_mutants_cycle18_log.txt`) |

@@ -1,0 +1,17 @@
+utc: 2026-10-22T16:47:42.092709+00:00
+head: 31b059c8a82e75f9cbc6795721a5ff6079a7d547
+core.quotePath: file:C:/Users/chris/.gitconfig	false
+code sha256 of rolling_protocol.py / launch_detached.py: f86b100c6a8be408 7ec2ee5bfe7238d7
+git_state: {"commit": "31b059c8a82e75f9cbc6795721a5ff6079a7d547", "branch": "dev", "dirty_files": [" M Model/paper_revision_codex/audit/issue_register.md", " M Model/paper_revision_codex/audit/manuscript_alignment.md", " M Model/paper_revision_codex/audit/reproducibility.md", " M Model/paper_revision_codex/audit/validation_report.md", " M Model/paper_revision_codex/professor_materials/README_KO.md", " M Model/paper_revision_codex/report_tools/guard_mutation_check.py", " M Model/paper_revision_codex/report_tools/launch_detached.py", " M Model/paper_revision_codex/rolling_protocol.py", "?? Model/paper_revision_codex/audit/cycle18/", "?? Model/paper_revision_codex/test_cycle18_guards.py"]}
+v6 payload equal: True sha equal: True
+v7 payload equal: True sha equal: True
+== launch_detached from the repository root (expect refusal)
+Run launch_detached.py from C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex: the command runs there, so its relative paths must too
+exit 1
+ls: cannot access 'Model/paper_revision_codex/audit_runs/cycle18/x.log': No such file or directory
+== launch_detached from the project folder, command exits 3 (expect failure report)
+The command ended within 10 s with exit code 3; see C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\audit_runs\cycle18\exit3.log
+exit 1
+== launch_detached from the project folder, command sleeps 15 s (expect pid)
+pid 23660, log C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\audit_runs\cycle18\sleep.log
+exit 0

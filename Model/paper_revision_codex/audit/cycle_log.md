@@ -573,3 +573,32 @@
 
 **F. 커밋 후 재검증**
 - cf1a3fe: 새 worktree, lock venv 159 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle17/postcommit_cf1a3fe_*.txt`).
+- Cycle 17 문서 커밋 31b059c: 159 통과, 1 건너뜀, 60/60, 28/28 (`audit/cycle18/postcommit_31b059c_*.txt`).
+
+## Cycle 18 (2026-10-23 KST): Cycle 17 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD 31b059c)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1 없음)**
+- 문서 감사 P2 1건: I-112 README_KO의 매니페스트 해시 서술이 틀림. P3: I-113 F3 한정 누락과 I-106 행의 고친 범위, I-114 H63 의미 변경과 docstring.
+- 코드 감사 P3 3건: I-115 `git status`만 실패하면 깨끗한 트리로 처리(문서 감사도 미확정 의심으로 보고), I-116 `core.quotePath=false`에서 비ASCII 경로로 `git_state`가 멈춤, I-117 launcher의 경로 기준.
+- 미확정 의심: `determinism_check`가 옮긴 root에서 실패할 가능성, 다른 드라이브의 원본에 hard link 실패(안전한 쪽), 재고 신호는 Hybrid만 받음(설계상 공정성 주의. 문서에는 γ 효과가 "Hybrid − ALS+BPR"에 섞인다는 말만 있어 §6.2에 baseline에는 없다는 점과 크기를 명시), 문서의 날짜 표기.
+
+**C. 수정**
+- 코드: git 상태를 읽지 못하면 거부, git 출력 UTF-8, launcher는 프로젝트 폴더에서만 실행하고 바로 끝난 명령을 알림.
+- 테스트: `test_cycle18_guards.py` 5개. 가드 변이 H18 대상 이동, H66–H70.
+- 문서: I-112 – I-117.
+
+**D. 검증**
+- 바뀌거나 새로 넣은 가드 변이(H14, H18, H63, H64, H66–H70)를 해당 테스트만으로 먼저 확인: 모두 검출, 수정 안 한 사본 27 통과(출력 저장 안 함). 70개 대상이 모두 한 번씩 있음.
+- 작업 폴더 전체 테스트 165/165 (`audit/cycle18/precommit_pytest.txt`).
+- 실제 launcher와 실제 저장소 확인 (`audit/cycle18/git_state_launch_check.txt`).
+- 가드 변이 H1–H70을 커밋 0e80a80 코드로 실행: 70/70, 수정 안 한 사본 79 통과 (`audit/cycle18/guard_mutants.json`).
+
+**E. 커밋**
+- 0e80a80: 코드, 테스트, 가드 변이 (I-114 일부, I-115 – I-117)
+- 이 문서와 함께: 문서 정정(I-112 – I-114), Cycle 18 기록과 증거
+
+**F. 커밋 후 재검증**
+- 0e80a80: 새 worktree, lock venv 164 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle18/postcommit_0e80a80_*.txt`).
