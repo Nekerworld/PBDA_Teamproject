@@ -652,13 +652,44 @@
 - 바뀌거나 새로 넣은 가드 변이(H71, H74, H75)를 해당 테스트만으로 먼저 확인: 모두 검출, 수정 안 한 사본과 smoke 테스트 통과 (`audit/cycle20/quick_mutants.txt`). 75개 대상이 모두 한 번씩 있음.
 - 작업 폴더 전체 테스트 170/170 (`audit/cycle20/precommit_pytest.txt`).
 - 실제 v7 manifest와 합성 v6 F1·F2로 다른 fold 거부 확인 (`audit/cycle20/gnn_fold_check.txt`).
-- 가드 변이 H1–H75: 첫 실행은 23개 검출(놓친 것 0) 뒤 외부 종료로 끊김. 다시 돌린 실행은 HEAD 194ba9c(코드는 a22f6ea와 같음)에서 75/75, 수정 안 한 사본 84 통과 (`audit/cycle20/guard_mutants.json`).
+- 가드 변이 H1–H75: 첫 실행은 22개 검출(놓친 것 0) 뒤 H23 실행 도중 외부 종료로 끊김(로그의 H23 `killed`는 테스트 실패가 아니라 pytest가 강제로 끝난 것. 재실행에서 H23은 1 failed로 검출). 다시 돌린 실행은 HEAD 194ba9c(코드는 a22f6ea와 같음)에서 75/75, 수정 안 한 사본 84 통과 (`audit/cycle20/guard_mutants.json`).
 
 **E. 커밋**
 - a22f6ea: 코드, 테스트, 가드 변이 (I-123)
-- 194ba9c: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거 (가드 실행이 끊긴 사이 중간 저장으로 커밋되어 가드 결과 자리가 비어 있었음)
-- 이 문서와 함께: 가드 변이 결과, 첫 실행이 끊긴 기록, 194ba9c 커밋 후 재검증
+- 194ba9c: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거 (가드 첫 실행 도중 중간 저장으로 커밋되어 가드 결과 자리가 비어 있었음. 첫 실행은 그 직후 끊김: 로그 파일 수정 시각 06:45:15 KST, 커밋 06:43:55 KST)
+- c04c883: 가드 변이 결과, 첫 실행이 끊긴 기록, 194ba9c 커밋 후 재검증
 
 **F. 커밋 후 재검증**
 - a22f6ea: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle20/postcommit_a22f6ea_*.txt`).
 - 194ba9c: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle20/postcommit_194ba9c_*.txt`).
+- c04c883: Cycle 21에 기록 (`audit/cycle21/postcommit_c04c883_*.txt`).
+
+## Cycle 21 (2026-10-25 KST): Cycle 20 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD c04c883)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1·P2 없음)**
+- 코드 감사 P3 1건: I-132 원고 대조표와 구조도가 행동 가중치·시간 감쇠·음성 표본·edge dropout을 적지 않음.
+- 문서 감사 P3 5건: I-127 Cycle 20 첫 가드 실행의 검출 수(23개가 아니라 22개), I-128 첫 실행의 시작 시점에 저장된 근거 없음, I-129 등록부 커밋 열, I-130 provenance 해시 서술의 줄바꿈 범위, I-131 재현 6단계의 H75 설명.
+- 확인 중 발견 P3 1건: I-133 가드 도구가 0이 아닌 종료 코드를 모두 검출로 세고, 빈 출력에서 멈추고, 시작 정보를 끝날 때만 기록함(I-127·I-128의 원인).
+- 미확정 의심(결함 수에 넣지 않음): 코드 감사의 `gnn_val`만 다른 곳을 가리키는 정션(안전한 쪽으로 거부), `cross_machine_repro.py`가 v6 fold만 다룸(문서도 v6 F3에만 썼다고 적고, v7 fold를 주면 바로 멈춤), 누수 검사가 분할 비율을 manifest 자기 값과 비교(plan 해시가 따로 검사됨), `check_cached_runs`가 POSIX에서 Windows 절대경로의 이름을 잘못 뽑음(v6에는 상한 연장 작업이 없음). 문서 감사의 194ba9c 커밋 순서, I-123의 373개, §6.2와 §8 항목 6의 표현 차이는 받아들여 고침. 등록부 현재 상태 날짜는 2026-10-25로 바꿈.
+
+**C. 수정**
+- 도구: `guard_mutation_check.py`의 검출 판정(종료 코드 1과 failed·error 요약일 때만 `killed`, 그 밖은 `aborted`), 빈 출력 처리, 시작 정보 출력, 모듈 가져오기 때 실행 안 함. 구조도 각주(`plot_rolling_results.py`).
+- 테스트: `test_cycle21_guards.py` 2개. 가드 변이 H76·H77.
+- 문서: I-127 – I-133, 원고 대조표의 학습 입력 행, 다시 만든 구조도(v6·v7 `pipeline.*`).
+
+**D. 검증**
+- H76·H77을 `test_cycle21_guards.py`만으로 먼저 확인: 둘 다 검출, 수정 안 한 사본과 smoke 테스트 통과 (`audit/cycle21/quick_mutants.txt`). 77개 대상이 모두 한 번씩 있음.
+- 작업 폴더 전체 테스트 172/172 (`audit/cycle21/precommit_pytest.txt`).
+- 구조도를 다시 만들어 52개 중 `pipeline.*` 6개만 바뀜 (`audit/cycle21/figure_compare.json`).
+- 가드 변이 H1–H77: 커밋 afc4d0a 코드로 실행(시작 때 커밋 안 된 것은 문서 6개, 다시 만든 구조도 6개, `audit/cycle21/`뿐이고 실행 중에 코드를 고치지 않음. 고친 도구라 시작 정보가 로그 첫 줄에 있음), 77/77 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 86 통과. 2026-10-25 08:41:41–10:26:30 UTC (`audit/cycle21/guard_mutants.json`, `guard_mutants_cycle21_log.txt`)
+
+**E. 커밋**
+- afc4d0a: 도구, 테스트, 구조도 생성기 (I-133, I-132의 구조도 부분, H76·H77)
+- 이 문서와 함께: 문서 정정(I-127 – I-131, I-132의 대조표 부분), 다시 만든 구조도, Cycle 21 기록과 증거
+
+**F. 커밋 후 재검증**
+- c04c883: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle21/postcommit_c04c883_*.txt`).
+- afc4d0a: 새 worktree, lock venv 171 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle21/postcommit_afc4d0a_*.txt`).

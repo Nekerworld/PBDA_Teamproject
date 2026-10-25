@@ -26,6 +26,7 @@
 | 회귀 테스트 (Cycle 18) | `test_cycle18_guards.py` 5개 추가 후 165/165 (v7 venv, `audit/cycle18/precommit_pytest.txt`). 커밋 0e80a80의 새 worktree + lock venv 164 통과, 1 건너뜀 → §27 |
 | 회귀 테스트 (Cycle 19) | `test_cycle19_guards.py` 3개 추가 후 168/168 (v7 venv, `audit/cycle19/precommit_pytest.txt`). 커밋 d92de19의 새 worktree + lock venv 167 통과, 1 건너뜀 → §28 |
 | 회귀 테스트 (Cycle 20) | `test_cycle20_guards.py` 2개 추가 후 170/170 (v7 venv, `audit/cycle20/precommit_pytest.txt`). 커밋 a22f6ea의 새 worktree + lock venv 169 통과, 1 건너뜀 → §29 |
+| 회귀 테스트 (Cycle 21) | `test_cycle21_guards.py` 2개 추가 후 172/172 (v7 venv, `audit/cycle21/precommit_pytest.txt`). 커밋 afc4d0a의 새 worktree + lock venv 171 통과, 1 건너뜀 → §30 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -166,7 +167,7 @@ fold 사이 표준편차(repeat, Hybrid)는 NDCG 0.0114, Recall 0.0165이다. �
 | 1.5 | 0.1160 | 0.1662 | 97.2% |
 | 2.0 | 0.1140 | 0.1614 | 99.6% |
 
-재고 가중의 정확도 효과는 절댓값으로는 작다 (γ 1 대비 최대 NDCG +0.0024, Recall +0.0065). 재고 신호(`available`, γ)는 Hybrid에만 들어가고 baseline(ALS·BPR·ALS+BPR·GNN·Popularity·Recent·RecentPop)에는 없다. 선택된 γ는 모든 fold·정책에서 1보다 크므로(v6 F1 1.25/1.5, F2·F3 1.1/1.25, v7 F4 1.1/1.25, repeat/novel), Hybrid − baseline 차이에는 이 신호의 효과도 들어 있다. 그 크기는 가장 강한 baseline과의 차이에 비하면 작지 않다: 같은 F1 repeat·seed 42에서 Hybrid − ALS+BPR은 NDCG +0.0031, Recall +0.0123이고(`test_metrics.csv`의 seed 42, K=50 행. 선택값 γ 1.25 행과 같음), 그중 NDCG 약 79%, Recall 약 53%가 γ 1 대비 효과다. γ=1이면 차이는 NDCG +0.0006, Recall +0.0058로 줄어든다. 이 분해는 사후 분석이 있는 F1 repeat·seed 42 한 경우뿐이고, 다른 fold·정책·seed에서 재고 신호가 차이의 얼마를 차지하는지는 측정하지 않았다. 노출되는 상품 구성은 크게 바뀐다. `available`은 학습 종료 시점 이전의 마지막 관측값이며, 시험 기간의 실시간 재고가 아니다.
+재고 가중의 정확도 효과는 절댓값으로는 작다 (γ 1 대비 최대 NDCG +0.0024, Recall +0.0065). 재고 신호(`available`, γ)는 Hybrid(와 ablation `Hybrid_ALS_only`)에만 들어가고 baseline(ALS·BPR·ALS+BPR·GNN·Popularity·Recent·RecentPop)에는 없다. 선택된 γ는 모든 fold·정책에서 1보다 크므로(v6 F1 1.25/1.5, F2·F3 1.1/1.25, v7 F4 1.1/1.25, repeat/novel), Hybrid − baseline 차이에는 이 신호의 효과도 들어 있다. 그 크기는 가장 강한 baseline과의 차이에 비하면 작지 않다: 같은 F1 repeat·seed 42에서 Hybrid − ALS+BPR은 NDCG +0.0031, Recall +0.0123이고(`test_metrics.csv`의 seed 42, K=50 행. 선택값 γ 1.25 행과 같음), 그중 NDCG 약 79%, Recall 약 53%가 γ 1 대비 효과다. γ=1이면 차이는 NDCG +0.0006, Recall +0.0058로 줄어든다. 이 분해는 사후 분석이 있는 F1 repeat·seed 42 한 경우뿐이고, 다른 fold·정책·seed에서 재고 신호가 차이의 얼마를 차지하는지는 측정하지 않았다. 노출되는 상품 구성은 크게 바뀐다. `available`은 학습 종료 시점 이전의 마지막 관측값이며, 시험 기간의 실시간 재고가 아니다.
 
 ### 6.3 Isolation Forest (`if_ablation.csv`, `if_removal_by_event.csv`, `if_summary.json`)
 
@@ -611,4 +612,17 @@ Cycle 19 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 73
 | 변이 먼저 확인 | H71(대상 이동)·H74·H75는 `test_cycle19_guards.py`와 `test_cycle20_guards.py`만으로 검출, 수정 안 한 사본은 이 테스트 5개와 smoke 테스트 2개(상한 연장 작업 포함) 통과 (`audit/cycle20/quick_mutants.txt`) |
 | 근거 파일, 서술 (I-124 – I-126) | `audit/cycle19/postcommit_d92de19_*.txt` 커밋, provenance 해시 서술에 CRLF 조건, §28의 `quick_mutants.txt` 설명 정정. 문서 감사의 미확정 의심을 받아 §8 한계에 재고 신호 비대칭(항목 6)을 추가 |
 | 회귀 테스트 | 커밋 전 작업 폴더 170/170 (v7 venv, `audit/cycle20/precommit_pytest.txt`). 커밋 a22f6ea의 새 worktree + lock venv: 169 통과, 1 건너뜀 (`postcommit_a22f6ea_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 19 문서 커밋 73177ee: 167 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_73177ee_*.txt`). Cycle 20 문서를 담은 194ba9c(가드 결과 자리만 비어 있던 중간 커밋): 169 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_194ba9c_*.txt`) |
-| 가드 변이 H1–H75 (H71 대상을 바뀐 조건으로 옮김, H74 어느 fold의 validation이든 통과, H75 role 검사 끔) | 첫 실행(a22f6ea 커밋 직후 시작)은 23개 검출(놓친 것 0)에서 외부 종료로 끊김 (`audit/cycle20/guard_mutants_cycle20_interrupted_log.txt`). 다시 돌린 실행: HEAD 194ba9c(a22f6ea에 문서·증거만 더한 커밋, 코드는 a22f6ea와 같음)에서 커밋 안 된 파일 없이 실행, 75/75 검출, 수정 안 한 사본 84 통과. 2026-10-25 06:41:19–08:21:24 UTC (`audit/cycle20/guard_mutants.json`, `guard_mutants_cycle20_log.txt`) |
+| 가드 변이 H1–H75 (H71 대상을 바뀐 조건으로 옮김, H74 어느 fold의 validation이든 통과, H75 role 검사 끔) | 첫 실행(셸 기록상 a22f6ea 커밋 후 전체 테스트와 같이 시작. 도구는 시작 시각·HEAD를 끝날 때만 기록해 출력에 없음)은 22개 검출(놓친 것 0) 뒤 H23 실행 도중 외부 종료로 끊김(로그의 H23 `killed`는 테스트 실패가 아니라 pytest가 강제로 끝난 것. 재실행에서 H23은 1 failed로 검출) (`audit/cycle20/guard_mutants_cycle20_interrupted_log.txt`). 다시 돌린 실행: HEAD 194ba9c(a22f6ea에 문서·증거만 더한 커밋, 코드는 a22f6ea와 같음)에서 커밋 안 된 파일 없이 실행, 75/75 검출, 수정 안 한 사본 84 통과. 2026-10-25 06:41:19–08:21:24 UTC (`audit/cycle20/guard_mutants.json`, `guard_mutants_cycle20_log.txt`) |
+
+## 30. Cycle 21: 학습 입력 서술, 가드 도구의 검출 판정, 기록 정정 (I-127 – I-133)
+
+Cycle 20 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD c04c883)에서 찾은 항목과, 그 항목을 확인하다 찾은 가드 도구 결함이다. 새 P0·P1·P2는 없다 (코드 감사 P3 1건, 문서 감사 P3 5건, 확인 중 발견 P3 1건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| 학습 입력 서술 (I-132) | `manuscript_alignment.md`에 행동 가중치(조회 1·장바구니 6·구매 12), 반감기 7일 감쇠, ALS 신뢰도 1 + α·w, 가중 BPR과 인기도 비례 음성, GNN InfoNCE 손실 가중치·비가중 전파·edge dropout 0.1·균일 음성 32개를 코드(`learning.py`, `als_debug.py`, `model.py`, `rolling_protocol.py`)에서 확인해 적음. 구조도에 같은 내용의 각주를 넣어 v6·v7 그림을 다시 만들었고, 52개 출력 중 `pipeline.*` 6개만 바뀜 (`audit/cycle21/figure_compare.json`) |
+| 가드 도구의 검출 판정 (I-133) | pytest가 종료 코드 1로 실패·오류를 보고할 때만 `killed`, 다른 비정상 종료는 `aborted`, 출력이 비어도 멈추지 않음. 시작할 때 HEAD·커밋 안 된 파일·시작 시각을 출력. Cycle 5–20 공식 실행의 검출은 모두 "N failed" 요약이라 판정이 바뀌지 않음 |
+| 변이 먼저 확인 | H76(0이 아닌 종료 코드를 모두 검출로 셈)·H77(빈 출력에서 멈춤)은 `test_cycle21_guards.py`만으로 검출, 수정 안 한 사본은 이 테스트 2개와 smoke 테스트 4개(`test_cycle20_guards.py`, `test_compare_outputs.py`) 통과 (`audit/cycle21/quick_mutants.txt`). 77개 대상이 모두 한 번씩 있음 |
+| 기록 정정 (I-127 – I-131) | Cycle 20 첫 가드 실행의 검출 수를 22개로 고침(H23은 강제 종료). 첫 실행의 시작 시각·HEAD는 출력에 없다고 표시. 등록부 커밋 열, provenance 해시 서술의 파일별 줄바꿈, 재현 6단계의 H75 설명도 고침. 문서 감사의 미확정 의심을 받아 194ba9c가 첫 실행 도중 커밋됐다는 사실(파일 시각 근거), I-123 수치의 "출력 저장 안 함", §6.2 재고 신호 범위(`Hybrid_ALS_only` 포함)도 고침 |
+| 회귀 테스트 | 커밋 전 작업 폴더 172/172 (v7 venv, `audit/cycle21/precommit_pytest.txt`). 커밋 afc4d0a의 새 worktree + lock venv: 171 통과, 1 건너뜀 (`postcommit_afc4d0a_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 20 마무리 커밋 c04c883: 169 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_c04c883_*.txt`) |
+| 가드 변이 H1–H77 (H76 0이 아닌 종료 코드를 모두 검출로 셈, H77 빈 출력에서 멈춤) | 커밋 afc4d0a 코드로 실행(시작 때 커밋 안 된 것은 문서 6개, 다시 만든 구조도 6개, `audit/cycle21/`뿐이고 실행 중에 코드를 고치지 않음. 고친 도구라 시작 정보가 로그 첫 줄에 있음), 77/77 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 86 통과. 2026-10-25 08:41:41–10:26:30 UTC (`audit/cycle21/guard_mutants.json`, `guard_mutants_cycle21_log.txt`) |

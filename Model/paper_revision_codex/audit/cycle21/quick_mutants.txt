@@ -1,0 +1,6 @@
+started_utc 2026-10-25T08:35:37.853029+00:00
+tests ['test_cycle21_guards.py']
+unmutated rc=0 2 passed in 0.05s
+H76 guard run killed from outside counted as killed: rc=1 killed | 2 failed in 0.14s
+H77 guard run with no output crashes the tool: rc=1 killed | 1 failed, 1 passed in 0.13s
+smoke (test_cycle20_guards, test_compare_outputs) rc=0 4 passed in 7.63s
