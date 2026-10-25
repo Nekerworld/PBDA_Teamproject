@@ -1,15 +1,17 @@
-"""Put the pre-fix behaviour of each cycle-5..20 guard (H1-H75) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19/20_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
+"""Put the pre-fix behaviour of each cycle-5..21 guard (H1-H77) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
 the verify_plan_code test because the copy is outside git). H63, H64 and H66 take out a part of a fix rather than put back
 the exact pre-fix code; H67 puts back the I-108 prefix exemption in pathspec form; H72 is no old code
 but the failure the H71 check refuses (selection jobs on the outer split); H74 puts back the d92de19 check (any fold's
-validation accepted) and H75 takes out its role part. The output records the git HEAD and uncommitted files the copy was taken
-from. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
+validation accepted) and H75 takes out its role part. A mutant counts as killed only when pytest exits with 1 and reports
+failed or erroring tests; any other non-zero exit (interrupt, collection error, process killed from outside) is recorded
+as aborted. The git HEAD, uncommitted files and start time are printed when the run starts and stored in the output;
+the exit code is 0 only when every mutant is killed. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
 as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
 Usage: python report_tools/guard_mutation_check.py [output.json]
 """
-import json, shutil, subprocess, sys, tempfile
+import json, re, shutil, subprocess, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 src = Path(__file__).resolve().parents[1]
@@ -148,12 +150,14 @@ M = {
      'rolling_protocol.py', "(Path(source).resolve() != Path(job_dir).resolve().parents[1] / 'prepared' / 'validation'\n                             or json.loads(", "(json.loads("),
  'H75 GNN selection job data role not read': (
      'rolling_protocol.py', "or json.loads((Path(source) / 'manifest.json').read_text(encoding='utf-8')).get('role') != 'validation'):", "or False):"),
+ 'H76 guard run killed from outside counted as killed': (
+     'report_tools/guard_mutation_check.py', "    if returncode == 1 and " + r"re.search(r'\b\d+ (failed|errors?)\b', summary(stdout)):",
+     "    if returncode:"),
+ 'H77 guard run with no output crashes the tool': (
+     'report_tools/guard_mutation_check.py', "    return lines[-1] " + "if lines else ''", "    return lines[-1]"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, encoding='utf-8').stdout.rstrip('\n')
-run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
-            'started_utc': datetime.now(timezone.utc).isoformat()}
-tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))
-def fresh():
+def fresh(tmp):
     d = tmp / 'p'
     if d.exists(): shutil.rmtree(d)
     d.mkdir()
@@ -166,19 +170,47 @@ def fresh():
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_cycle19_guards.py', 'test_cycle20_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_cycle19_guards.py', 'test_cycle20_guards.py', 'test_cycle21_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
-rows = []
-d = fresh(); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = r.stdout.strip().splitlines()[-1]; print('unmutated', base, flush=True)
-assert r.returncode == 0
-for name, (f, old, new) in M.items():
-    d = fresh(); t = (d / f).read_text(encoding='utf-8'); assert t.count(old) == 1, (name, t.count(old))
-    (d / f).write_text(t.replace(old, new, 1), encoding='utf-8')
-    r = subprocess.run(args, cwd=d, capture_output=True, text=True)
-    rows.append({'mutant': name, 'file': f, 'result': 'killed' if r.returncode else 'survived', 'summary': r.stdout.strip().splitlines()[-1]})
-    print(json.dumps(rows[-1]), flush=True)
-shutil.rmtree(tmp)
-out = Path(sys.argv[1]) if len(sys.argv) > 1 else src / 'audit_runs' / 'guard_mutants.json'
-out.parent.mkdir(parents=True, exist_ok=True)
-run_info['finished_utc'] = datetime.now(timezone.utc).isoformat()
-out.write_text(json.dumps({**run_info, 'unmutated': base, 'tests': args[5:], 'mutants': rows}, indent=2), encoding='utf-8')
+def summary(stdout):
+    lines = (stdout or '').strip().splitlines()
+    return lines[-1] if lines else ''
+
+
+def classify(returncode, stdout):
+    # pytest exits with 1 only when tests failed or errored; any other non-zero code (interrupt, collection error,
+    # a process killed from outside) proves nothing about the mutant.
+    if returncode == 0:
+        return 'survived'
+    if returncode == 1 and re.search(r'\b\d+ (failed|errors?)\b', summary(stdout)):
+        return 'killed'
+    return 'aborted'
+
+
+def main():
+    run_info = {'head': git('rev-parse', 'HEAD'), 'dirty': git('status', '--porcelain', '--', '.').splitlines(),
+                'started_utc': datetime.now(timezone.utc).isoformat()}
+    print('start', json.dumps(run_info), flush=True)
+    tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))
+    rows = []
+    d = fresh(tmp); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = summary(r.stdout); print('unmutated', base, flush=True)
+    assert r.returncode == 0 and re.search(r'\b\d+ passed\b', base), (r.returncode, base, r.stderr[-2000:])
+    for name, (f, old, new) in M.items():
+        d = fresh(tmp); t = (d / f).read_text(encoding='utf-8'); assert t.count(old) == 1, (name, t.count(old))
+        (d / f).write_text(t.replace(old, new, 1), encoding='utf-8')
+        r = subprocess.run(args, cwd=d, capture_output=True, text=True)
+        rows.append({'mutant': name, 'file': f, 'result': classify(r.returncode, r.stdout), 'returncode': r.returncode,
+                     'summary': summary(r.stdout)})
+        print(json.dumps(rows[-1]), flush=True)
+    shutil.rmtree(tmp)
+    out = Path(sys.argv[1]) if len(sys.argv) > 1 else src / 'audit_runs' / 'guard_mutants.json'
+    out.parent.mkdir(parents=True, exist_ok=True)
+    run_info['finished_utc'] = datetime.now(timezone.utc).isoformat()
+    out.write_text(json.dumps({**run_info, 'unmutated': base, 'tests': args[5:], 'mutants': rows}, indent=2), encoding='utf-8')
+    counts = {k: sum(row['result'] == k for row in rows) for k in ('killed', 'survived', 'aborted')}
+    print('result', json.dumps(counts), flush=True)
+    return 0 if counts['killed'] == len(rows) else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

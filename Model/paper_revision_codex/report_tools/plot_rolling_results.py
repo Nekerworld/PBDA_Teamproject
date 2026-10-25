@@ -201,7 +201,11 @@ def pipeline(o):
         if i:
             ax.annotate('', xy=(x - .004, .525), xytext=(x - gap + .004, .525), xycoords='axes fraction',
                         arrowprops={'arrowstyle': '->', 'color': '#487b96'})
-    ax.text(.5, .04, 'No Isolation Forest in the final model. All parameters chosen on inner validation; '
+    ax.text(.5, .1, 'Pair weight w = view 1 / cart 6 / purchase 12, decayed with a 7-day half-life: ALS confidence '
+            '1 + alpha * w;\nBPR loss weight w (popularity negatives); GNN InfoNCE loss weight w (unweighted '
+            'propagation, edge dropout 0.1, uniform negatives).', ha='center', va='center', transform=ax.transAxes,
+            fontsize=8.5)
+    ax.text(.5, -.08, 'No Isolation Forest in the final model. All parameters chosen on inner validation; '
             'final models refit with fixed epochs on the full pre-test window.', ha='center', transform=ax.transAxes,
             fontsize=8.5)
     o.figure(fig, 'pipeline')
