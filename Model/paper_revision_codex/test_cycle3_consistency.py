@@ -180,7 +180,8 @@ def test_mf_validation_selects_the_validation_maximum(prepared, tmp_path, monkey
                                          for f in (2, 8) for i in (1, 6)])
     monkeypatch.setattr(rp, 'BPR_GRID', [dict(factors=4, learning_rate=lr, regularization=.03) for lr in (1e-4, 5e-2)])
     monkeypatch.setattr(rp, 'BPR_EPOCH_CHECKPOINTS', (1, 4))
-    validation = out / 'validation'
+    rp.clone_protocol(out, tmp_path / 'prepared')
+    validation = tmp_path / 'prepared' / 'validation'
     record = rp.mf_validation(tmp_path, validation, {p: EvaluationContext(validation, p) for p in POLICIES})
     grid = pd.read_csv(tmp_path / 'validation_mf_grid.csv')
     for family in ('ALS', 'BPR'):

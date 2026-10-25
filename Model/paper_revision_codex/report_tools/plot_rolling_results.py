@@ -201,13 +201,13 @@ def pipeline(o):
         if i:
             ax.annotate('', xy=(x - .004, .525), xytext=(x - gap + .004, .525), xycoords='axes fraction',
                         arrowprops={'arrowstyle': '->', 'color': '#487b96'})
-    ax.text(.5, .1, 'Pair weight w = view 1 / cart 6 / purchase 12, decayed with a 7-day half-life: ALS confidence '
-            '1 + alpha * w;\nBPR loss weight w (popularity negatives); GNN InfoNCE loss weight w (unweighted '
-            'propagation, edge dropout 0.1, uniform negatives).', ha='center', va='center', transform=ax.transAxes,
-            fontsize=8.5)
-    ax.text(.5, -.08, 'No Isolation Forest in the final model. All parameters chosen on inner validation; '
-            'final models refit with fixed epochs on the full pre-test window.', ha='center', transform=ax.transAxes,
-            fontsize=8.5)
+    ax.text(.5, .1, 'Pair weight w = sum of view 1 / cart 6 / purchase 12 events, each decayed with a 7-day half-life; '
+            'ALS confidence 1 + alpha * w.\nBPR and GNN InfoNCE loss weight w / mean(w) (BPR: negatives by item user '
+            'count; GNN: unweighted propagation, edge dropout 0.1, 32 uniform negatives).', ha='center', va='center',
+            transform=ax.transAxes, fontsize=8.5)
+    ax.text(.5, -.08, 'No Isolation Forest in the final model. Tuned parameters chosen on inner validation, fixed '
+            'settings frozen in the plan and code hash;\nfinal models refit with fixed epochs on the full pre-test '
+            'window.', ha='center', va='top', transform=ax.transAxes, fontsize=8.5)
     o.figure(fig, 'pipeline')
 
 

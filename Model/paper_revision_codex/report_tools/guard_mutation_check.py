@@ -1,9 +1,11 @@
-"""Put the pre-fix behaviour of each cycle-5..21 guard (H1-H77) back into a temporary copy, one at a time, and check
-that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
+"""Put the pre-fix behaviour of each cycle-5..22 guard (H1-H87) back into a temporary copy, one at a time, and check
+that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21/22_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
 the verify_plan_code test because the copy is outside git). H63, H64 and H66 take out a part of a fix rather than put back
 the exact pre-fix code; H67 puts back the I-108 prefix exemption in pathspec form; H72 is no old code
 but the failure the H71 check refuses (selection jobs on the outer split); H74 puts back the d92de19 check (any fold's
-validation accepted) and H75 takes out its role part. A mutant counts as killed only when pytest exits with 1 and reports
+validation accepted) and H75 takes out the role part of the a22f6ea check (its own-fold path check stays). H79, H80 and H82-H86 are no old code but failures the Cycle 22 tests and checks
+refuse (MF selection on the outer split, test-time assembly from the wrong selection or refit, refit with early
+stopping). A mutant counts as killed only when pytest exits with 1 and reports
 failed or erroring tests; any other non-zero exit (interrupt, collection error, process killed from outside) is recorded
 as aborted. The git HEAD, uncommitted files and start time are printed when the run starts and stored in the output;
 the exit code is 0 only when every mutant is killed. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
@@ -155,6 +157,27 @@ M = {
      "    if returncode:"),
  'H77 guard run with no output crashes the tool': (
      'report_tools/guard_mutation_check.py', "    return lines[-1] " + "if lines else ''", "    return lines[-1]"),
+ 'H78 MF selection grid on any data': (
+     'rolling_protocol.py', "    require_inner_validation(fold_dir, val_dir, 'The MF selection grid')", "    pass"),
+ 'H79 MF selection grid on the outer split': (
+     'rolling_protocol.py', "lambda: mf_validation(fold_dir, val_dir, contexts))", "lambda: mf_validation(fold_dir, prepared, contexts))"),
+ 'H80 Hybrid selection MF fit cloned from the outer split': (
+     'rolling_protocol.py', "        clone_protocol(val_dir, val_mf)", "        clone_protocol(prepared, val_mf)"),
+ 'H81 Hybrid selection MF fit data not checked': (
+     'rolling_protocol.py', "    require_inner_validation(fold_dir, val_mf, 'The MF fit used for Hybrid selection')", "    pass"),
+ 'H82 Hybrid backbone recorded as the best standalone GNN': (
+     'rolling_protocol.py', "'hybrid_backbone': next(r for r in gnn_rows if r['name'] == repeat_backbone),", "'hybrid_backbone': gnn_rows[0],"),
+ 'H83 test Hybrid scored with the standalone GNN': (
+     'rolling_protocol.py', "    hyb = FactorScores(context, als, bpr, gnn_hybrid)", "    hyb = FactorScores(context, als, bpr, gnn_std)"),
+ 'H84 novel test run with the repeat settings': (
+     'rolling_protocol.py', "gnn_std, gnn_hyb, selection['policies'][policy])", "gnn_std, gnn_hyb, selection['policies']['repeat'])"),
+ 'H85 test Hybrid vectors from the standalone GNN refit': (
+     'rolling_protocol.py', "gnn_hyb = load_gnn(refits[seed]['hybrid_gnn'], context)", "gnn_hyb = load_gnn(refits[seed]['gnn'], context)"),
+ 'H86 GNN refit keeps early stopping': (
+     'rolling_protocol.py', "        kwargs['early_stopping_patience'] = None", "        pass"),
+ 'H87 GNN refit epochs not checked': (
+     'rolling_protocol.py', "        if trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']:",
+     "        if False:"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, encoding='utf-8').stdout.rstrip('\n')
 def fresh(tmp):
@@ -170,7 +193,7 @@ def fresh(tmp):
     return d
 args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cycle4_guards.py', 'test_cycle5_guards.py',
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
-        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_cycle19_guards.py', 'test_cycle20_guards.py', 'test_cycle21_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
+        'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_cycle19_guards.py', 'test_cycle20_guards.py', 'test_cycle21_guards.py', 'test_cycle22_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
 def summary(stdout):
     lines = (stdout or '').strip().splitlines()

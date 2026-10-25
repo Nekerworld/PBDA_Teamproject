@@ -385,8 +385,19 @@ def evaluate_vectors(contexts, vectors):
     return out
 
 
+def require_inner_validation(fold_dir, source, what):
+    """Selection fits are scored on the labels of their data, so they must train on the inner validation split of
+    their own fold (or a copy of it): the outer split holds the test window, another fold's validation may lie in it."""
+    def manifest(folder):
+        return json.loads((Path(folder) / 'manifest.json').read_text(encoding='utf-8'))
+    found, inner = manifest(source), manifest(Path(fold_dir) / 'prepared' / 'validation')
+    if found.get('role') != 'validation' or found.get('protocol_id') != inner.get('protocol_id'):
+        raise RuntimeError(f'{what} must train on the inner validation split of {Path(fold_dir).name}, not {source}')
+
+
 def mf_validation(fold_dir, val_dir, contexts):
     """ALS and BPR grids on inner validation; returns the selection record."""
+    require_inner_validation(fold_dir, val_dir, 'The MF selection grid')
     out = Path(fold_dir) / 'selection_mf.json'
     if out.exists():
         return json.loads(out.read_text(encoding='utf-8'))
@@ -493,6 +504,10 @@ def gnn_job(spec_path):
         kwargs['early_stopping_patience'] = None
         generator = GNNEmbeddingGenerator(processed_dir=job, **kwargs)
         generator.run()
+        trained = json.loads((job / 'gnn_training_history.json').read_text(encoding='utf-8'))
+        if trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']:
+            raise RuntimeError(f'GNN refit in {job} did not train for the fixed {spec["epochs"]} epochs '
+                               f'({trained.get("mode")}, {trained.get("chosen_epochs")})')
         chosen, history = spec['epochs'], []
     scores = [row.get('validation_original_ndcg') for row in history if 'validation_original_ndcg' in row]
     dump_json(job / 'job_result.json', {
@@ -1133,6 +1148,7 @@ def run_fold(root, fold, raw, plan_hash):
     val_mf = fold_dir / 'val_mf'
     if not (val_mf / 'manifest.json').exists():
         clone_protocol(val_dir, val_mf)
+    require_inner_validation(fold_dir, val_mf, 'The MF fit used for Hybrid selection')
     fit_mf(val_mf, mf, SELECTION_SEED)
     als_v, bpr_v = load_factors(val_mf, contexts['repeat'])
     gnn_rows = []
