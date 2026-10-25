@@ -1,0 +1,17 @@
+started_utc 2026-10-25T14:50:26.448761+00:00
+PYTHONIOENCODING=utf-8
+targets 93, all exactly once: True
+tests ['test_cycle22_guards.py']
+unmutated rc=0 10 passed in 8.25s
+H88 guard run output read with the locale codec: rc=1 killed | 1 failed, 9 passed, 1 warning in 7.29s
+H89 guard run output encoding left to the console: rc=1 killed | 1 failed, 9 passed in 7.33s
+H90 mutation tool counts any non-zero exit as killed: rc=1 killed | 1 failed, 9 passed in 7.27s
+H91 mutation tool output read with the locale codec: rc=1 killed | 1 failed, 9 passed, 1 warning in 7.25s
+H92 mutation tool output encoding left to the console: rc=1 killed | 1 failed, 9 passed in 7.22s
+H93 mutation tool passes with aborted runs: rc=1 killed | 1 failed, 9 passed in 7.54s
+rerun through the fixed guard_mutation_check.run_tests (guard test list):
+H11 posthoc marker written first: rc=1 killed | 1 failed, 95 passed, 2 deselected in 73.19s (0:01:13)
+H69 git output read with the locale codec: rc=1 killed | 1 failed, 95 passed, 2 deselected, 1 warning in 91.54s (0:01:31)
+H80 Hybrid selection MF fit cloned from the outer split: rc=1 killed | 2 failed, 94 passed, 2 deselected in 53.11s
+H86 GNN refit keeps early stopping: rc=1 killed | 2 failed, 94 passed, 2 deselected in 79.58s (0:01:19)
+finished_utc 2026-10-25T14:56:32.054060+00:00

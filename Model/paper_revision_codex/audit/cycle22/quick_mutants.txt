@@ -1,0 +1,14 @@
+started_utc 2026-10-25T12:18:08.870092+00:00
+tests ['test_cycle22_guards.py']
+unmutated rc=0 7 passed in 7.27s
+H78 MF selection grid on any data: rc=1 killed | 1 failed, 6 passed in 7.20s
+H79 MF selection grid on the outer split: rc=1 killed | 1 failed, 6 passed in 7.09s
+H80 Hybrid selection MF fit cloned from the outer split: rc=1 killed | 1 failed, 6 passed in 7.29s
+H81 Hybrid selection MF fit data not checked: rc=1 killed | 1 failed, 6 passed in 7.32s
+H82 Hybrid backbone recorded as the best standalone GNN: rc=1 killed | 1 failed, 6 passed in 7.08s
+H83 test Hybrid scored with the standalone GNN: rc=1 killed | 1 failed, 6 passed in 7.01s
+H84 novel test run with the repeat settings: rc=1 killed | 1 failed, 6 passed in 7.16s
+H85 test Hybrid vectors from the standalone GNN refit: rc=1 killed | 1 failed, 6 passed in 7.20s
+H86 GNN refit keeps early stopping: rc=1 killed | 1 failed, 6 passed in 7.23s
+H87 GNN refit epochs not checked: rc=1 killed | 1 failed, 6 passed in 7.13s
+other (test_cycle19/20/21_guards, test_compare_outputs, test_v6_smoke, test_cycle3_consistency) rc=0 23 passed in 113.17s (0:01:53)

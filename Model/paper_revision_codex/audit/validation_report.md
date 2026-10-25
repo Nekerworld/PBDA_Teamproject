@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§29는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§31은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -27,6 +27,7 @@
 | 회귀 테스트 (Cycle 19) | `test_cycle19_guards.py` 3개 추가 후 168/168 (v7 venv, `audit/cycle19/precommit_pytest.txt`). 커밋 d92de19의 새 worktree + lock venv 167 통과, 1 건너뜀 → §28 |
 | 회귀 테스트 (Cycle 20) | `test_cycle20_guards.py` 2개 추가 후 170/170 (v7 venv, `audit/cycle20/precommit_pytest.txt`). 커밋 a22f6ea의 새 worktree + lock venv 169 통과, 1 건너뜀 → §29 |
 | 회귀 테스트 (Cycle 21) | `test_cycle21_guards.py` 2개 추가 후 172/172 (v7 venv, `audit/cycle21/precommit_pytest.txt`). 커밋 afc4d0a의 새 worktree + lock venv 171 통과, 1 건너뜀 → §30 |
+| 회귀 테스트 (Cycle 22) | `test_cycle22_guards.py` 7개 추가 후 179/179 (v7 venv, `audit/cycle22/precommit_pytest.txt`), I-143의 3개를 더해 182/182 (`precommit_pytest_io.txt`). 커밋 a61880b의 새 worktree + lock venv 178 통과, 1 건너뜀, 커밋 35ce91c 181 통과, 1 건너뜀 → §31 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -623,6 +624,21 @@ Cycle 20 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD c0
 | 학습 입력 서술 (I-132) | `manuscript_alignment.md`에 행동 가중치(조회 1·장바구니 6·구매 12), 반감기 7일 감쇠, ALS 신뢰도 1 + α·w, 가중 BPR과 인기도 비례 음성, GNN InfoNCE 손실 가중치·비가중 전파·edge dropout 0.1·균일 음성 32개를 코드(`learning.py`, `als_debug.py`, `model.py`, `rolling_protocol.py`)에서 확인해 적음. 구조도에 같은 내용의 각주를 넣어 v6·v7 그림을 다시 만들었고, 52개 출력 중 `pipeline.*` 6개만 바뀜 (`audit/cycle21/figure_compare.json`) |
 | 가드 도구의 검출 판정 (I-133) | pytest가 종료 코드 1로 실패·오류를 보고할 때만 `killed`, 다른 비정상 종료는 `aborted`, 출력이 비어도 멈추지 않음. 시작할 때 HEAD·커밋 안 된 파일·시작 시각을 출력. Cycle 5–20 공식 실행의 검출은 모두 "N failed" 요약이라 판정이 바뀌지 않음 |
 | 변이 먼저 확인 | H76(0이 아닌 종료 코드를 모두 검출로 셈)·H77(빈 출력에서 멈춤)은 `test_cycle21_guards.py`만으로 검출, 수정 안 한 사본은 이 테스트 2개와 smoke 테스트 4개(`test_cycle20_guards.py`, `test_compare_outputs.py`) 통과 (`audit/cycle21/quick_mutants.txt`). 77개 대상이 모두 한 번씩 있음 |
-| 기록 정정 (I-127 – I-131) | Cycle 20 첫 가드 실행의 검출 수를 22개로 고침(H23은 강제 종료). 첫 실행의 시작 시각·HEAD는 출력에 없다고 표시. 등록부 커밋 열, provenance 해시 서술의 파일별 줄바꿈, 재현 6단계의 H75 설명도 고침. 문서 감사의 미확정 의심을 받아 194ba9c가 첫 실행 도중 커밋됐다는 사실(파일 시각 근거), I-123 수치의 "출력 저장 안 함", §6.2 재고 신호 범위(`Hybrid_ALS_only` 포함)도 고침 |
+| 기록 정정 (I-127 – I-131) | Cycle 20 첫 가드 실행의 검출 수를 22개로 고침(H23은 강제 종료). 첫 실행의 시작 시각·HEAD는 출력에 없다고 표시. 등록부 커밋 열, provenance 해시 서술의 파일별 줄바꿈, 재현 6단계의 H75 설명도 고침. 문서 감사의 미확정 의심을 받아 194ba9c가 첫 실행 도중 커밋됐다는 사실(`audit_runs/cycle20/guard_log_interrupted_23of75.txt`의 파일 수정 시각, 이 PC에만 있고 저장소에 없음), I-123 수치의 "출력 저장 안 함", §6.2 재고 신호 범위(`Hybrid_ALS_only` 포함)도 고침 |
 | 회귀 테스트 | 커밋 전 작업 폴더 172/172 (v7 venv, `audit/cycle21/precommit_pytest.txt`). 커밋 afc4d0a의 새 worktree + lock venv: 171 통과, 1 건너뜀 (`postcommit_afc4d0a_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 20 마무리 커밋 c04c883: 169 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_c04c883_*.txt`) |
 | 가드 변이 H1–H77 (H76 0이 아닌 종료 코드를 모두 검출로 셈, H77 빈 출력에서 멈춤) | 커밋 afc4d0a 코드로 실행(시작 때 커밋 안 된 것은 문서 6개, 다시 만든 구조도 6개, `audit/cycle21/`뿐이고 실행 중에 코드를 고치지 않음. 고친 도구라 시작 정보가 로그 첫 줄에 있음), 77/77 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 86 통과. 2026-10-25 08:41:41–10:26:30 UTC (`audit/cycle21/guard_mutants.json`, `guard_mutants_cycle21_log.txt`) |
+
+## 31. Cycle 22: MF 선택 데이터와 GNN 재학습 epoch 가드, 시험 조립 테스트, 학습 입력 서술, 변이 도구의 출력 읽기 (I-134 – I-143)
+
+Cycle 21 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 45d84ba)에서 찾은 항목과, 가드 변이 실행에서 찾은 도구 결함이다. 새 P0·P1·P2는 없다 (코드 감사 P3 3건, 문서 감사 P3 6건, 가드 변이 실행 중 발견 P3 1건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| MF 선택 데이터와 GNN 재학습 epoch (I-142) | `require_inner_validation`은 MF grid와 Hybrid 선택용 MF 학습의 데이터가 role `validation`이고 그 fold `prepared/validation`과 protocol_id가 같지 않으면 거부. GNN 재학습은 학습 기록이 `fixed_epochs`이고 epoch가 spec과 같아야 받음. 실제 v7 F4에서 `prepared/validation`·`val_mf`는 받고 `prepared`는 거부, `gnn_seed_42`–`44`는 모두 `fixed_epochs` 90 = spec, selection의 GNN과 Hybrid backbone은 모두 `gnn_layers1_embedding_dim256_learning_rate0p003` (`audit/cycle22/real_data_check.txt`) |
+| 시험 조립 (I-141) | backbone과 GNN이 다른 selection으로 `run_fold`가 repeat 1위의 backbone을 기록하는지, `model_rankings`가 Hybrid를 backbone 벡터로 계산하는지, `evaluate_fold_test`가 정책마다 자기 설정과 backbone 재학습을 쓰는지 테스트 (`test_cycle22_guards.py`) |
+| 변이 먼저 확인 | H78–H87은 `test_cycle22_guards.py`(7개)만으로 모두 검출, 수정 안 한 사본은 이 7개와 다른 테스트 23개(`test_cycle19/20/21_guards.py`, `test_compare_outputs.py`, `test_v6_smoke.py`, `test_cycle3_consistency.py`) 통과 (`audit/cycle22/quick_mutants.txt`). H88–H93은 고친 뒤의 `test_cycle22_guards.py`(10개)만으로 모두 검출 (`audit/cycle22/quick_mutants_io.txt`). 93개 대상이 모두 한 번씩 있음 |
+| 학습 입력 서술 (I-136, I-140) | 구조도 각주와 대조표에 BPR·GNN 손실 가중치의 평균 1 정규화, 쌍마다 합산, BPR 음성의 상품별 사용자 수 비례(최소 1), 고정 설정은 plan과 코드 해시로 고정됨을 적음. v6·v7 구조도를 다시 만들어 52개 중 `pipeline.*` 6개만 바뀜 (`audit/cycle22/figure_compare.json`) |
+| 기록 정정 (I-134, I-135, I-137 – I-139) | provenance 가드 행 증거 열, 머리말의 절 범위, 가드 도구 docstring의 H75 문구, Cycle 21 구조도가 커밋 전 작업 폴더에서 만들어졌다는 표시(45d84ba 생성기로 다시 만든 52개가 커밋본과 같음, `audit/cycle22/figure_compare_head.json`), 저장소에 없는 파일 시각의 출처 표시 |
+| 변이 도구의 출력 읽기 (I-143) | 가드 도구와 `mutation_check.py`가 pytest 출력을 UTF-8로 읽고 자식에 `PYTHONIOENCODING=utf-8`을 줌. a61880b 가드 실행에서 `aborted`였던 H11·H69·H80·H86은 같은 조건의 재실행에서 cp949 `UnicodeDecodeError`로 출력이 사라짐을 재현 (`audit/cycle22/rerun_aborted.txt`), 고친 도구로는 모두 "N failed" 검출 (`quick_mutants_io.txt`). `mutation_check.py`는 가드 도구의 판정을 쓰고 요약을 기록. 고친 도구로 17개 재실행: 17개 모두 공식 결과(`audit/mutation/mutation_results.json`)와 판정이 같고, 검출 21건은 모두 종료 코드 1과 "failed" 요약, `aborted` 0, 수정 안 한 사본은 두 묶음 모두 통과 (`audit/cycle22/mutation_results.json`, `mutation_check_log.txt`, 2026-10-25 14:56:45–15:49:06 UTC) |
+| 회귀 테스트 | 커밋 전 작업 폴더 179/179 (v7 venv, `audit/cycle22/precommit_pytest.txt`). 커밋 a61880b의 새 worktree + lock venv: 178 통과, 1 건너뜀 (`postcommit_a61880b_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. I-143 수정 후 작업 폴더 182/182 (`precommit_pytest_io.txt`), 커밋 35ce91c: 181 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_35ce91c_*.txt`). Cycle 21 문서 커밋 45d84ba: 171 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_45d84ba_*.txt`) |
+| 가드 변이 H1–H93 (H78 MF grid 데이터 검사 끔, H79 MF grid를 바깥 분할로, H80 Hybrid 선택용 MF를 바깥 분할에서 복제, H81 그 검사 끔, H82 backbone을 GNN 1위로 기록, H83 시험 Hybrid를 단독 GNN으로, H84 novel 시험에 repeat 설정, H85 시험 Hybrid 벡터를 단독 GNN 재학습에서, H86 재학습에 조기 종료 유지, H87 재학습 epoch 검사 끔, H88·H89 가드 도구의 출력 읽기, H90–H93 `mutation_check.py`의 판정·출력 읽기) | a61880b 코드로 한 H1–H87 첫 실행(시작 때 커밋 안 된 것은 문서 5개, 다시 만든 구조도 6개, `audit/cycle22/`뿐)은 83개 검출, 놓친 것 0, H11·H69·H80·H86 4개 `aborted`(종료 코드 1인데 출력이 비어 있음, I-143). 2026-10-25 12:29:10–14:41:59 UTC (`audit/cycle22/guard_mutants_a61880b_h87.json`, `guard_mutants_a61880b_h87_log.txt`). 고친 뒤 커밋 35ce91c 코드로 다시 실행(시작 때 커밋 안 된 것은 문서 6개, 다시 만든 구조도 6개, `audit/cycle22/`뿐, 실행 중에 코드를 고치지 않음, 첫 실행과 같이 `PYTHONIOENCODING=utf-8`), 93/93 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 96 통과. 2026-10-25 15:04:14–17:18:44 UTC (`audit/cycle22/guard_mutants.json`, `guard_mutants_cycle22_log.txt`) |

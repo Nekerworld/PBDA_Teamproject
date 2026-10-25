@@ -1,0 +1,9 @@
+started_utc 2026-10-25T12:21:51.599632+00:00
+rolling_protocol.py sha256 (working copy bytes) a2cf33fff9c97f6aa0e2d54217fe5756608447bac7336a1c2b724d4ca9ccb272
+accepted audit_runs\v7\F4_unseen\prepared\validation
+accepted audit_runs\v7\F4_unseen\val_mf
+refused  audit_runs\v7\F4_unseen\prepared: MF selection must train on the inner validation split of F4_unseen, not C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\audit_runs\v7\F4_unseen\prepared
+refit gnn_seed_42: mode=fixed_epochs chosen=90 spec_epochs=90 accepted=True
+refit gnn_seed_43: mode=fixed_epochs chosen=90 spec_epochs=90 accepted=True
+refit gnn_seed_44: mode=fixed_epochs chosen=90 spec_epochs=90 accepted=True
+selection gnn=gnn_layers1_embedding_dim256_learning_rate0p003 hybrid_backbone=gnn_layers1_embedding_dim256_learning_rate0p003

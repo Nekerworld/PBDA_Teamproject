@@ -1,0 +1,170 @@
+{
+  "baseline_unmutated": {
+    "old": "survived",
+    "new": "survived"
+  },
+  "old_suite": [
+    "test_v6_protocol.py",
+    "test_v6_smoke.py",
+    "test_revision.py",
+    "test_codex_audit.py"
+  ],
+  "new_suite": [
+    "test_cycle3_consistency.py"
+  ],
+  "mutants": [
+    {
+      "mutant": "M01 NDCG ideal DCG over reachable truth only",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 232.22s (0:03:52)",
+      "new_summary": "1 failed, 2 passed in 9.28s"
+    },
+    {
+      "mutant": "M02 Recall denominator = reachable truth",
+      "file": "policy_evaluation.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "1 failed, 1 passed in 7.26s",
+      "new_summary": "1 failed, 2 passed in 7.20s"
+    },
+    {
+      "mutant": "M03 cold users dropped from denominator",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 256.59s (0:04:16)",
+      "new_summary": "1 failed, 2 passed in 9.80s"
+    },
+    {
+      "mutant": "M04 novel truth uses filtered (not raw) history",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 264.86s (0:04:24)",
+      "new_summary": "1 failed in 10.25s"
+    },
+    {
+      "mutant": "M05 novel exclusion disabled",
+      "file": "policy_evaluation.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "1 failed, 2 passed in 7.82s",
+      "new_summary": "1 failed, 4 passed in 8.91s"
+    },
+    {
+      "mutant": "M06 Holm without monotone step-down",
+      "file": "stats_tools.py",
+      "old_tests": "killed",
+      "new_tests": "survived",
+      "killed_by_any": true,
+      "old_summary": "1 failed, 5 passed in 7.08s",
+      "new_summary": "12 passed in 12.42s"
+    },
+    {
+      "mutant": "M07 sign-flip one-sided",
+      "file": "stats_tools.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 231.62s (0:03:51)",
+      "new_summary": "1 failed, 6 passed in 9.90s"
+    },
+    {
+      "mutant": "M08 paired comparison aligned by position",
+      "file": "stats_tools.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 230.05s (0:03:50)",
+      "new_summary": "1 failed, 5 passed in 8.60s"
+    },
+    {
+      "mutant": "M09 selection grid: gamma boosts unavailable items",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 202.30s (0:03:22)",
+      "new_summary": "1 failed, 3 passed in 8.15s"
+    },
+    {
+      "mutant": "M10 selection grid: RRF weights swapped",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 203.00s (0:03:22)",
+      "new_summary": "1 failed, 3 passed in 8.59s"
+    },
+    {
+      "mutant": "M11 selection grid: MF not min-max normalised",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 203.19s (0:03:23)",
+      "new_summary": "1 failed, 3 passed in 8.37s"
+    },
+    {
+      "mutant": "M12 split puts cutoff-timestamp events in train",
+      "file": "data_protocol.py",
+      "old_tests": "killed",
+      "new_tests": "survived",
+      "killed_by_any": true,
+      "old_summary": "1 failed, 13 passed in 8.81s",
+      "new_summary": "12 passed in 10.37s"
+    },
+    {
+      "mutant": "M13 available = first (not last) value",
+      "file": "data_protocol.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "1 failed, 34 passed, 1 warning in 115.16s (0:01:55)",
+      "new_summary": "1 failed, 1 passed in 7.28s"
+    },
+    {
+      "mutant": "M14 properties after the cutoff used",
+      "file": "data_protocol.py",
+      "old_tests": "killed",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "1 failed, 22 passed in 108.71s (0:01:48)",
+      "new_summary": "1 failed, 1 passed in 6.13s"
+    },
+    {
+      "mutant": "M15 MF selection takes the minimum",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 208.31s (0:03:28)",
+      "new_summary": "1 failed, 11 passed in 11.56s"
+    },
+    {
+      "mutant": "M16 best_row takes the minimum",
+      "file": "rolling_protocol.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 211.11s (0:03:31)",
+      "new_summary": "1 failed, 10 passed in 10.07s"
+    },
+    {
+      "mutant": "M17 context available flag inverted",
+      "file": "policy_evaluation.py",
+      "old_tests": "survived",
+      "new_tests": "killed",
+      "killed_by_any": true,
+      "old_summary": "48 passed, 1 warning in 210.03s (0:03:30)",
+      "new_summary": "1 failed, 1 passed in 7.54s"
+    }
+  ]
+}

@@ -656,7 +656,7 @@
 
 **E. 커밋**
 - a22f6ea: 코드, 테스트, 가드 변이 (I-123)
-- 194ba9c: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거 (가드 첫 실행 도중 중간 저장으로 커밋되어 가드 결과 자리가 비어 있었음. 첫 실행은 그 직후 끊김: 로그 파일 수정 시각 06:45:15 KST, 커밋 06:43:55 KST)
+- 194ba9c: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거 (가드 첫 실행 도중 중간 저장으로 커밋되어 가드 결과 자리가 비어 있었음. 첫 실행은 그 직후 끊김: 로그 파일 수정 시각 06:45:15 KST (`audit_runs/cycle20/guard_log_interrupted_23of75.txt`의 파일 수정 시각, 이 PC에만 있고 저장소에 없음), 커밋 06:43:55 KST)
 - c04c883: 가드 변이 결과, 첫 실행이 끊긴 기록, 194ba9c 커밋 후 재검증
 
 **F. 커밋 후 재검증**
@@ -688,8 +688,44 @@
 
 **E. 커밋**
 - afc4d0a: 도구, 테스트, 구조도 생성기 (I-133, I-132의 구조도 부분, H76·H77)
-- 이 문서와 함께: 문서 정정(I-127 – I-131, I-132의 대조표 부분), 다시 만든 구조도, Cycle 21 기록과 증거
+- 45d84ba: 문서 정정(I-127 – I-131, I-132의 대조표 부분), 다시 만든 구조도, Cycle 21 기록과 증거
 
 **F. 커밋 후 재검증**
 - c04c883: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle21/postcommit_c04c883_*.txt`).
 - afc4d0a: 새 worktree, lock venv 171 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle21/postcommit_afc4d0a_*.txt`).
+- 45d84ba: Cycle 22에 기록 (`audit/cycle22/postcommit_45d84ba_*.txt`).
+
+## Cycle 22 (2026-10-25 KST): Cycle 21 커밋 뒤 다시 한 독립 감사
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD 45d84ba)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+
+**B. 식별 (P0·P1·P2 없음)**
+- 코드 감사 P3 3건: I-140 구조도 각주·대조표의 학습 입력 서술이 불완전함(평균 1 정규화, 쌍마다 합산, 고정 설정, BPR 음성의 사용자 수), I-141 시험 시점 모델 조립을 지키는 테스트 없음, I-142 MF 선택 데이터 역할과 GNN 재학습 고정 epoch를 지키는 장치 없음.
+- 문서 감사 P3 6건: I-134 provenance 가드 행 증거 열, I-135 검증 보고서 머리말의 절 범위, I-136 대조표의 BPR 정규화, I-137 가드 도구 docstring의 H75 문구, I-138 Cycle 21 구조도가 커밋 전 작업 폴더에서 만들어짐, I-139 저장소에 없는 파일 시각의 출처.
+- 가드 변이 실행 중 발견 P3 1건: I-143 변이 도구가 pytest 출력을 로캘 코덱으로 읽어 UTF-8 출력에서 출력 전체가 사라짐(4개 `aborted`), `mutation_check.py`는 0이 아닌 종료 코드를 모두 검출로 셈.
+- 미확정 의심(결함 수에 넣지 않음): 코드 감사의 `FORCE_COLOR`·`PY_COLORS`가 켜지면 가드 도구의 요약 정규식이 맞지 않을 수 있음(그 경우 수정 안 한 사본 확인에서 멈춰 결과를 잘못 기록하지 않음), `check_cached_runs`가 불일치에도 종료 코드 0, v5 이전 도구(`component_ablation`, `benchmark_inference`)가 시험 정답을 읽음(rolling 프로토콜 밖). 문서 감사의 Cycle 5–20 종료 코드 미기록(요약의 실패+통과 합계가 수정 안 한 사본의 테스트 수와 같음), Cycle 20 첫 실행이 H24에서 멈췄다는 추론, §30의 "77개 대상" 근거, 재현 6단계 소요 시간의 반올림 방식.
+
+**C. 수정**
+- 코드: `require_inner_validation`(MF grid, Hybrid 선택용 MF 학습), GNN 재학습 기록의 고정 epoch 확인. 구조도 각주(`plot_rolling_results.py`). 가드 도구 docstring. 변이 도구 두 개의 출력 읽기와 `mutation_check.py`의 판정(I-143).
+- 테스트: `test_cycle22_guards.py` 10개(I-143의 3개 포함), `test_cycle3_consistency.py`의 MF 선택 테스트를 fold 폴더 배치로(검사 내용은 그대로). 가드 변이 H78–H93.
+- 문서: I-134 – I-143, 원고 대조표의 학습 입력 행, 다시 만든 구조도(v6·v7 `pipeline.*`).
+
+**D. 검증**
+- H78–H87을 `test_cycle22_guards.py`만으로 먼저 확인: 모두 검출, 수정 안 한 사본과 다른 테스트 23개 통과 (`audit/cycle22/quick_mutants.txt`).
+- H88–H93을 고친 뒤의 `test_cycle22_guards.py`만으로 먼저 확인: 모두 검출. `aborted`였던 H11·H69·H80·H86은 같은 조건으로 다시 돌려 cp949 `UnicodeDecodeError`를 재현(`audit/cycle22/rerun_aborted.txt`)하고, 고친 도구로 모두 검출 (`quick_mutants_io.txt`). 93개 대상이 모두 한 번씩 있음.
+- 고친 `mutation_check.py`로 17개 재실행: 17개 모두 공식 결과(`audit/mutation/mutation_results.json`)와 판정이 같고, 검출 21건은 모두 종료 코드 1과 "failed" 요약, `aborted` 0, 수정 안 한 사본은 두 묶음 모두 통과 (`audit/cycle22/mutation_results.json`).
+- 실제 v7 F4로 MF 선택 데이터 검사와 재학습 epoch 검사 확인 (`audit/cycle22/real_data_check.txt`).
+- 작업 폴더 전체 테스트 179/179 (`audit/cycle22/precommit_pytest.txt`), I-143 수정 후 182/182 (`precommit_pytest_io.txt`).
+- 구조도를 다시 만들어 52개 중 `pipeline.*` 6개만 바뀜 (`audit/cycle22/figure_compare.json`).
+- 가드 변이: a61880b 코드로 한 H1–H87 첫 실행(시작 때 커밋 안 된 것은 문서 5개, 다시 만든 구조도 6개, `audit/cycle22/`뿐)은 83개 검출, 놓친 것 0, H11·H69·H80·H86 4개 `aborted`(종료 코드 1인데 출력이 비어 있음, I-143). 2026-10-25 12:29:10–14:41:59 UTC (`audit/cycle22/guard_mutants_a61880b_h87.json`, `guard_mutants_a61880b_h87_log.txt`). 고친 뒤 커밋 35ce91c 코드로 다시 실행(시작 때 커밋 안 된 것은 문서 6개, 다시 만든 구조도 6개, `audit/cycle22/`뿐, 실행 중에 코드를 고치지 않음, 첫 실행과 같이 `PYTHONIOENCODING=utf-8`), 93/93 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 96 통과. 2026-10-25 15:04:14–17:18:44 UTC (`audit/cycle22/guard_mutants.json`, `guard_mutants_cycle22_log.txt`)
+
+**E. 커밋**
+- a61880b: 코드, 테스트, 가드 변이, 구조도 생성기 (I-137, I-140의 구조도 부분, I-141, I-142)
+- 35ce91c: 변이 도구의 출력 읽기와 `mutation_check.py` 판정, 테스트, 가드 변이 H88–H93 (I-143)
+- 이 문서와 함께: 문서 정정(I-134 – I-136, I-138, I-139, I-140의 대조표 부분), 다시 만든 구조도, Cycle 22 기록과 증거
+
+**F. 커밋 후 재검증**
+- 45d84ba: 새 worktree, lock venv 171 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle22/postcommit_45d84ba_*.txt`).
+- a61880b: 새 worktree, lock venv 178 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle22/postcommit_a61880b_*.txt`).
+- 35ce91c: 새 worktree, lock venv 181 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle22/postcommit_35ce91c_*.txt`).

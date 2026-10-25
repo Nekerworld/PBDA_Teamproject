@@ -1,0 +1,9 @@
+worktree: /c/YS/TUK/S4E2/PBDA/teamproject/PBDA_Teamproject2/Model/paper_revision_codex (uncommitted Cycle 22 changes)
+head: 45d84ba23222f384409f099bb8fa60118e59e0d4
+venv: pbda_v7
+started_utc: 2026-10-25T12:22:45Z
+    adjacency_tensor = torch.sparse_coo_tensor(indices_tensor, values_tensor, torch.Size(normalized.shape))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+179 passed, 1 warning in 365.89s (0:06:05)
+finished_utc: 2026-10-25T12:28:52Z

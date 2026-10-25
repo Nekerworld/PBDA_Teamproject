@@ -1,0 +1,46 @@
+started_utc 2026-10-25T14:42:30.953980+00:00 head a61880b6e68bb08c00cf72fc5d6cd8db5b2a61a1
+Exception in thread Thread-3 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xe2 in position 12471: illegal multibyte sequence
+{"mutant": "H11 posthoc marker written first", "result": "aborted", "returncode": 1, "summary": "", "stdout_chars": 0, "stderr_tail": ""}
+Exception in thread Thread-5 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 727: illegal multibyte sequence
+{"mutant": "H69 git output read with the locale codec", "result": "aborted", "returncode": 1, "summary": "", "stdout_chars": 0, "stderr_tail": ""}
+Exception in thread Thread-7 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xe2 in position 12434: illegal multibyte sequence
+{"mutant": "H80 Hybrid selection MF fit cloned from the outer split", "result": "aborted", "returncode": 1, "summary": "", "stdout_chars": 0, "stderr_tail": ""}
+Exception in thread Thread-9 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xe2 in position 15595: illegal multibyte sequence
+{"mutant": "H86 GNN refit keeps early stopping", "result": "aborted", "returncode": 1, "summary": "", "stdout_chars": 0, "stderr_tail": ""}
+finished_utc 2026-10-25T14:47:28.739677+00:00
