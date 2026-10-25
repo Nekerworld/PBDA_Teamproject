@@ -1,8 +1,10 @@
 """Mutation check: inject one known defect at a time into a scratch copy and record which tests fail.
 
 The project files are copied to <scratch> first (default audit_runs/mutation_src, git-ignored),
-so a running preregistered experiment never imports a mutated module. A mutant is "killed"
-when pytest exits non-zero. The unmutated copy must pass both suites, otherwise kills mean nothing.
+so a running preregistered experiment never imports a mutated module. A suite "kills" a mutant
+only when pytest exits with 1 and reports failed or erroring tests (the rule of guard_mutation_check);
+any other non-zero exit is recorded as "aborted" and makes the check fail. The unmutated copy must
+pass both suites, otherwise kills mean nothing.
 """
 import argparse
 import json
@@ -13,6 +15,9 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE / 'report_tools'))
+from guard_mutation_check import classify, summary  # noqa: E402
+
 OLD = ['test_v6_protocol.py', 'test_v6_smoke.py', 'test_revision.py', 'test_codex_audit.py']
 NEW = ['test_cycle3_consistency.py']
 MUTANTS = [
@@ -70,15 +75,16 @@ def copy_project(scratch):
 
 
 def run(scratch, tests):
-    env = {**os.environ, 'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'MPLBACKEND': 'Agg'}
+    env = {**os.environ, 'OPENBLAS_NUM_THREADS': '1', 'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'MPLBACKEND': 'Agg',
+           'PYTHONIOENCODING': 'utf-8'}
     result = subprocess.run([sys.executable, '-m', 'pytest', '-x', '-q', '-p', 'no:cacheprovider', *tests],
-                            cwd=scratch, capture_output=True, text=True, env=env)
-    return 'killed' if result.returncode else 'survived'
+                            cwd=scratch, capture_output=True, encoding='utf-8', errors='replace', env=env)
+    return classify(result.returncode, result.stdout), summary(result.stdout)
 
 
 def main(scratch, output):
     copy_project(scratch)
-    baseline = {'old': run(scratch, OLD), 'new': run(scratch, NEW)}
+    baseline = {'old': run(scratch, OLD)[0], 'new': run(scratch, NEW)[0]}
     if baseline != {'old': 'survived', 'new': 'survived'}:
         raise RuntimeError(f'Unmutated copy fails its tests: {baseline}')
     rows = []
@@ -89,14 +95,19 @@ def main(scratch, output):
             raise ValueError(f'{name}: target text found {original.count(old)} times')
         path.write_text(original.replace(old, new), encoding='utf-8')
         try:
-            rows.append({'mutant': name, 'file': file, 'old_tests': run(scratch, OLD), 'new_tests': run(scratch, NEW)})
+            (old_result, old_summary), (new_result, new_summary) = run(scratch, OLD), run(scratch, NEW)
         finally:
             path.write_text(original, encoding='utf-8')
-        rows[-1]['killed_by_any'] = 'killed' in (rows[-1]['old_tests'], rows[-1]['new_tests'])
+        rows.append({'mutant': name, 'file': file, 'old_tests': old_result, 'new_tests': new_result,
+                     'killed_by_any': 'killed' in (old_result, new_result),
+                     'old_summary': old_summary, 'new_summary': new_summary})
         print(json.dumps(rows[-1]), flush=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps({'baseline_unmutated': baseline, 'old_suite': OLD, 'new_suite': NEW,
                                   'mutants': rows}, indent=2), encoding='utf-8')
+    aborted = [row['mutant'] for row in rows if 'aborted' in (row['old_tests'], row['new_tests'])]
+    if aborted:
+        raise RuntimeError(f'Runs that neither passed nor failed their tests (see {output}): {aborted}')
 
 
 if __name__ == '__main__':

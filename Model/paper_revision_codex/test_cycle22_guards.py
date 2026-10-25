@@ -1,4 +1,6 @@
-"""MF selection data, GNN refits and the test-time model assembly are pinned to what the protocol selected."""
+"""MF selection data, GNN refits and the test-time model assembly are pinned to what the protocol selected; the mutation
+tools read pytest's output as UTF-8 and count only failing tests as kills."""
+import importlib.util
 import json
 import sys
 from collections import defaultdict
@@ -206,3 +208,55 @@ def test_gnn_refit_that_chose_its_own_epochs_is_refused(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match='fixed 90 epochs'):
         rp.gnn_job(path)
     assert not (job / 'job_result.json').exists()
+
+
+def report_tool(name):
+    spec = importlib.util.spec_from_file_location(name, HERE / 'report_tools' / f'{name}.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def fake_pytest(summary, code):
+    # Raw bytes no locale codec decodes (0xff), then an en dash and a Hangul syllable in UTF-8, then the summary line
+    # with the output encoding the child was given.
+    return ("import os, sys\n"
+            "sys.stdout.buffer.write(b'\\xff \\xe2\\x80\\x93 \\xed\\x95\\x9c\\n')\n"
+            f"sys.stdout.buffer.write(({summary!r} + ' [' + os.environ.get('PYTHONIOENCODING', '') + ']\\n').encode())\n"
+            f"sys.exit({code})\n")
+
+
+def test_guard_tool_reads_pytest_output_as_utf8_whatever_the_console(tmp_path, monkeypatch):
+    tool = report_tool('guard_mutation_check')
+    monkeypatch.setenv('PYTHONIOENCODING', 'ascii')
+    monkeypatch.setattr(tool, 'args', [sys.executable, '-c', fake_pytest('1 failed, 92 passed in 9.00s', 1)])
+    result = tool.run_tests(tmp_path)
+    assert '\u2013 \ud55c' in result.stdout
+    assert tool.summary(result.stdout) == '1 failed, 92 passed in 9.00s [utf-8]'
+    assert tool.classify(result.returncode, result.stdout) == 'killed'
+
+
+def test_mutation_tool_reads_output_as_utf8_and_counts_only_failing_tests(tmp_path, monkeypatch):
+    tool = report_tool('mutation_check')
+    monkeypatch.setenv('PYTHONIOENCODING', 'ascii')
+    failed, interrupted = tmp_path / 'failed', tmp_path / 'interrupted'
+    for folder, summary, code in ((failed, '1 failed, 3 passed in 1.00s', 1),
+                                  (interrupted, '!!! Interrupted: 1 error during collection !!!', 2)):
+        folder.mkdir()
+        (folder / 'pytest.py').write_text(fake_pytest(summary, code), encoding='utf-8')
+    assert tool.run(failed, ['test_x.py']) == ('killed', '1 failed, 3 passed in 1.00s [utf-8]')
+    assert tool.run(interrupted, ['test_x.py'])[0] == 'aborted'
+
+
+def test_mutation_tool_fails_when_a_run_neither_passes_nor_fails_its_tests(tmp_path, monkeypatch):
+    tool = report_tool('mutation_check')
+    (tmp_path / 'f.py').write_text('a = 1\n', encoding='utf-8')
+    monkeypatch.setattr(tool, 'copy_project', lambda scratch: None)
+    monkeypatch.setattr(tool, 'MUTANTS', [('X mutant', 'f.py', 'a = 1', 'a = 2')])
+    monkeypatch.setattr(tool, 'run', lambda scratch, tests: (
+        ('aborted', '') if 'a = 2' in (scratch / 'f.py').read_text(encoding='utf-8') else ('survived', '5 passed in 1.00s')))
+    with pytest.raises(RuntimeError, match='X mutant'):
+        tool.main(tmp_path, tmp_path / 'out.json')
+    row = json.loads((tmp_path / 'out.json').read_text(encoding='utf-8'))['mutants'][0]
+    assert row['old_tests'] == row['new_tests'] == 'aborted' and not row['killed_by_any']
+    assert (tmp_path / 'f.py').read_text(encoding='utf-8') == 'a = 1\n'

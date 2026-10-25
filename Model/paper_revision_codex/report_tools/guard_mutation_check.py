@@ -1,11 +1,13 @@
-"""Put the pre-fix behaviour of each cycle-5..22 guard (H1-H87) back into a temporary copy, one at a time, and check
+"""Put the pre-fix behaviour of each cycle-5..22 guard (H1-H93) back into a temporary copy, one at a time, and check
 that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21/22_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
 the verify_plan_code test because the copy is outside git). H63, H64 and H66 take out a part of a fix rather than put back
 the exact pre-fix code; H67 puts back the I-108 prefix exemption in pathspec form; H72 is no old code
 but the failure the H71 check refuses (selection jobs on the outer split); H74 puts back the d92de19 check (any fold's
 validation accepted) and H75 takes out the role part of the a22f6ea check (its own-fold path check stays). H79, H80 and H82-H86 are no old code but failures the Cycle 22 tests and checks
 refuse (MF selection on the outer split, test-time assembly from the wrong selection or refit, refit with early
-stopping). A mutant counts as killed only when pytest exits with 1 and reports
+stopping). H88-H93 put back how this tool and mutation_check.py read pytest's output (locale codec, console
+encoding) and how mutation_check.py judged a run (any non-zero exit as a kill, aborted runs accepted). pytest's output is
+read as UTF-8. A mutant counts as killed only when pytest exits with 1 and reports
 failed or erroring tests; any other non-zero exit (interrupt, collection error, process killed from outside) is recorded
 as aborted. The git HEAD, uncommitted files and start time are printed when the run starts and stored in the output;
 the exit code is 0 only when every mutant is killed. Default output: audit_runs/guard_mutants.json (git-ignored, so a rerun never replaces committed evidence such
@@ -13,7 +15,7 @@ as audit/cycle5, cycle7, cycle8 or cycle9/guard_mutants.json).
 
 Usage: python report_tools/guard_mutation_check.py [output.json]
 """
-import json, re, shutil, subprocess, sys, tempfile
+import json, os, re, shutil, subprocess, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 src = Path(__file__).resolve().parents[1]
@@ -178,6 +180,21 @@ M = {
  'H87 GNN refit epochs not checked': (
      'rolling_protocol.py', "        if trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']:",
      "        if False:"),
+ 'H88 guard run output read with the locale codec': (
+     'report_tools/guard_mutation_check.py', "    return subprocess.run(args, cwd=d, capture_output=True, " + "encoding='utf-8', errors='replace',",
+     "    return subprocess.run(args, cwd=d, capture_output=True, text=True,"),
+ 'H89 guard run output encoding left to the console': (
+     'report_tools/guard_mutation_check.py', "env={**os.environ, " + "'PYTHONIOENCODING': 'utf-8'})", "env=dict(os.environ))"),
+ 'H90 mutation tool counts any non-zero exit as killed': (
+     'report_tools/mutation_check.py', "    return classify(result.returncode, result.stdout), summary(result.stdout)",
+     "    return ('killed' if result.returncode else 'survived'), summary(result.stdout)"),
+ 'H91 mutation tool output read with the locale codec': (
+     'report_tools/mutation_check.py', "cwd=scratch, capture_output=True, encoding='utf-8', errors='replace', env=env)",
+     "cwd=scratch, capture_output=True, text=True, env=env)"),
+ 'H92 mutation tool output encoding left to the console': (
+     'report_tools/mutation_check.py', "'MPLBACKEND': 'Agg',\n           'PYTHONIOENCODING': 'utf-8'}", "'MPLBACKEND': 'Agg'}"),
+ 'H93 mutation tool passes with aborted runs': (
+     'report_tools/mutation_check.py', "    if aborted:\n        raise RuntimeError", "    if False:\n        raise RuntimeError"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, encoding='utf-8').stdout.rstrip('\n')
 def fresh(tmp):
@@ -195,6 +212,13 @@ args = [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'test_cy
         'test_cycle7_guards.py', 'test_cycle8_guards.py', 'test_cycle9_guards.py', 'test_cycle10_guards.py',
         'test_cycle11_guards.py', 'test_cycle12_guards.py', 'test_cycle13_guards.py', 'test_cycle14_guards.py', 'test_cycle15_guards.py', 'test_cycle16_guards.py', 'test_cycle17_guards.py', 'test_cycle18_guards.py', 'test_cycle19_guards.py', 'test_cycle20_guards.py', 'test_cycle21_guards.py', 'test_cycle22_guards.py', 'test_compare_outputs.py', '--deselect', 'test_cycle4_guards.py::test_verify_plan_code_reports_changes_and_fails_only_when_asked',
         '--deselect', 'test_cycle10_guards.py::test_exact_reproduction_from_raw_reaches_its_test_opening']
+def run_tests(d):
+    # pytest's output is read as UTF-8 whatever the console code page: one byte the locale codec cannot decode in a
+    # failure message would otherwise drop the whole output and turn a kill into an abort.
+    return subprocess.run(args, cwd=d, capture_output=True, encoding='utf-8', errors='replace',
+                          env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
+
+
 def summary(stdout):
     lines = (stdout or '').strip().splitlines()
     return lines[-1] if lines else ''
@@ -216,12 +240,12 @@ def main():
     print('start', json.dumps(run_info), flush=True)
     tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))
     rows = []
-    d = fresh(tmp); r = subprocess.run(args, cwd=d, capture_output=True, text=True); base = summary(r.stdout); print('unmutated', base, flush=True)
+    d = fresh(tmp); r = run_tests(d); base = summary(r.stdout); print('unmutated', base, flush=True)
     assert r.returncode == 0 and re.search(r'\b\d+ passed\b', base), (r.returncode, base, r.stderr[-2000:])
     for name, (f, old, new) in M.items():
         d = fresh(tmp); t = (d / f).read_text(encoding='utf-8'); assert t.count(old) == 1, (name, t.count(old))
         (d / f).write_text(t.replace(old, new, 1), encoding='utf-8')
-        r = subprocess.run(args, cwd=d, capture_output=True, text=True)
+        r = run_tests(d)
         rows.append({'mutant': name, 'file': f, 'result': classify(r.returncode, r.stdout), 'returncode': r.returncode,
                      'summary': summary(r.stdout)})
         print(json.dumps(rows[-1]), flush=True)
