@@ -652,11 +652,13 @@
 - 바뀌거나 새로 넣은 가드 변이(H71, H74, H75)를 해당 테스트만으로 먼저 확인: 모두 검출, 수정 안 한 사본과 smoke 테스트 통과 (`audit/cycle20/quick_mutants.txt`). 75개 대상이 모두 한 번씩 있음.
 - 작업 폴더 전체 테스트 170/170 (`audit/cycle20/precommit_pytest.txt`).
 - 실제 v7 manifest와 합성 v6 F1·F2로 다른 fold 거부 확인 (`audit/cycle20/gnn_fold_check.txt`).
-- GUARD_LINE
+- 가드 변이 H1–H75: 첫 실행은 23개 검출(놓친 것 0) 뒤 외부 종료로 끊김. 다시 돌린 실행은 HEAD 194ba9c(코드는 a22f6ea와 같음)에서 75/75, 수정 안 한 사본 84 통과 (`audit/cycle20/guard_mutants.json`).
 
 **E. 커밋**
 - a22f6ea: 코드, 테스트, 가드 변이 (I-123)
-- 이 문서와 함께: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거
+- 194ba9c: 문서 정정(I-124 – I-126, §8 항목 6), Cycle 20 기록과 증거 (가드 실행이 끊긴 사이 중간 저장으로 커밋되어 가드 결과 자리가 비어 있었음)
+- 이 문서와 함께: 가드 변이 결과, 첫 실행이 끊긴 기록, 194ba9c 커밋 후 재검증
 
 **F. 커밋 후 재검증**
 - a22f6ea: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle20/postcommit_a22f6ea_*.txt`).
+- 194ba9c: 새 worktree, lock venv 169 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle20/postcommit_194ba9c_*.txt`).
