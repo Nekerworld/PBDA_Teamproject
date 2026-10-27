@@ -1,0 +1,13 @@
+started_utc 2026-10-27T15:35:06.274186+00:00
+tests ['test_hybrid_ltr.py']
+unmutated rc=0 13 passed in 8.04s
+L1 features read the label sets: rc=1 killed | 2 failed, 11 passed in 7.82s
+L2 training events at the cutoff accepted: rc=1 killed | 1 failed, 12 passed in 8.98s
+L3 novel window keeps raw-seen items: rc=1 killed | 1 failed, 12 passed in 8.20s
+L4 pair weight from the weakest event: rc=1 killed | 2 failed, 11 passed in 8.60s
+L5 window labels only from the evaluation users: rc=1 killed | 2 failed, 11 passed in 8.35s
+L6 positive pairs unweighted: rc=1 killed | 1 failed, 12 passed in 8.03s
+L7 CV recall over reachable truth only: rc=1 killed | 1 failed, 12 passed in 8.34s
+L8 capping drops users with policy truth: rc=1 killed | 1 failed, 12 passed in 8.42s
+L9 novel pool ignores the exclusion: rc=1 killed | 2 failed, 11 passed in 8.26s
+finished_utc 2026-10-27T15:36:40.861042+00:00
