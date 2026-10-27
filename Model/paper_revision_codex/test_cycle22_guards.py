@@ -182,9 +182,10 @@ def refit_job(tmp_path, monkeypatch, mode_for):
             seen.append(kwargs)
 
         def run(self):
-            mode, chosen = mode_for(self.kwargs)
+            mode, chosen, *rows = mode_for(self.kwargs)
+            rows = rows[0] if rows else [{'epoch': e, 'train_loss': 1.} for e in range(1, chosen + 1)]
             (self.processed_dir / 'gnn_training_history.json').write_text(
-                json.dumps({'mode': mode, 'chosen_epochs': chosen}), encoding='utf-8')
+                json.dumps({'mode': mode, 'chosen_epochs': chosen, 'refit_history': rows}), encoding='utf-8')
 
     monkeypatch.setattr(model, 'GNNEmbeddingGenerator', Generator)
     job = manifest(tmp_path / 'runs' / 'gnn_seed_42', role='test')
@@ -205,6 +206,17 @@ def test_gnn_refit_trains_the_fixed_epochs_without_early_stopping(tmp_path, monk
 
 def test_gnn_refit_that_chose_its_own_epochs_is_refused(tmp_path, monkeypatch):
     job, path, _ = refit_job(tmp_path, monkeypatch, lambda kwargs: ('chronological_validation_then_refit', 40))
+    with pytest.raises(RuntimeError, match='fixed 90 epochs'):
+        rp.gnn_job(path)
+    assert not (job / 'job_result.json').exists()
+
+
+@pytest.mark.parametrize('rows', [
+    [{'epoch': e} for e in range(1, 41)],
+    [{'epoch': e} for e in range(1, 91)] + [{'epoch': 91}],
+    [{'epoch': e, **({'validation_original_ndcg': .1} if e == 50 else {})} for e in range(1, 91)]])
+def test_gnn_refit_whose_epoch_rows_differ_from_the_fixed_epochs_is_refused(tmp_path, monkeypatch, rows):
+    job, path, _ = refit_job(tmp_path, monkeypatch, lambda kwargs: ('fixed_epochs', 90, rows))
     with pytest.raises(RuntimeError, match='fixed 90 epochs'):
         rp.gnn_job(path)
     assert not (job / 'job_result.json').exists()

@@ -59,8 +59,8 @@ def test_cached_selection_job_trained_on_the_outer_split_is_reported(tmp_path):
     fold = tmp_path / 'F'
     mf = {'als': {'factors': 4}, 'bpr': {'factors': 4}, 'bpr_epochs': 2}
     row = {'name': 'g', 'config': config, 'epochs': 90}
-    for d in (fold / 'val_mf', fold / 'runs' / 'seed_42'):
-        d.mkdir(parents=True)
+    for d, protocol_id in ((fold / 'val_mf', 'inner'), (fold / 'runs' / 'seed_42', 'outer')):
+        manifest(d, protocol_id=protocol_id)
         (d / 'mf_fit.json').write_text(json.dumps(dict(mf, seed=42)), encoding='utf-8')
     (fold / 'selection.json').write_text(json.dumps({'mf': mf, 'gnn': row, 'hybrid_backbone': row}), encoding='utf-8')
     (fold / 'validation_gnn.json').write_text(json.dumps([dict(row, job_dir='x/g')]), encoding='utf-8')
@@ -72,7 +72,34 @@ def test_cached_selection_job_trained_on_the_outer_split_is_reported(tmp_path):
         manifest(fold / job, protocol_id='inner' if spec['mode'] == 'select' else 'outer')
         (fold / job / 'job_result.json').write_text(json.dumps({'spec': dict(spec, config=config, seed=42,
                                                                               fixed=plan['gnn_fixed'])}), encoding='utf-8')
-    assert check_cached_runs.main(tmp_path, tmp_path / 'ok.json')['gnn_mismatches'] == 0
+    clean = check_cached_runs.main(tmp_path, tmp_path / 'ok.json')
+    assert clean['gnn_mismatches'] == clean['mf_mismatches'] == 0
     manifest(fold / next(iter(jobs)), protocol_id='outer')
     leaked = check_cached_runs.main(tmp_path, tmp_path / 'leaked.json')
     assert leaked['gnn_mismatches'] == 1 and leaked['gnn'][0]['differs'] == ['data']
+
+
+@pytest.mark.parametrize('fit, wrong', [('val_mf', 'outer'), ('runs/seed_42', 'inner'), ('val_mf', None)])
+def test_cached_mf_fit_trained_on_the_wrong_split_is_reported(tmp_path, fit, wrong):
+    config = {'layers': 1, 'embedding_dim': 8, 'learning_rate': .01}
+    plan = {'gnn_fixed': {'reg': 1e-4}, 'selection_seed': 42, 'seeds': [42], 'gnn_grid': [config],
+            'gnn_max_epochs': 400, 'gnn_cap_rule': f'cap {rp.GNN_CAP_EXTENSION_EPOCHS}'}
+    (tmp_path / 'plan.json').write_text(json.dumps({'plan': plan}), encoding='utf-8')
+    fold = tmp_path / 'F'
+    mf = {'als': {'factors': 4}, 'bpr': {'factors': 4}, 'bpr_epochs': 2}
+    row = {'name': 'g', 'config': config, 'epochs': 90}
+    manifest(fold / 'prepared', protocol_id='outer')
+    manifest(fold / 'prepared' / 'validation', protocol_id='inner')
+    for d, protocol_id in (('val_mf', 'inner'), ('runs/seed_42', 'outer')):
+        manifest(fold / d, protocol_id=protocol_id)
+        (fold / d / 'mf_fit.json').write_text(json.dumps(dict(mf, seed=42)), encoding='utf-8')
+    (fold / 'selection.json').write_text(json.dumps({'mf': mf, 'gnn': row, 'hybrid_backbone': row}), encoding='utf-8')
+    (fold / 'validation_gnn.json').write_text(json.dumps([dict(row, job_dir='x/g')]), encoding='utf-8')
+    assert check_cached_runs.main(tmp_path, tmp_path / 'ok.json')['mf_mismatches'] == 0
+    if wrong is None:
+        (fold / fit / 'manifest.json').unlink()
+    else:
+        manifest(fold / fit, protocol_id=wrong)
+    leaked = check_cached_runs.main(tmp_path, tmp_path / 'leaked.json')
+    assert leaked['mf_mismatches'] == 1
+    assert [r['differs'] for r in leaked['mf'] if r['fit'] == str(Path('F') / fit)] == [['data']]

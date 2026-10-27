@@ -1,4 +1,4 @@
-"""Put the pre-fix behaviour of each cycle-5..22 guard (H1-H93) back into a temporary copy, one at a time, and check
+"""Put the pre-fix behaviour of each cycle-5..23 guard (H1-H95) back into a temporary copy, one at a time, and check
 that test_cycle4/5/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21/22_guards.py or test_compare_outputs.py fail (the end-to-end reproduction run is left out for time, and
 the verify_plan_code test because the copy is outside git). H63, H64 and H66 take out a part of a fix rather than put back
 the exact pre-fix code; H67 puts back the I-108 prefix exemption in pathspec form; H72 is no old code
@@ -6,7 +6,9 @@ but the failure the H71 check refuses (selection jobs on the outer split); H74 p
 validation accepted) and H75 takes out the role part of the a22f6ea check (its own-fold path check stays). H79, H80 and H82-H86 are no old code but failures the Cycle 22 tests and checks
 refuse (MF selection on the outer split, test-time assembly from the wrong selection or refit, refit with early
 stopping). H88-H93 put back how this tool and mutation_check.py read pytest's output (locale codec, console
-encoding) and how mutation_check.py judged a run (any non-zero exit as a kill, aborted runs accepted). pytest's output is
+encoding) and how mutation_check.py judged a run (any non-zero exit as a kill, aborted runs accepted). H94 puts back the
+Cycle 22 refit check (recorded mode and epochs only, no per-epoch rows) and H95 the cache audit without the MF fit data
+check. pytest's output is
 read as UTF-8. A mutant counts as killed only when pytest exits with 1 and reports
 failed or erroring tests; any other non-zero exit (interrupt, collection error, process killed from outside) is recorded
 as aborted. The git HEAD, uncommitted files and start time are printed when the run starts and stored in the output;
@@ -19,6 +21,9 @@ import json, os, re, shutil, subprocess, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 src = Path(__file__).resolve().parents[1]
+REFIT_CHECK = ("        if (trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']\n"
+               "                or [row.get('epoch') for row in rows] != list(range(1, spec['epochs'] + 1))\n"
+               "                or any('validation_original_ndcg' in row for row in rows)):")
 M = {
  'H1 reproduction exempt without matching code': ('rolling_protocol.py', "\n                              and code_matches(stored.get('code_sha256', {}), stored.get('code_hash_scheme', 'sha256-raw')))", ")"),
  'H2 exact window match instead of overlap': ('rolling_protocol.py', "                    overlap = max(low, windows[name][0]) < min(high, windows[name][1]) - 1e-9", "                    overlap = (low, high) == windows[name]"),
@@ -178,8 +183,7 @@ M = {
  'H86 GNN refit keeps early stopping': (
      'rolling_protocol.py', "        kwargs['early_stopping_patience'] = None", "        pass"),
  'H87 GNN refit epochs not checked': (
-     'rolling_protocol.py', "        if trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']:",
-     "        if False:"),
+     'rolling_protocol.py', REFIT_CHECK, "        if False:"),
  'H88 guard run output read with the locale codec': (
      'report_tools/guard_mutation_check.py', "    return subprocess.run(args, cwd=d, capture_output=True, " + "encoding='utf-8', errors='replace',",
      "    return subprocess.run(args, cwd=d, capture_output=True, text=True,"),
@@ -195,6 +199,13 @@ M = {
      'report_tools/mutation_check.py', "'MPLBACKEND': 'Agg',\n           'PYTHONIOENCODING': 'utf-8'}", "'MPLBACKEND': 'Agg'}"),
  'H93 mutation tool passes with aborted runs': (
      'report_tools/mutation_check.py', "    if aborted:\n        raise RuntimeError", "    if False:\n        raise RuntimeError"),
+ 'H94 GNN refit judged by its recorded mode and epochs only': (
+     'rolling_protocol.py', REFIT_CHECK,
+     "        if trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']:"),
+ 'H95 cache audit does not compare MF fit data': (
+     'report_tools/check_cached_runs.py',
+     "            if protocol_id(source) is None or protocol_id(directory) != protocol_id(source):\n"
+     "                differs.append('data')\n            mf.append", "            mf.append"),
 }
 git = lambda *a: subprocess.run(['git', *a], cwd=src, capture_output=True, encoding='utf-8').stdout.rstrip('\n')
 def fresh(tmp):

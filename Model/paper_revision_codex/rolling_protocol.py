@@ -505,9 +505,14 @@ def gnn_job(spec_path):
         generator = GNNEmbeddingGenerator(processed_dir=job, **kwargs)
         generator.run()
         trained = json.loads((job / 'gnn_training_history.json').read_text(encoding='utf-8'))
-        if trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']:
+        # mode and chosen_epochs are written from the request whatever ran, so the per-epoch rows are the evidence:
+        # one row per epoch 1..N and none scored on validation labels.
+        rows = trained.get('refit_history') or []
+        if (trained.get('mode') != 'fixed_epochs' or trained.get('chosen_epochs') != spec['epochs']
+                or [row.get('epoch') for row in rows] != list(range(1, spec['epochs'] + 1))
+                or any('validation_original_ndcg' in row for row in rows)):
             raise RuntimeError(f'GNN refit in {job} did not train for the fixed {spec["epochs"]} epochs '
-                               f'({trained.get("mode")}, {trained.get("chosen_epochs")})')
+                               f'({trained.get("mode")}, {trained.get("chosen_epochs")}, {len(rows)} epoch rows)')
         chosen, history = spec['epochs'], []
     scores = [row.get('validation_original_ndcg') for row in history if 'validation_original_ndcg' in row]
     dump_json(job / 'job_result.json', {

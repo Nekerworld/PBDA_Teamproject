@@ -187,8 +187,9 @@ def test_cache_audit_compares_with_what_the_plan_and_selection_request(tmp_path)
     gnn_row = {'name': 'g', 'config': config, 'epochs': 90}
     (fold / 'runs' / 'seed_42').mkdir(parents=True)
     (fold / 'val_mf').mkdir()
-    for d in (fold / 'val_mf', fold / 'runs' / 'seed_42'):
+    for d, protocol_id in ((fold / 'val_mf', 'inner'), (fold / 'runs' / 'seed_42', 'outer')):
         (d / 'mf_fit.json').write_text(json.dumps(dict(mf, seed=42)), encoding='utf-8')
+        (d / 'manifest.json').write_text(json.dumps({'protocol_id': protocol_id}), encoding='utf-8')
     (fold / 'selection.json').write_text(json.dumps({'mf': mf, 'gnn': gnn_row, 'hybrid_backbone': gnn_row}), encoding='utf-8')
     (fold / 'validation_gnn.json').write_text(json.dumps([dict(gnn_row, job_dir='x/g')]), encoding='utf-8')
     data = {'select': 'inner', 'refit': 'outer'}

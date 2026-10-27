@@ -3,8 +3,9 @@
 The requested identities are rebuilt the way run_fold builds them, from plan.json (GNN grid, fixed
 settings, epoch cap, seeds), validation_gnn.json (which top configurations were extended to the
 cap-extension epochs) and selection.json (refit configurations and epochs, MF configuration). Each is
-compared with what the cached job_result.json / mf_fit.json says was trained, and each GNN job's data
-(manifest protocol_id) with the split it must use: prepared/validation for selection, prepared for refit. The specs saved in
+compared with what the cached job_result.json / mf_fit.json says was trained, and each GNN job's and MF fit's data
+(manifest protocol_id) with the split it must use: prepared/validation for selection (gnn_val, val_mf), prepared for
+refit (runs). The specs saved in
 job_specs/ are not used: they are the same file the job copied into job_result.json.
 Reads no labels and trains nothing.
 
@@ -66,12 +67,16 @@ def main(root, output):
             if protocol_id(source) is None or protocol_id(fold_dir / job) != protocol_id(source):
                 differs.append('data')
             gnn.append({'job': str((fold_dir / job).relative_to(root)), 'exists': path.exists(), 'differs': differs})
-        fits = [(fold_dir / 'val_mf', plan['selection_seed'])] + [(fold_dir / 'runs' / f'seed_{s}', s) for s in plan['seeds']]
-        for directory, seed in fits:
+        fits = [(fold_dir / 'val_mf', plan['selection_seed'], fold_dir / 'prepared' / 'validation')] + [
+            (fold_dir / 'runs' / f'seed_{s}', s, fold_dir / 'prepared') for s in plan['seeds']]
+        for directory, seed, source in fits:
             cached = read(directory / 'mf_fit.json')
             wanted = {'seed': seed, 'als': selection['mf']['als'], 'bpr': selection['mf']['bpr'],
                       'bpr_epochs': selection['mf']['bpr_epochs']}
-            mf.append({'fit': str(directory.relative_to(root)), 'differs': [k for k in wanted if cached.get(k) != wanted[k]]})
+            differs = [k for k in wanted if cached.get(k) != wanted[k]]
+            if protocol_id(source) is None or protocol_id(directory) != protocol_id(source):
+                differs.append('data')
+            mf.append({'fit': str(directory.relative_to(root)), 'differs': differs})
     on_disk = len(list(root.glob('*/gnn_val/*/job_result.json'))) + len(list(root.glob('*/runs/*/job_result.json')))
     summary = {'root': str(root), 'gnn_requested': len(gnn), 'gnn_results_on_disk': on_disk,
                'gnn_mismatches': sum(bool(r['differs']) for r in gnn),
