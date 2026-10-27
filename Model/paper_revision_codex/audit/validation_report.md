@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§31은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§33은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -28,6 +28,8 @@
 | 회귀 테스트 (Cycle 20) | `test_cycle20_guards.py` 2개 추가 후 170/170 (v7 venv, `audit/cycle20/precommit_pytest.txt`). 커밋 a22f6ea의 새 worktree + lock venv 169 통과, 1 건너뜀 → §29 |
 | 회귀 테스트 (Cycle 21) | `test_cycle21_guards.py` 2개 추가 후 172/172 (v7 venv, `audit/cycle21/precommit_pytest.txt`). 커밋 afc4d0a의 새 worktree + lock venv 171 통과, 1 건너뜀 → §30 |
 | 회귀 테스트 (Cycle 22) | `test_cycle22_guards.py` 7개 추가 후 179/179 (v7 venv, `audit/cycle22/precommit_pytest.txt`), I-143의 3개를 더해 182/182 (`precommit_pytest_io.txt`). 커밋 a61880b의 새 worktree + lock venv 178 통과, 1 건너뜀, 커밋 35ce91c 181 통과, 1 건너뜀 → §31 |
+| 회귀 테스트 (Cycle 23) | `test_cycle22_guards.py`·`test_cycle19_guards.py`에 매개변수화 테스트 하나씩(각 3경우) 추가 후 188/188 (v7 venv, `audit/cycle23/precommit_pytest.txt`). 커밋 2753bfc의 새 worktree + lock venv 187 통과, 1 건너뜀 → §32 |
+| 회귀 테스트 (v8 개발) | `test_hybrid_ltr.py` 13개 추가 후 201/201 (v7 venv, `audit/v8dev/precommit_pytest.txt`). 커밋 649cbbd의 새 worktree + lock venv 200 통과, 1 건너뜀 → §33 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
 | 누수 검사 결함 검출 | 시험 이벤트 1건을 학습 파일에 넣으면 실패함 |
@@ -642,3 +644,50 @@ Cycle 21 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD 45
 | 변이 도구의 출력 읽기 (I-143) | 가드 도구와 `mutation_check.py`가 pytest 출력을 UTF-8로 읽고 자식에 `PYTHONIOENCODING=utf-8`을 줌. a61880b 가드 실행에서 `aborted`였던 H11·H69·H80·H86은 같은 조건의 재실행에서 cp949 `UnicodeDecodeError`로 출력이 사라짐을 재현 (`audit/cycle22/rerun_aborted.txt`), 고친 도구로는 모두 "N failed" 검출 (`quick_mutants_io.txt`). `mutation_check.py`는 가드 도구의 판정을 쓰고 요약을 기록. 고친 도구로 17개 재실행: 17개 모두 공식 결과(`audit/mutation/mutation_results.json`)와 판정이 같고, 검출 21건은 모두 종료 코드 1과 "failed" 요약, `aborted` 0, 수정 안 한 사본은 두 묶음 모두 통과 (`audit/cycle22/mutation_results.json`, `mutation_check_log.txt`, 2026-10-25 14:56:45–15:49:06 UTC) |
 | 회귀 테스트 | 커밋 전 작업 폴더 179/179 (v7 venv, `audit/cycle22/precommit_pytest.txt`). 커밋 a61880b의 새 worktree + lock venv: 178 통과, 1 건너뜀 (`postcommit_a61880b_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. I-143 수정 후 작업 폴더 182/182 (`precommit_pytest_io.txt`), 커밋 35ce91c: 181 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_35ce91c_*.txt`). Cycle 21 문서 커밋 45d84ba: 171 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_45d84ba_*.txt`) |
 | 가드 변이 H1–H93 (H78 MF grid 데이터 검사 끔, H79 MF grid를 바깥 분할로, H80 Hybrid 선택용 MF를 바깥 분할에서 복제, H81 그 검사 끔, H82 backbone을 GNN 1위로 기록, H83 시험 Hybrid를 단독 GNN으로, H84 novel 시험에 repeat 설정, H85 시험 Hybrid 벡터를 단독 GNN 재학습에서, H86 재학습에 조기 종료 유지, H87 재학습 epoch 검사 끔, H88·H89 가드 도구의 출력 읽기, H90–H93 `mutation_check.py`의 판정·출력 읽기) | a61880b 코드로 한 H1–H87 첫 실행(시작 때 커밋 안 된 것은 문서 5개, 다시 만든 구조도 6개, `audit/cycle22/`뿐)은 83개 검출, 놓친 것 0, H11·H69·H80·H86 4개 `aborted`(종료 코드 1인데 출력이 비어 있음, I-143). 2026-10-25 12:29:10–14:41:59 UTC (`audit/cycle22/guard_mutants_a61880b_h87.json`, `guard_mutants_a61880b_h87_log.txt`). 고친 뒤 커밋 35ce91c 코드로 다시 실행(시작 때 커밋 안 된 것은 문서 6개, 다시 만든 구조도 6개, `audit/cycle22/`뿐, 실행 중에 코드를 고치지 않음, 첫 실행과 같이 `PYTHONIOENCODING=utf-8`), 93/93 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 96 통과. 2026-10-25 15:04:14–17:18:44 UTC (`audit/cycle22/guard_mutants.json`, `guard_mutants_cycle22_log.txt`) |
+
+## 32. Cycle 23: GNN 재학습 epoch 행, MF fit 데이터 캐시 검사, 기록 정정, 루프 이전 결과 무결성 (I-144 – I-150)
+
+Cycle 22 커밋 뒤 처음부터 다시 한 독립 감사(코드·문서 HEAD b2fd215)에서 찾은 항목과, 사용자 요청으로 한 루프 이전 결과의 조작·누수 독립 검사다. 새 P0·P1·P2는 없다 (코드 감사 P3 2건, 문서 감사 P3 5건). 각 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤 고쳤다. v6·v7의 선택, 시험 결과, plan 해시는 바뀌지 않는다.
+
+| 검사 | 결과 |
+|---|---|
+| GNN 재학습 epoch 행 (I-144) | `gnn_job`은 학습 기록의 `refit_history`가 epoch 1..N(N = spec epoch)을 한 행씩 빠짐없이 갖고 validation 점수 행이 없을 때만 재학습을 받음(`mode`·`chosen_epochs`는 요청에서 쓰이는 값이라 근거가 되지 않음). 실제 v7 F4 `gnn_seed_42`–`44` 모두 90행 = spec으로 받음 (`audit/cycle23/real_data_check.txt`) |
+| MF fit 데이터 캐시 검사 (I-145) | `check_cached_runs.py`가 `val_mf`는 `prepared/validation`, `runs/seed_*`는 `prepared`와 protocol_id를 비교하고, 다르거나 manifest가 없으면 `data` 불일치. 실제 v7 root: GNN 작업 39개, MF fit 4개 모두 불일치 0 (`audit/cycle23/cache_identity_v7.json`) |
+| 변이 먼저 확인 | H87(바뀐 재학습 조건을 끔), H94(Cycle 22 검사로 되돌림), H95(MF fit 데이터 비교 끔)를 `test_cycle5/19/22_guards.py`만으로 확인: 각각 4·3·3개 실패로 검출, 수정 안 한 사본 34 통과 (`audit/cycle23/quick_mutants.txt`) |
+| 기록 정정 (I-146 – I-150) | I-129 문구 복원, `cycle_log.md` Cycle 9–17 커밋 항목과 Cycle 22 항목·I-134 – I-140 커밋 칸을 해시로, I-140 w 평균을 실제 v7 F4로 다시 계산해 저장(`prepared`와 세 seed 모두 165,094쌍, 정규화 전 평균 0.696799, seed와 무관. `audit/cycle23/w_mean_check.txt`), I-141 수치에 "출력 저장 안 함", provenance 구조도 행의 비교 출력 저장 범위(Cycle 21·22만), 등록부 날짜 |
+| 루프 이전 결과 무결성 (사용자 요청) | 파이프라인의 선택·분할·통계 코드를 쓰지 않는 독립 스크립트로 커밋된 v6·v7 결과를 검사: 333개 모두 통과 (L 시험 열람 30, S 선택 재유도 35, T 시간 경계 210, P 통계 재유도 58). plan 해시, fold마다 봉인 열람 1회와 그 전에 잠긴 selection, 모든 선택값을 validation 표만으로 다시 유도, 학습 파일과 재고 신호(속성)가 시험 구간 전에 끝남, 쌍대 차이·Holm·sign-flip p 재계산. 검사 못 한 것: v6 F1–F3의 Hybrid grid 표가 커밋되지 않아(v6 PC에만 있음) v6 Hybrid backbone·설정은 재유도하지 않음 (`audit/cycle23/pre_loop_integrity.json`, `pre_loop_integrity_log.txt`). 같은 때 v7 시험 지표 재계산과 누수 검사를 다시 돌려 커밋본과 같음(270행 최대 차이 9.8e-17, 모집단 일치, novel 위반 0, 중복 0. 누수 28/28. `audit/cycle23/recompute_v7_F4_unseen.json`, `leakage_check_v7_F4.json`, `rerun_tools_log.txt`). 조작이나 누수의 흔적은 없음. v1–v5 결과는 이미 I-01·I-02로 표시돼 원고 주장에 쓰지 않음 |
+| 회귀 테스트 | 커밋 전 작업 폴더 188/188 (v7 venv, `audit/cycle23/precommit_pytest.txt`). 커밋 2753bfc의 새 worktree + lock venv: 187 통과, 1 건너뜀 (`postcommit_2753bfc_pytest.txt`), `SHA256SUMS.txt` v6 60/60, v7 28/28. Cycle 22 문서 커밋 b2fd215: 181 통과, 1 건너뜀, 60/60, 28/28 (`postcommit_b2fd215_*.txt`) |
+| 가드 변이 H1–H95 (H94 재학습을 기록된 mode·epoch로만 판정, H95 캐시 검사의 MF fit 데이터 비교 끔) | 커밋 2753bfc 코드로 실행(도구가 기록한 시작 때 커밋 안 된 파일 없음. 실행 중 추적 대상 코드는 고치지 않았고, 새 v8 파일 `hybrid_ltr*.py`·`test_hybrid_ltr.py`가 작업 폴더에 생겨 사본에 복사됐지만 가드 테스트 목록에는 없음. 실행 중 커밋 649cbbd를 만듦), 95/95 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 102 통과. 2026-10-27 14:30:45–16:53:43 UTC (`audit/cycle23/guard_mutants.json`, `guard_mutants_cycle23_log.txt`) |
+
+## 33. v8 개발: 학습형 재정렬 Hybrid (개발 구간, 시험 아님)
+
+요청은 "ablation에서 Hybrid가 구조상 가장 높은 일반화 성능을 갖도록, 조작 없이"였다. 시험 구간은 열지 않았고, 결과를 보고 설정을 고치는 반복을 막으려고 설계 두 개만 정해 둘 다 보고한다. 이 절의 수치는 개발 비교라 원고의 성능 주장에 쓰지 않는다.
+
+- 구간 (모두 v7 F4 시험 cutoff 이전 원본 이벤트, `hybrid_ltr_dev.py`): D1 = 학습 약 0–17%, 라벨 약 17–21.6%. D2 = 학습 0–21.6%, 라벨 21.6–27%로 v7 F4 내부 validation과 내용이 같음(`event_id`만 다름: 잘린 원본의 행 번호). 재정렬 모델, ALS+BPR α, 기존 Hybrid(v1) grid는 D1에서만 학습·선택하고 D2는 한 번 점수만 냄. 기본 모델은 v7 F4 selection의 설정(seed 42, GNN 90 epoch 고정)이며, 이 설정은 v7에서 D2 라벨로 골랐으므로 D2는 완전히 새 구간이 아님(비교하는 모든 모델에 같은 조건).
+- 구조 (`hybrid_ltr.py`): 사용자마다 ALS·BPR·GNN 상위 100개, repeat에서는 최근 본 상품 100개, 최근 7일 인기 50개를 후보로 모으고, 세 모델 점수와 순위, 사용자–상품 행동(조회·장바구니·구매 수, 감쇠 가중치, 최근성), 최근 상품과의 ALS·GNN 유사도, 상품·사용자 활동량을 특징으로 gradient boosting 분류기가 재정렬. 설정은 D1 안의 사용자 단위 5-fold CV로 고름. 특징은 학습 이벤트만 읽고(`check_training_only`가 cutoff에 닿는 학습 이벤트를 거부), 라벨은 재정렬 모델을 학습하는 구간에서만 읽음.
+- 설계 두 개: `policy_truth`는 D1 평가 사용자(repeat 145명, novel 96명)의 장바구니·구매만으로 학습. `weighted`는 D1 라벨 구간에 이벤트가 있는 모든 학습 사용자(repeat 1,738명, novel 1,063명)를 쓰고 쌍마다 가장 강한 이벤트로 가중(조회 1·장바구니 6·구매 12, 기본 모델과 같은 가중치. 양성 행 repeat 2,138개 중 조회 1,988·장바구니 84·구매 66). CV 지표는 둘 다 D1 평가 사용자의 장바구니·구매.
+
+D2 결과 (K=50, seed 42, repeat 294명, novel 206명):
+
+| 모델 | repeat NDCG | repeat Recall | novel NDCG | novel Recall |
+|---|---|---|---|---|
+| ALS | 0.1771 | 0.2581 | 0.0306 | 0.0775 |
+| BPR | 0.1785 | 0.2523 | 0.0269 | 0.0682 |
+| GNN | 0.1795 | 0.2542 | 0.0302 | 0.0750 |
+| ALS+BPR (α D1 선택) | 0.1830 | 0.2532 | 0.0282 | 0.0696 |
+| Hybrid v1 (D1 선택) | 0.1846 | 0.2566 | 0.0267 | 0.0657 |
+| 재정렬 `policy_truth` | 0.1867 | 0.2501 | 0.0259 | 0.0742 |
+| 재정렬 `weighted` | 0.1836 | 0.2542 | 0.0312 | 0.0868 |
+
+| 검사 | 결과 |
+|---|---|
+| 쌍대 비교 (Holm, 재정렬 vs ALS·BPR·GNN·ALS+BPR·Popularity·Recent·RecentPop·Hybrid v1 한 묶음) | 두 설계, 두 정책 모두 ALS·BPR·GNN·ALS+BPR·Hybrid v1과의 차이는 유의하지 않음(예: repeat `policy_truth` − ALS+BPR NDCG +0.0037 [−0.0090, 0.0163], novel `weighted` − ALS+BPR Recall +0.0172 [−0.0029, 0.0399], 모두 p_holm ≥ 0.78). Popularity·Recent·RecentPop보다는 유의하게 높음 (`audit/v8dev/dev_results.json`, `dev_results_weighted.json`의 `paired_d2`) |
+| 기존 Hybrid(v1)를 다른 구간에서 고른 설정으로 | ALS+BPR 대비 repeat NDCG +0.0016, novel −0.0015 (둘 다 유의하지 않음, `Hybrid_v1 vs baselines` 묶음) |
+| 특징 묶음 ablation | 두 설계 모두 GNN 특징을 뺀 재정렬이 가장 높았음(repeat `policy_truth` 0.1945/0.2598, novel `weighted` 0.0351/0.0882). 유의성은 검사하지 않았고(한 묶음에 넣지 않음) 이 결과로 설계를 고르지 않음. 이 데이터에서는 재정렬 단계에 GNN 신호가 더해 주는 근거가 없음 |
+| 후보 상한 | D2 평가 사용자별 정답 중 후보에 든 비율의 평균 repeat 0.292, novel 0.124 (재정렬로 얻을 수 있는 Recall의 상한) |
+| 검정력 (`audit/v8dev/power_check.py`, `power_check.csv`) | 쌍대 bootstrap CI 폭에서 SE를 읽고, 각 비교가 실제로 받은 Holm 배수로 80% 검정력의 최소 검출 차이를 계산. v7 F4 repeat Hybrid − ALS+BPR NDCG: 관측 +0.0074, SE 0.0036, Holm ×4 → 413명에서 최소 검출 차이 0.0119, 관측 크기를 검출하려면 약 1,080명. D2(294명)에서 재정렬 − ALS+BPR NDCG의 최소 검출 차이는 약 0.019. p_holm이 1로 잘린 비교는 배수가 실제보다 작게 계산돼 필요한 사용자 수가 하한임 |
+| 누수·라벨 규칙 테스트 | `test_hybrid_ltr.py` 13개: 특징이 라벨을 읽지 않음(라벨 객체를 열면 실패), cutoff에 닿는 학습 이벤트 거부, 행동 특징 계수, 정책별 후보(novel은 본 상품 제외), 라벨 = 정책 정답, 학습 창의 쌍 가중치·novel 제외·조회만 한 사용자·사용자 상한, CV 지표 = `EvaluationContext.details`(카탈로그 밖 정답 포함), 결정적 순위. 규칙을 하나씩 깬 변이 9개(L1–L9)가 모두 검출, 수정 안 한 사본 13 통과 (`audit/v8dev/quick_mutants.txt`) |
+| 회귀 테스트 | 커밋 전 작업 폴더 201/201 (v7 venv, `audit/v8dev/precommit_pytest.txt`). 커밋 649cbbd의 새 worktree + lock venv: 200 통과, 1 건너뜀, `SHA256SUMS.txt` v6 60/60, v7 28/28 (`postcommit_649cbbd_*.txt`. 출력 폴더를 상대 경로로 줘서 출력이 worktree 안에 생겼고, 출력의 "1 changed files"는 그 출력 파일 자체임. 파일은 작업 폴더로 복사) |
+| 재실행 | 커밋 649cbbd 코드로 두 설계를 다시 실행(기본 모델 캐시 사용): `weighted`는 시각 필드 밖에서 저장본과 모두 같음. `policy_truth`는 D2 지표·선택 설정·쌍대 통계가 모두 같고, CV 값 35개가 최대 1.1e-16 다름(첫 실행 뒤 `ndcg_of`를 `EvaluationContext.details`와 같은 식으로 바꿔 합산 순서가 달라짐. 같은 값임을 테스트로 확인)과 첫 실행에 없던 `design` 키 (`audit/v8dev/rerun_compare.py`, `rerun_compare.txt`, `rerun_head.txt`) |
+
+결론: RetailRocket의 평가 모집단(fold당 수백 명. v7 F4 repeat에서는 413명 중 332명의 사용자별 NDCG가 Hybrid와 ALS+BPR에서 같음)에서는 이 구조로 Hybrid의 우위를 통계적으로 보일 수 없었다. 재정렬 구조, 학습 사용자 확대 모두 기존 Hybrid·ALS+BPR과의 차이가 오차 범위 안이다. 원고에는 "Hybrid가 유의하게 우수"라고 쓸 수 없고, 구조 개선의 확인은 평가 모집단이 큰 새 사전등록 봉인 시험에서 해야 한다.

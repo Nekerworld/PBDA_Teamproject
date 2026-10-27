@@ -326,7 +326,7 @@
 
 **E. 커밋**
 - ce97790: 코드, 도구, 테스트, 증거 일부 (I-75 – I-79)
-- 이 문서와 함께: 문서 정정(I-74), Cycle 9 기록과 증거
+- ac9b865: 문서 정정(I-74), Cycle 9 기록과 증거
 
 **F. 커밋 후 재검증 (ce97790)**
 - 새 worktree, lock venv: 126 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle9/`에 보존.
@@ -355,7 +355,7 @@
 
 **E. 커밋**
 - 4e166c5: 코드, 테스트, 변이 도구 (I-81 – I-84, I-80의 도구 부분)
-- 이 문서와 함께: 문서 정정(I-80), `guard_real_data_check.py`의 `decisions`, Cycle 10 기록과 증거
+- 8d8d0d5: 문서 정정(I-80), `guard_real_data_check.py`의 `decisions`, Cycle 10 기록과 증거
 
 **F. 커밋 후 재검증 (4e166c5)**
 - 새 worktree, lock venv: 135 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle10/`에 보존.
@@ -386,7 +386,7 @@
 
 **E. 커밋**
 - 318186b: 코드, 테스트, 도구 (I-86, I-87, I-85·I-89의 도구 부분, H45–H48)
-- 이 문서와 함께: 문서 정정(I-85, I-88, I-89), 다시 만든 구조도, Cycle 11 기록과 증거
+- 2f1767c: 문서 정정(I-85, I-88, I-89), 다시 만든 구조도, Cycle 11 기록과 증거
 
 **F. 커밋 후 재검증 (318186b)**
 - 새 worktree, lock venv: 139 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle11/`에 보존.
@@ -418,7 +418,7 @@
 **E. 커밋**
 - 5026680: 코드, 테스트, 도구 (I-90 – I-93, H49–H54)
 - 8feac9b: `kill_with_parent` 설명 정정 (I-95, 주석만 바뀜. 관련 가드 테스트 15개 통과(출력 저장 안 함), 54개 변이 대상 문구는 그대로 한 번씩 있음)
-- 이 문서와 함께: 문서 정정(I-94, I-95), Cycle 12 기록과 증거
+- 1e2b35e: 문서 정정(I-94, I-95), Cycle 12 기록과 증거
 
 **F. 커밋 후 재검증 (5026680)**
 - 새 worktree, lock venv: 144 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle12/`에 보존.
@@ -451,7 +451,7 @@
 **E. 커밋**
 - cb22505: 코드, 테스트, 도구 (I-97 – I-100, H55–H60)
 - db3653e: 가드 변이 H52 대상 수정
-- 이 문서와 함께: 문서 정정(I-96), Cycle 13 기록과 증거
+- dcbfd0a: 문서 정정(I-96), Cycle 13 기록과 증거
 
 **F. 커밋 후 재검증**
 - cb22505, db3653e 각각 새 worktree, lock venv: 148 통과, 1 건너뜀(원본 데이터 상대경로 없음). 결과 파일 SHA256 v6 60/60, v7 28/28. 출력은 `audit/cycle13/`에 보존.
@@ -480,7 +480,7 @@
 
 **E. 커밋**
 - 41ba20d: 코드, 테스트, 가드 변이 H61 (I-101)
-- 이 문서와 함께: 문서 정정(I-102), Cycle 14 기록과 증거
+- 121b40a: 문서 정정(I-102), Cycle 14 기록과 증거
 
 **F. 커밋 후 재검증**
 - 41ba20d: 새 worktree, lock venv 150 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle14/postcommit_41ba20d_*.txt`).
@@ -509,7 +509,7 @@
 
 **E. 커밋**
 - 4c1ddfb: 코드, 테스트, 가드 변이 H62 (I-104)
-- 이 문서와 함께: 문서 정정(I-103), Cycle 15 기록과 증거
+- c0b52c0: 문서 정정(I-103), Cycle 15 기록과 증거
 
 **F. 커밋 후 재검증**
 - 4c1ddfb: 새 worktree, lock venv 156 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle15/postcommit_4c1ddfb_*.txt`).
@@ -540,7 +540,7 @@
 
 **E. 커밋**
 - 6ce754d: 코드, 테스트, 가드 변이 H63 (I-108)
-- 이 문서와 함께: 문서 정정(I-105 – I-107), Cycle 16 기록과 증거
+- 0a0ca40: 문서 정정(I-105 – I-107), Cycle 16 기록과 증거
 
 **F. 커밋 후 재검증**
 - 6ce754d: 새 worktree, lock venv 157 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle16/postcommit_6ce754d_*.txt`).
@@ -569,7 +569,7 @@
 
 **E. 커밋**
 - cf1a3fe: 코드, 테스트, 가드 변이 H63–H65, docstring (I-110, I-111)
-- 이 문서와 함께: 문서 정정(I-109), Cycle 17 기록과 증거
+- 31b059c: 문서 정정(I-109), Cycle 17 기록과 증거
 
 **F. 커밋 후 재검증**
 - cf1a3fe: 새 worktree, lock venv 159 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle17/postcommit_cf1a3fe_*.txt`).
@@ -723,9 +723,47 @@
 **E. 커밋**
 - a61880b: 코드, 테스트, 가드 변이, 구조도 생성기 (I-137, I-140의 구조도 부분, I-141, I-142)
 - 35ce91c: 변이 도구의 출력 읽기와 `mutation_check.py` 판정, 테스트, 가드 변이 H88–H93 (I-143)
-- 이 문서와 함께: 문서 정정(I-134 – I-136, I-138, I-139, I-140의 대조표 부분), 다시 만든 구조도, Cycle 22 기록과 증거
+- b2fd215: 문서 정정(I-134 – I-136, I-138, I-139, I-140의 대조표 부분), 다시 만든 구조도, Cycle 22 기록과 증거
 
 **F. 커밋 후 재검증**
 - 45d84ba: 새 worktree, lock venv 171 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle22/postcommit_45d84ba_*.txt`).
 - a61880b: 새 worktree, lock venv 178 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle22/postcommit_a61880b_*.txt`).
 - 35ce91c: 새 worktree, lock venv 181 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle22/postcommit_35ce91c_*.txt`).
+- b2fd215: Cycle 23에 기록 (`audit/cycle23/postcommit_b2fd215_*.txt`).
+
+## Cycle 23 (2026-10-27 KST): Cycle 22 커밋 뒤 다시 한 독립 감사, 루프 이전 결과 무결성
+
+**A. 분석**
+- 코드 감사자와 문서 감사자(둘 다 HEAD b2fd215)를 새로 두고 처음부터 읽게 함. 보고 항목은 코드·커밋된 파일·실제 실행으로 다시 확인한 뒤에만 고침.
+- 사용자 요청: Hybrid 구조 개선에 앞서 루프 이전 결과가 조작되거나 누수됐는지 독립 검증.
+
+**B. 식별 (P0·P1·P2 없음)**
+- 코드 감사 P3 2건: I-144 GNN 재학습 검사가 요청에서 쓰이는 `mode`·`chosen_epochs`만 봐 동어반복, I-145 캐시 검사가 MF fit의 데이터 분할을 비교하지 않음.
+- 문서 감사 P3 5건: I-146 I-129 문구가 일괄 치환에 바뀜, I-147 `cycle_log.md` Cycle 9–17 커밋 항목이 해시 없이 남음, I-148 저장된 출력 없는 일회성 수치 표시, I-149 provenance 구조도 행의 비교 출력 저장 범위, I-150 등록부 날짜.
+
+**C. 수정**
+- 코드: `gnn_job`이 `refit_history`의 epoch 행(1..N, validation 행 없음)으로 재학습을 판정(I-144). `check_cached_runs.py`가 MF fit의 protocol_id를 자기 분할과 비교(I-145).
+- 테스트: `test_cycle22_guards.py`(행 부족·초과·validation 행), `test_cycle19_guards.py`(잘못된 분할 3경우), 기존 캐시 테스트에 MF fit manifest. 가드 변이 H94·H95, H87 대상을 바뀐 조건으로.
+- 문서: I-144 – I-150, `validation_report.md` §32.
+
+**D. 검증**
+- H87·H94·H95를 관련 테스트만으로 먼저 확인: 모두 검출, 수정 안 한 사본 34 통과 (`audit/cycle23/quick_mutants.txt`).
+- 실제 v7 F4: 재학습 3개 모두 90행 = spec으로 받음, 캐시 검사 GNN 39개·MF 4개 불일치 0 (`audit/cycle23/real_data_check.txt`, `cache_identity_v7.json`). w 평균 재계산 (`w_mean_check.txt`).
+- 루프 이전 결과 무결성: 독립 스크립트 333개 검사 모두 통과, v6 Hybrid grid 표는 커밋되지 않아 검사 못 함 (`audit/cycle23/pre_loop_integrity.json`). v7 지표 재계산·누수 검사 재실행이 커밋본과 같음 (`recompute_v7_F4_unseen.json`, `leakage_check_v7_F4.json`).
+- 작업 폴더 전체 테스트 188/188 (`audit/cycle23/precommit_pytest.txt`).
+- 가드 변이: 2753bfc 코드로 H1–H95 95/95 검출(모두 종료 코드 1과 "N failed" 요약, `aborted` 0), 수정 안 한 사본 102 통과. 2026-10-27 14:30:45–16:53:43 UTC. 실행 중 추적 대상 코드는 고치지 않음(새 v8 파일이 작업 폴더에 생겨 사본에 복사됐지만 가드 테스트 목록에는 없음) (`audit/cycle23/guard_mutants.json`, `guard_mutants_cycle23_log.txt`).
+
+**E. 커밋**
+- 2753bfc: 코드, 테스트, 가드 변이 H94·H95 (I-144, I-145)
+- Cycle 23 문서 커밋: 문서 정정(I-146 – I-150), Cycle 23 기록과 증거, v8 개발 기록(§33)
+
+**F. 커밋 후 재검증**
+- b2fd215: 새 worktree, lock venv 181 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle23/postcommit_b2fd215_*.txt`).
+- 2753bfc: 새 worktree, lock venv 187 통과, 1 건너뜀. SHA256 v6 60/60, v7 28/28 (`audit/cycle23/postcommit_2753bfc_*.txt`).
+
+## v8 개발 (2026-10-27 KST): 학습형 재정렬 Hybrid, 개발 구간 비교 (시험 아님)
+
+- 요청: ablation에서 Hybrid가 구조상 가장 높은 일반화 성능을 갖도록(조작·누수 금지).
+- 구현: `hybrid_ltr.py`(후보 모음 + gradient boosting 재정렬, 학습 창 `TrainingWindow`), `hybrid_ltr_dev.py`(D1 학습·선택, D2 점수), `test_hybrid_ltr.py` 13개. 커밋 649cbbd.
+- 결과: 설계 두 개(`policy_truth`, `weighted`) 모두 ALS·BPR·GNN·ALS+BPR·기존 Hybrid와 유의한 차이 없음. 검정력 계산상 v7 F4 크기의 차이를 보려면 평가 사용자 약 1,080명이 필요(현재 413명). 상세는 `validation_report.md` §33.
+- 검증: 변이 L1–L9 모두 검출 (`audit/v8dev/quick_mutants.txt`), 작업 폴더 201/201, 649cbbd 새 worktree + lock venv 200 통과·1 건너뜀·SHA256 60/60·28/28, 커밋된 코드로 두 설계 재실행이 저장본과 같음(CV 값 35개의 1.1e-16 이하 차이 제외, `audit/v8dev/rerun_compare.txt`).

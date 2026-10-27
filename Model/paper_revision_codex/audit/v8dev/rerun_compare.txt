@@ -1,0 +1,7 @@
+dev_results.json: saved 2026-10-27T14:48:12.824828+00:00, rerun 2026-10-27T15:43:42.799319+00:00 - 2026-10-27T15:51:26.365017+00:00
+  float differences <= 1e-12: 35 (max 1.1e-16; fields: ['cv_ndcg', 'cv_recall', 'cv_score']; sections: ['ranker'])
+  other differences outside the timing fields: 1
+    : keys ['design']
+dev_results_weighted.json: saved 2026-10-27T15:08:34.346998+00:00, rerun 2026-10-27T15:51:32.081066+00:00 - 2026-10-27T16:13:09.313235+00:00
+  float differences <= 1e-12: 0
+  other differences outside the timing fields: 0

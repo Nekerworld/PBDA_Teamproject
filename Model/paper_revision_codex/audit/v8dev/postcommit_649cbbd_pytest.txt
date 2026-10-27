@@ -1,0 +1,9 @@
+commit: 649cbbdda2c390cc008e4687559377c07c5fc471
+worktree: /c/Users/chris/AppData/Local/Temp/pc_649cbbd
+status: 1 changed files
+venv: C:/Users/chris/venvs/pbda_lockcheck
+started_utc: 2026-10-27T15:43:57Z
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+200 passed, 1 skipped, 2 warnings in 429.78s (0:07:09)
+finished_utc: 2026-10-27T15:51:09Z

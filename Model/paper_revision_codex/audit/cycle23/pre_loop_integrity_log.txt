@@ -1,0 +1,364 @@
+PASS L v6 plan hash recomputed {"hash": "c56ada95ecce"}
+PASS L v6 every opening under the plan {"openings": 5}
+PASS L v6 F1_hist one sealed opening {"purposes": ["sealed_test", "posthoc_candidate_gamma", "posthoc_if_ablation"]}
+PASS L v6 F1_hist opened selection is the committed one {}
+PASS L v6 F1_hist selection sealed under the plan, outer test unused {}
+PASS L v6 F1_hist selection locked before the opening {"locked": "2026-10-21T00:52:30.091310+00:00", "opened": "2026-10-21T01:56:12.750404+00:00"}
+PASS L v6 F1_hist post-hoc openings after the sealed one {}
+PASS L v6 F1_hist logged commit exists and predates the opening {"commit": "074443e", "commit_time": "2026-10-20T17:35:30+09:00"}
+PASS L v6 F2_mid one sealed opening {"purposes": ["sealed_test"]}
+PASS L v6 F2_mid opened selection is the committed one {}
+PASS L v6 F2_mid selection sealed under the plan, outer test unused {}
+PASS L v6 F2_mid selection locked before the opening {"locked": "2026-10-21T03:11:30.467125+00:00", "opened": "2026-10-21T03:46:56.824559+00:00"}
+PASS L v6 F2_mid post-hoc openings after the sealed one {}
+PASS L v6 F2_mid logged commit exists and predates the opening {"commit": "074443e", "commit_time": "2026-10-20T17:35:30+09:00"}
+PASS L v6 F3_early one sealed opening {"purposes": ["sealed_test"]}
+PASS L v6 F3_early opened selection is the committed one {}
+PASS L v6 F3_early selection sealed under the plan, outer test unused {}
+PASS L v6 F3_early selection locked before the opening {"locked": "2026-10-21T04:41:36.776461+00:00", "opened": "2026-10-21T05:08:32.798184+00:00"}
+PASS L v6 F3_early post-hoc openings after the sealed one {}
+PASS L v6 F3_early logged commit exists and predates the opening {"commit": "074443e", "commit_time": "2026-10-20T17:35:30+09:00"}
+PASS L v6 plan created before every opening {}
+PASS L v7 plan hash recomputed {"hash": "784d0fa97912"}
+PASS L v7 every opening under the plan {"openings": 1}
+PASS L v7 F4_unseen one sealed opening {"purposes": ["sealed_test"]}
+PASS L v7 F4_unseen opened selection is the committed one {}
+PASS L v7 F4_unseen selection sealed under the plan, outer test unused {}
+PASS L v7 F4_unseen selection locked before the opening {"locked": "2026-10-21T13:04:26.517451+00:00", "opened": "2026-10-21T13:09:41.894280+00:00"}
+PASS L v7 F4_unseen post-hoc openings after the sealed one {}
+PASS L v7 F4_unseen logged commit exists and predates the opening {"commit": "868b714", "commit_time": "2026-10-21T22:04:52+09:00"}
+PASS L v7 plan created before every opening {}
+PASS S v6 F1_hist ALS = validation argmax {"rows": 24}
+PASS S v6 F1_hist BPR = validation argmax {"rows": 20}
+PASS S v6 F1_hist GNN = validation argmax {"chosen": "gnn_layers3_embedding_dim128_learning_rate0p001"}
+PASS S v6 F1_hist repeat ALS+BPR alpha = validation argmax {}
+PASS S v6 F1_hist repeat tables score the validation population {"users": [789], "validation": 789}
+PASS S v6 F1_hist novel ALS+BPR alpha = validation argmax {}
+PASS S v6 F1_hist novel tables score the validation population {"users": [654], "validation": 654}
+PASS S v6 F1_hist validation population is not the test population {"validation": [789, 654], "test": [854, 717]}
+PASS S v6 F2_mid ALS = validation argmax {"rows": 24}
+PASS S v6 F2_mid BPR = validation argmax {"rows": 20}
+PASS S v6 F2_mid GNN = validation argmax {"chosen": "gnn_layers2_embedding_dim128_learning_rate0p001"}
+PASS S v6 F2_mid repeat ALS+BPR alpha = validation argmax {}
+PASS S v6 F2_mid repeat tables score the validation population {"users": [584], "validation": 584}
+PASS S v6 F2_mid novel ALS+BPR alpha = validation argmax {}
+PASS S v6 F2_mid novel tables score the validation population {"users": [452], "validation": 452}
+PASS S v6 F2_mid validation population is not the test population {"validation": [584, 452], "test": [897, 755]}
+PASS S v6 F3_early ALS = validation argmax {"rows": 24}
+PASS S v6 F3_early BPR = validation argmax {"rows": 20}
+PASS S v6 F3_early GNN = validation argmax {"chosen": "gnn_layers2_embedding_dim128_learning_rate0p001"}
+PASS S v6 F3_early repeat ALS+BPR alpha = validation argmax {}
+PASS S v6 F3_early repeat tables score the validation population {"users": [453], "validation": 453}
+PASS S v6 F3_early novel ALS+BPR alpha = validation argmax {}
+PASS S v6 F3_early novel tables score the validation population {"users": [335], "validation": 335}
+PASS S v6 F3_early validation population is not the test population {"validation": [453, 335], "test": [628, 505]}
+PASS S v7 F4_unseen ALS = validation argmax {"rows": 192}
+PASS S v7 F4_unseen BPR = validation argmax {"rows": 168}
+PASS S v7 F4_unseen GNN = validation argmax {"chosen": "gnn_layers1_embedding_dim256_learning_rate0p003"}
+PASS S v7 F4_unseen repeat ALS+BPR alpha = validation argmax {}
+PASS S v7 F4_unseen repeat tables score the validation population {"users": [294], "validation": 294}
+PASS S v7 F4_unseen novel ALS+BPR alpha = validation argmax {}
+PASS S v7 F4_unseen novel tables score the validation population {"users": [206], "validation": 206}
+PASS S v7 F4_unseen validation population is not the test population {"validation": [294, 206], "test": [413, 306]}
+PASS S v7 F4_unseen Hybrid backbone = repeat validation argmax {"backbone": "gnn_layers1_embedding_dim256_learning_rate0p003"}
+PASS S v7 F4_unseen repeat Hybrid parameters = validation argmax {"rows": 2808}
+PASS S v7 F4_unseen novel Hybrid parameters = validation argmax {"rows": 2808}
+PASS T v7 cutoffs from raw {"fold_end": 1434817031045, "outer_test_start": 1433760149796, "validation_label_start": 1433131973639}
+PASS T v7 prepared\validation training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 prepared\validation labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 prepared\validation item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 prepared\validation train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 val_mf training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 val_mf labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 val_mf item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 val_mf train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 val_mf trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim128_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim256_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers1_embedding_dim64_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim128_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim256_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers2_embedding_dim64_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim128_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim256_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers3_embedding_dim64_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim128_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim256_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p0005 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p0005 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p0005 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p0005 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p0005 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p001 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p001 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p001 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p001 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p001 trains on the bytes of its split {}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p003 training ends before its labels and the outer test window {"train_end": 1433131969705, "label_min": 1433131973639}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p003 labels inside their window {"label_min": 1433131973639, "label_max": 1433757616243}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p003 item properties end before its labels {"props_max": 1433041200000}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p003 train and label event ids disjoint {"train": 232517, "labels": 5898}
+PASS T v7 gnn_val\gnn_layers4_embedding_dim64_learning_rate0p003 trains on the bytes of its split {}
+PASS T v7 prepared training ends before its labels and the outer test window {"train_end": 1433760102085, "label_min": 1433760155137}
+PASS T v7 prepared labels inside their window {"label_min": 1433760155137, "label_max": 1434816455879}
+PASS T v7 prepared item properties end before its labels {"props_max": 1433646000000}
+PASS T v7 prepared train and label event ids disjoint {"train": 300746, "labels": 9682}
+PASS T v7 runs\seed_42 training ends before its labels and the outer test window {"train_end": 1433760102085, "label_min": 1433760155137}
+PASS T v7 runs\seed_42 labels inside their window {"label_min": 1433760155137, "label_max": 1434816455879}
+PASS T v7 runs\seed_42 item properties end before its labels {"props_max": 1433646000000}
+PASS T v7 runs\seed_42 train and label event ids disjoint {"train": 300746, "labels": 9682}
+PASS T v7 runs\seed_42 trains on the bytes of its split {}
+PASS T v7 runs\seed_43 training ends before its labels and the outer test window {"train_end": 1433760102085, "label_min": 1433760155137}
+PASS T v7 runs\seed_43 labels inside their window {"label_min": 1433760155137, "label_max": 1434816455879}
+PASS T v7 runs\seed_43 item properties end before its labels {"props_max": 1433646000000}
+PASS T v7 runs\seed_43 train and label event ids disjoint {"train": 300746, "labels": 9682}
+PASS T v7 runs\seed_43 trains on the bytes of its split {}
+PASS T v7 runs\seed_44 training ends before its labels and the outer test window {"train_end": 1433760102085, "label_min": 1433760155137}
+PASS T v7 runs\seed_44 labels inside their window {"label_min": 1433760155137, "label_max": 1434816455879}
+PASS T v7 runs\seed_44 item properties end before its labels {"props_max": 1433646000000}
+PASS T v7 runs\seed_44 train and label event ids disjoint {"train": 300746, "labels": 9682}
+PASS T v7 runs\seed_44 trains on the bytes of its split {}
+PASS T v7 outlier filter (IF) off in the evaluated split {"if_removed_events": 0}
+PASS P v7 repeat Hybrid - ALS ndcg difference and counts {"difference": 0.021519, "stored": 0.021519}
+PASS P v7 repeat Hybrid - ALS ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 repeat Hybrid - ALS recall difference and counts {"difference": 0.0086, "stored": 0.0086}
+PASS P v7 repeat Hybrid - ALS recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.05109, "p_stored": 0.05379}
+PASS P v7 repeat Hybrid - BPR ndcg difference and counts {"difference": 0.004039, "stored": 0.004039}
+PASS P v7 repeat Hybrid - BPR ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.29747, "p_stored": 0.29617}
+PASS P v7 repeat Hybrid - BPR recall difference and counts {"difference": 0.007579, "stored": 0.007579}
+PASS P v7 repeat Hybrid - BPR recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0058, "p_stored": 0.0048}
+PASS P v7 repeat Hybrid - ALS+BPR ndcg difference and counts {"difference": 0.007353, "stored": 0.007353}
+PASS P v7 repeat Hybrid - ALS+BPR ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0362, "p_stored": 0.0402}
+PASS P v7 repeat Hybrid - ALS+BPR recall difference and counts {"difference": 0.007738, "stored": 0.007738}
+PASS P v7 repeat Hybrid - ALS+BPR recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.07879, "p_stored": 0.07889}
+PASS P v7 repeat Hybrid - GNN ndcg difference and counts {"difference": 0.011794, "stored": 0.011794}
+PASS P v7 repeat Hybrid - GNN ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0009, "p_stored": 0.0008}
+PASS P v7 repeat Hybrid - GNN recall difference and counts {"difference": 0.008614, "stored": 0.008614}
+PASS P v7 repeat Hybrid - GNN recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0149, "p_stored": 0.014}
+PASS P v7 repeat Hybrid - Popularity ndcg difference and counts {"difference": 0.184159, "stored": 0.184159}
+PASS P v7 repeat Hybrid - Popularity ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 repeat Hybrid - Popularity recall difference and counts {"difference": 0.222811, "stored": 0.222811}
+PASS P v7 repeat Hybrid - Popularity recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 repeat Hybrid - Recent ndcg difference and counts {"difference": 0.030971, "stored": 0.030971}
+PASS P v7 repeat Hybrid - Recent ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 repeat Hybrid - Recent recall difference and counts {"difference": 0.052221, "stored": 0.052221}
+PASS P v7 repeat Hybrid - Recent recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 repeat Hybrid - RecentPop ndcg difference and counts {"difference": 0.029421, "stored": 0.029421}
+PASS P v7 repeat Hybrid - RecentPop ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 repeat Hybrid - RecentPop recall difference and counts {"difference": 0.044611, "stored": 0.044611}
+PASS P v7 repeat Hybrid - RecentPop recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - ALS ndcg difference and counts {"difference": 0.003413, "stored": 0.003413}
+PASS P v7 novel Hybrid - ALS ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.13129, "p_stored": 0.13439}
+PASS P v7 novel Hybrid - ALS recall difference and counts {"difference": 0.017382, "stored": 0.017382}
+PASS P v7 novel Hybrid - ALS recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - BPR ndcg difference and counts {"difference": 0.005168, "stored": 0.005168}
+PASS P v7 novel Hybrid - BPR ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.09499, "p_stored": 0.09769}
+PASS P v7 novel Hybrid - BPR recall difference and counts {"difference": 0.011118, "stored": 0.011118}
+PASS P v7 novel Hybrid - BPR recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.08329, "p_stored": 0.08209}
+PASS P v7 novel Hybrid - ALS+BPR ndcg difference and counts {"difference": 0.001344, "stored": 0.001344}
+PASS P v7 novel Hybrid - ALS+BPR ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.51035, "p_stored": 0.49825}
+PASS P v7 novel Hybrid - ALS+BPR recall difference and counts {"difference": 0.006518, "stored": 0.006518}
+PASS P v7 novel Hybrid - ALS+BPR recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.05889, "p_stored": 0.05999}
+PASS P v7 novel Hybrid - GNN ndcg difference and counts {"difference": 0.006781, "stored": 0.006781}
+PASS P v7 novel Hybrid - GNN ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0217, "p_stored": 0.0227}
+PASS P v7 novel Hybrid - GNN recall difference and counts {"difference": 0.015133, "stored": 0.015133}
+PASS P v7 novel Hybrid - GNN recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0015, "p_stored": 0.0015}
+PASS P v7 novel Hybrid - Popularity ndcg difference and counts {"difference": 0.036951, "stored": 0.036951}
+PASS P v7 novel Hybrid - Popularity ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - Popularity recall difference and counts {"difference": 0.07934, "stored": 0.07934}
+PASS P v7 novel Hybrid - Popularity recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - Recent ndcg difference and counts {"difference": 0.040227, "stored": 0.040227}
+PASS P v7 novel Hybrid - Recent ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - Recent recall difference and counts {"difference": 0.09072, "stored": 0.09072}
+PASS P v7 novel Hybrid - Recent recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - RecentPop ndcg difference and counts {"difference": 0.036951, "stored": 0.036951}
+PASS P v7 novel Hybrid - RecentPop ndcg sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Hybrid - RecentPop recall difference and counts {"difference": 0.07934, "stored": 0.07934}
+PASS P v7 novel Hybrid - RecentPop recall sign-flip p within 4 Monte Carlo SE {"p_recomputed": 0.0001, "p_stored": 0.0001}
+PASS P v7 novel Holm over 14 comparisons {"significant": 8}
+PASS P v7 repeat Holm over 14 comparisons {"significant": 9}
+{
+  "started_from": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex",
+  "finished_utc": "2026-10-27T14:37:15.193485+00:00",
+  "git_head": "2753bfc0c36df6d20378aa2ed32d3396dd9bf68a",
+  "checks": 333,
+  "failed": [],
+  "all_pass": true,
+  "not_checked": [
+    "v6 F1_hist Hybrid grid tables not committed (kept on the run PC): Hybrid backbone and parameters not re-derived",
+    "v6 F2_mid Hybrid grid tables not committed (kept on the run PC): Hybrid backbone and parameters not re-derived",
+    "v6 F3_early Hybrid grid tables not committed (kept on the run PC): Hybrid backbone and parameters not re-derived"
+  ],
+  "by_group": {
+    "L": {
+      "pass": 30,
+      "total": 30
+    },
+    "S": {
+      "pass": 35,
+      "total": 35
+    },
+    "T": {
+      "pass": 210,
+      "total": 210
+    },
+    "P": {
+      "pass": 58,
+      "total": 58
+    }
+  }
+}

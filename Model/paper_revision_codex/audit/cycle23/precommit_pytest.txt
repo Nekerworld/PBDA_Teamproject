@@ -1,0 +1,7 @@
+started_utc 2026-10-27T14:24:10Z
+  C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\model.py:455: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\pytorch\aten\src\ATen\Context.cpp:767.)
+    adjacency_tensor = torch.sparse_coo_tensor(indices_tensor, values_tensor, torch.Size(normalized.shape))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+188 passed, 2 warnings in 333.42s (0:05:33)
+finished_utc 2026-10-27T14:29:45Z

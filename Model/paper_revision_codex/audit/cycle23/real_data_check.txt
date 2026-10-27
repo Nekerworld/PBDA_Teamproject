@@ -1,0 +1,11 @@
+started_utc 2026-10-27T14:18:32.411008+00:00
+rolling_protocol.py sha256 (working copy bytes) 483df2d7da91e4b892996c7625e921e80d46bfab036913ff7bb1b178b0d854e1
+report_tools/check_cached_runs.py sha256 (working copy bytes) c1d177984942dc0d616fe009976e8bd08d5a1a353eb6aa14a66ab938ba4ae312
+refit F4_unseen\runs\gnn_seed_42: mode=fixed_epochs chosen=90 spec_epochs=90 epoch_rows=90 accepted=True
+refit F4_unseen\runs\gnn_seed_43: mode=fixed_epochs chosen=90 spec_epochs=90 epoch_rows=90 accepted=True
+refit F4_unseen\runs\gnn_seed_44: mode=fixed_epochs chosen=90 spec_epochs=90 epoch_rows=90 accepted=True
+cache audit {"root": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v7", "gnn_requested": 39, "gnn_results_on_disk": 39, "gnn_mismatches": 0, "mf_fits": 4, "mf_mismatches": 0}
+mf F4_unseen\val_mf: differs=[]
+mf F4_unseen\runs\seed_42: differs=[]
+mf F4_unseen\runs\seed_43: differs=[]
+mf F4_unseen\runs\seed_44: differs=[]

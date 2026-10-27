@@ -1,0 +1,223 @@
+{
+  "root": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v7",
+  "gnn_requested": 39,
+  "gnn_results_on_disk": 39,
+  "gnn_mismatches": 0,
+  "mf_fits": 4,
+  "mf_mismatches": 0,
+  "gnn": [
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim64_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim64_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim64_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim128_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim128_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim128_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim256_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim256_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers2_embedding_dim256_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim256_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim256_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers3_embedding_dim256_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim64_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim64_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim64_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim128_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim128_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim128_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim256_learning_rate0p0005",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim256_learning_rate0p001",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\gnn_val\\gnn_layers4_embedding_dim256_learning_rate0p003",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\runs\\gnn_seed_42",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\runs\\gnn_seed_43",
+      "exists": true,
+      "differs": []
+    },
+    {
+      "job": "F4_unseen\\runs\\gnn_seed_44",
+      "exists": true,
+      "differs": []
+    }
+  ],
+  "mf": [
+    {
+      "fit": "F4_unseen\\val_mf",
+      "differs": []
+    },
+    {
+      "fit": "F4_unseen\\runs\\seed_42",
+      "differs": []
+    },
+    {
+      "fit": "F4_unseen\\runs\\seed_43",
+      "differs": []
+    },
+    {
+      "fit": "F4_unseen\\runs\\seed_44",
+      "differs": []
+    }
+  ]
+}

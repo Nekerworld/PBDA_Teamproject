@@ -1,0 +1,6 @@
+started_utc 2026-10-27T14:31:56.336608+00:00
+MF_COMMON {'behavior_weighted': True, 'time_decay': True, 'half_life_days': 7.0}
+prepared: pairs=165094 users=44172 items=26817 raw_weight_mean=0.696799 min=0.027421 max=80.626732
+runs\seed_42: pairs=165094 users=44172 items=26817 raw_weight_mean=0.696799 min=0.027421 max=80.626732
+runs\seed_43: pairs=165094 users=44172 items=26817 raw_weight_mean=0.696799 min=0.027421 max=80.626732
+runs\seed_44: pairs=165094 users=44172 items=26817 raw_weight_mean=0.696799 min=0.027421 max=80.626732

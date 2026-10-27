@@ -1,0 +1,47 @@
+2026-10-27T14:37:36Z
+{
+  "fold": "F4_unseen",
+  "raw_test_cutoff": 1433760149796,
+  "compared_rows": 270,
+  "population_matches": true,
+  "max_abs_diff": {
+    "ndcg": 9.75781955236954e-17,
+    "recall": 9.71445146547012e-17,
+    "precision": 9.974659986866641e-17
+  },
+  "novel_seen_items": 0,
+  "duplicates": 0,
+  "listed_items": 487749
+}
+partition                                  check  pass     manifest   recomputed    max_train     min_test  expected   actual  saved  max_property_timestamp   items  available_items  catalog  max_val_label  outer_cutoff    edges  train_pairs  non_train_edges  future_only_pairs_in_graph
+    outer   cutoff_matches_independent_recompute  True 1.433760e+12 1.433760e+12          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer           train_strictly_before_cutoff  True          NaN          NaN 1.433760e+12          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer       test_original_at_or_after_cutoff  True          NaN          NaN          NaN 1.433760e+12       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer train_equals_independent_core_fixpoint  True          NaN          NaN          NaN          NaN  300746.0 300746.0    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer                   core_thresholds_hold  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer      evaluation_users_match_definition  True          NaN          NaN          NaN          NaN     413.0      NaN  413.0                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer        truth_equals_raw_test_positives  True          NaN          NaN          NaN          NaN    1826.0      NaN 1826.0                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer            no_test_event_in_train_file  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer      properties_strictly_before_cutoff  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN            1.433646e+12     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer  available_is_last_value_before_cutoff  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN 26817.0          14976.0      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer             catalog_equals_train_items  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN  26817.0            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner   cutoff_matches_independent_recompute  True 1.433132e+12 1.433132e+12          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner           train_strictly_before_cutoff  True          NaN          NaN 1.433132e+12          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner       test_original_at_or_after_cutoff  True          NaN          NaN          NaN 1.433132e+12       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner   validation_window_inside_outer_train  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN   1.433758e+12  1.433760e+12      NaN          NaN              NaN                         NaN
+    inner train_equals_independent_core_fixpoint  True          NaN          NaN          NaN          NaN  232517.0 232517.0    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner                   core_thresholds_hold  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner      evaluation_users_match_definition  True          NaN          NaN          NaN          NaN     294.0      NaN  294.0                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner        truth_equals_raw_test_positives  True          NaN          NaN          NaN          NaN     992.0      NaN  992.0                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner            no_test_event_in_train_file  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner      properties_strictly_before_cutoff  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN            1.433041e+12     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner  available_is_last_value_before_cutoff  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN 22760.0          12520.0      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner             catalog_equals_train_items  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN  22760.0            NaN           NaN      NaN          NaN              NaN                         NaN
+    inner validation_labels_never_in_inner_train  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         NaN
+    outer            gnn_edges_equal_train_pairs  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN 165094.0     165094.0              0.0                         NaN
+    outer       no_future_only_pair_in_gnn_graph  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         0.0
+    inner            gnn_edges_equal_train_pairs  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN 126252.0     126252.0              0.0                         NaN
+    inner       no_future_only_pair_in_gnn_graph  True          NaN          NaN          NaN          NaN       NaN      NaN    NaN                     NaN     NaN              NaN      NaN            NaN           NaN      NaN          NaN              NaN                         0.0
+2026-10-27T14:38:28Z
+recompute equal to committed: True {'ndcg': 9.75781955236954e-17, 'recall': 9.71445146547012e-17, 'precision': 9.974659986866641e-17} 270 True 0 0
+leakage all_pass True 28 checks equal (except processed path): True

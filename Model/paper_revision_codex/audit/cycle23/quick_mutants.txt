@@ -1,0 +1,6 @@
+started_utc 2026-10-27T14:18:33.295136+00:00
+tests ['test_cycle5_guards.py', 'test_cycle19_guards.py', 'test_cycle22_guards.py']
+unmutated rc=0 34 passed in 61.03s (0:01:01)
+H87 GNN refit epochs not checked: rc=1 killed | 4 failed, 30 passed in 61.25s (0:01:01)
+H94 GNN refit judged by its recorded mode and epochs only: rc=1 killed | 3 failed, 31 passed in 58.28s
+H95 cache audit does not compare MF fit data: rc=1 killed | 3 failed, 31 passed in 58.69s
