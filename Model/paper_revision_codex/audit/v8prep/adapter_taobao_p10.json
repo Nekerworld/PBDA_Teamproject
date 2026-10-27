@@ -1,0 +1,35 @@
+{
+  "source": "taobao_user_behavior",
+  "files": {
+    "UserBehavior.csv": "46fdd7d389c1ddc7922eb7d9014af5573a4a3045da28c6c46197636873d8f1a9"
+  },
+  "mapping": {
+    "pv": "view",
+    "cart": "addtocart",
+    "buy": "transaction"
+  },
+  "period_seconds_utc8": [
+    1511539200,
+    1512316800
+  ],
+  "user_percent": 10,
+  "seed": 42,
+  "items_with_more_than_one_category": 364,
+  "dropped": {
+    "rows": 100150807,
+    "fav_dropped": 2888258,
+    "outside_period": 55576,
+    "unknown_behaviour": 0,
+    "users_not_sampled": 87504268
+  },
+  "events": 9702705,
+  "event_counts": {
+    "view": 8950705,
+    "addtocart": 550400,
+    "transaction": 201600
+  },
+  "users": 98648,
+  "items": 1571854,
+  "first_timestamp": 1511539200000,
+  "last_timestamp": 1512316799000
+}

@@ -11,8 +11,11 @@ addtocart, buy -> transaction; fav has no counterpart in the shared view/cart/pu
 outside the published period (2017-11-25 to 2017-12-03, UTC+8) are dropped. ``user_percent`` keeps a fixed share
 of users chosen by a seeded hash of the user id, so the subset does not depend on file order or on behaviour.
 
-Diginetica: ``train-item-views.csv`` and ``train-purchases.csv`` (``;``-separated). The event time is the event date
-(UTC midnight) plus ``timeframe`` (ms from the start of the session). Signed-in users keep their ``userId``;
+Diginetica: ``train-item-views.csv`` and ``train-purchases.csv`` (``;``-separated). ``eventdate`` is the calendar date
+of the event itself (it changes inside sessions that pass midnight) and ``timeframe`` is ms since the session start,
+whose time of day is not given, so only the date is absolute: the event time is the event date (UTC midnight). Every
+split cutoff then falls on a day boundary, and two sessions of one user on the same day cannot be put in the wrong
+order across a cutoff; the order inside a day is not used. Signed-in users keep their ``userId``;
 anonymous sessions are either one pseudo-user each (``anonymous='session'``, ids from ``SESSION_OFFSET``; they do not
 return, so they add training interactions and are evaluated only when the session itself spans the cutoff) or dropped
 (``anonymous='drop'``).
@@ -117,7 +120,7 @@ def diginetica_to_raw(source, out, anonymous='session'):
         user = pd.to_numeric(rows.userId, errors='coerce')
         signed = user.notna().to_numpy()
         visitor = np.where(signed, user.fillna(0).astype(np.int64), SESSION_OFFSET + rows.sessionId.astype(np.int64))
-        return pd.DataFrame({'timestamp': day.to_numpy() + rows.timeframe.astype(np.int64).to_numpy(),
+        return pd.DataFrame({'timestamp': day.to_numpy(),
                              'visitorid': visitor, 'event': event, 'itemid': rows.itemId.astype(np.int64).to_numpy(),
                              'transactionid': rows.ordernumber.to_numpy() if 'ordernumber' in rows else np.nan,
                              'signed_in': signed})
@@ -133,4 +136,5 @@ def diginetica_to_raw(source, out, anonymous='session'):
                                                         'product-categories.csv')}
     return _write(out, events.drop(columns='signed_in'), categories, {
         'source': 'diginetica_cikm2016', 'files': files, 'anonymous': anonymous, 'session_offset': SESSION_OFFSET,
-        'timestamp_rule': 'eventdate (UTC midnight) + timeframe ms', 'dropped': counts})
+        'timestamp_rule': 'eventdate (UTC midnight); timeframe is relative to an unknown session start and is not used',
+        'dropped': counts})

@@ -1,0 +1,25 @@
+{
+  "source": "diginetica_cikm2016",
+  "files": {
+    "train-item-views.csv": "0b9edf1b7960bb855a2248972f8ed593f18721f321b976b2077c9f782fb43e38",
+    "train-purchases.csv": "d6d3ce5b2df5d75a87fb0621f384aaf187ee1736bc46fcc58bb303ddc38d0658",
+    "product-categories.csv": "9e9566e34548e5d1b8d05ed6dd0222fbb8a7b7b2a8a18cdf28c1a4eba8f9e42c"
+  },
+  "anonymous": "session",
+  "session_offset": 10000000000,
+  "timestamp_rule": "eventdate (UTC midnight); timeframe is relative to an unknown session start and is not used",
+  "dropped": {
+    "views": 1235380,
+    "purchases": 18025,
+    "anonymous_events": 873711
+  },
+  "events": 1253405,
+  "event_counts": {
+    "view": 1235380,
+    "transaction": 18025
+  },
+  "users": 305329,
+  "items": 123273,
+  "first_timestamp": 1451606400000,
+  "last_timestamp": 1466121600000
+}

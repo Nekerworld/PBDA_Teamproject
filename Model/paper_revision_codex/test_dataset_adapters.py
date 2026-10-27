@@ -84,7 +84,10 @@ def test_diginetica_times_users_and_purchases(tmp_path):
     purchases = pd.read_csv(source / 'train-purchases.csv', sep=';')
     assert (events.event == 'view').sum() == len(views) and (events.event == 'transaction').sum() == len(purchases)
     row = views.iloc[0]
-    expected_ts = int(pd.Timestamp(row.eventdate, tz='UTC').value // 1_000_000) + int(row.timeframe)
+    expected_ts = int(pd.Timestamp(row.eventdate, tz='UTC').value // 1_000_000)
+    assert (events.timestamp % 86_400_000 == 0).all()  # dates only: cutoffs fall on day boundaries
+    assert (events.loc[events.event == 'transaction'].timestamp.max()
+            == int(pd.Timestamp(purchases.eventdate.max(), tz='UTC').value // 1_000_000))
     expected_user = int(row.userId) if pd.notna(row.userId) else da.SESSION_OFFSET + int(row.sessionId)
     assert ((events.timestamp == expected_ts) & (events.visitorid == expected_user) & (events.itemid == row.itemId)).any()
     bought = events.loc[events.event == 'transaction']
