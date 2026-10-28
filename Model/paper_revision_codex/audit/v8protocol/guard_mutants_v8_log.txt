@@ -1,0 +1,98 @@
+start {"head": "13e8bfea2fd72dbf6cd6d2d10d293820c28d1a34", "dirty": ["?? Model/paper_revision_codex/audit/v8protocol/incident_run1/"], "started_utc": "2026-10-28T13:52:35.841745+00:00"}
+unmutated 102 passed, 2 deselected in 109.48s (0:01:49)
+{"mutant": "H1 reproduction exempt without matching code", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 96.86s (0:01:36)"}
+{"mutant": "H2 exact window match instead of overlap", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 107.42s (0:01:47)"}
+{"mutant": "H3 committed records only", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.16s (0:01:40)"}
+{"mutant": "H4 raw input not re-verified", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 105.08s (0:01:45)"}
+{"mutant": "H5 selection compared within a purpose only", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.61s (0:01:44)"}
+{"mutant": "H6 finished fold skips the log check", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 105.01s (0:01:45)"}
+{"mutant": "H7 cached MF fit not checked", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.46s (0:01:44)"}
+{"mutant": "H8 cached GNN job not checked", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.88s (0:01:39)"}
+{"mutant": "H9 precision tool imports numpy first", "file": "report_tools/check_score_precision.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.70s (0:01:39)"}
+{"mutant": "H10 leakage gate on fold_raw only", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 98.94s (0:01:38)"}
+{"mutant": "H11 posthoc marker written first", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 92.08s (0:01:32)"}
+{"mutant": "H12 selection plan hash not checked", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.38s (0:01:40)"}
+{"mutant": "H13 records matched on all raw file bytes", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "4 failed, 98 passed, 2 deselected in 100.18s (0:01:40)"}
+{"mutant": "H14 git output fully stripped", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 100.04s (0:01:40)"}
+{"mutant": "H15 other roots checked only at start", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 100.60s (0:01:40)"}
+{"mutant": "H16 reproduction exempt with other raw files", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 104.77s (0:01:44)"}
+{"mutant": "H17 hybrid grid cache trusted when it exists", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.71s (0:01:44)"}
+{"mutant": "H18 plan created without git", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 100.99s (0:01:40)"}
+{"mutant": "H19 code not re-checked before a test opening", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 113.02s (0:01:53)"}
+{"mutant": "H20 code not re-checked before a GNN job", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 127.48s (0:02:07)"}
+{"mutant": "H21 own root not excluded", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 107.49s (0:01:47)"}
+{"mutant": "H22 cut-off log line raises", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 101.13s (0:01:41)"}
+{"mutant": "H23 cut-off log line skipped", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 101.16s (0:01:41)"}
+{"mutant": "H24 unreadable record plan not named", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 106.13s (0:01:46)"}
+{"mutant": "H25 unreadable own log not named", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 100.16s (0:01:40)"}
+{"mutant": "H26 hybrid grid cache read with the default float parser", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 105.29s (0:01:45)"}
+{"mutant": "H27 test-opening re-check ignores line-ending copies", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.45s (0:01:39)"}
+{"mutant": "H28 exact reproduction exempt whatever its selection", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 104.58s (0:01:44)"}
+{"mutant": "H29 recorded windows ignored", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.93s (0:01:44)"}
+{"mutant": "H30 touching counts as disjoint without a recorded window", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "5 failed, 97 passed, 2 deselected in 100.93s (0:01:40)"}
+{"mutant": "H31 test opening passes no selection", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.91s (0:01:39)"}
+{"mutant": "H32 test opening passes no actual window", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.53s (0:01:40)"}
+{"mutant": "H33 completion CSV written in place", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 105.47s (0:01:45)"}
+{"mutant": "H34 background error replaced by a generic one", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 106.18s (0:01:46)"}
+{"mutant": "H35 non-object access log entry accepted", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 106.14s (0:01:46)"}
+{"mutant": "H36 test opening compares selection file bytes", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 105.07s (0:01:45)"}
+{"mutant": "H37 record selection not tied to its logged openings", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 100.42s (0:01:40)"}
+{"mutant": "H38 run-specific seal time in the decision", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 100.43s (0:01:40)"}
+{"mutant": "H39 odd split fields converted unguarded", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "4 failed, 98 passed, 2 deselected in 100.25s (0:01:40)"}
+{"mutant": "H40 failed step does not stop the background jobs", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.84s (0:01:44)"}
+{"mutant": "H41 stopped GNN jobs left running", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 104.30s (0:01:44)"}
+{"mutant": "H42 stop ignored by the GNN job loop", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.24s (0:01:39)"}
+{"mutant": "H43 unknown fold name accepted", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.42s (0:01:44)"}
+{"mutant": "H44 background worker keeps only ordinary errors", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected, 1 warning in 105.40s (0:01:45)"}
+{"mutant": "H45 clone links straight into the destination", "file": "experiments.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.91s (0:01:39)"}
+{"mutant": "H46 GNN job not tied to the run", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 104.85s (0:01:44)"}
+{"mutant": "H47 job object without kill-on-close", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.31s (0:01:40)"}
+{"mutant": "H48 failed launch leaves its log open", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.87s (0:01:40)"}
+{"mutant": "H49 outer manifest written before finalize_outer", "file": "data_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 105.47s (0:01:45)"}
+{"mutant": "H50 empty fold list runs every fold", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 94.73s (0:01:34)"}
+{"mutant": "H51 job object error hides an ended job", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 101.59s (0:01:41)"}
+{"mutant": "H52 zero compared files pass", "file": "report_tools/compare_outputs.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 106.12s (0:01:46)"}
+{"mutant": "H53 JSON compared without types", "file": "report_tools/compare_outputs.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 106.21s (0:01:46)"}
+{"mutant": "H54 files only in NEW ignored", "file": "report_tools/compare_outputs.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.84s (0:01:40)"}
+{"mutant": "H55 #keys reads missing keys as None", "file": "report_tools/compare_outputs.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.03s (0:01:40)"}
+{"mutant": "H56 #keys on a non-object JSON", "file": "report_tools/compare_outputs.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 94.72s (0:01:34)"}
+{"mutant": "H57 empty committed folder hidden by another pair", "file": "report_tools/compare_outputs.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.36s (0:01:40)"}
+{"mutant": "H58 precision check reads an outer-test folder", "file": "report_tools/check_score_precision.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 100.06s (0:01:40)"}
+{"mutant": "H59 use_protocol v6 keeps v7 values", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.04s (0:01:44)"}
+{"mutant": "H60 Hybrid grid-end flags without alpha, candidate ends of blend only", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.58s (0:01:39)"}
+{"mutant": "H61 plan records hand-written Hybrid axes", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 104.93s (0:01:44)"}
+{"mutant": "H62 plan without the Hybrid grid digest", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "6 failed, 96 passed, 2 deselected in 100.18s (0:01:40)"}
+{"mutant": "H63 dirty check lists the run-output folder", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 99.58s (0:01:39)"}
+{"mutant": "H64 dirty check follows status.showUntrackedFiles", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 99.02s (0:01:39)"}
+{"mutant": "H65 GNN job spec path relative to the caller", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 97.78s (0:01:37)"}
+{"mutant": "H66 unreadable dirty files pass as clean", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 98.27s (0:01:38)"}
+{"mutant": "H67 dirty check exempts any path starting with audit_runs", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 98.34s (0:01:38)"}
+{"mutant": "H68 failed git status read as no dirty files", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 97.67s (0:01:37)"}
+{"mutant": "H69 git output read with the locale codec", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected, 1 warning in 85.63s (0:01:25)"}
+{"mutant": "H70 detached launch from any folder", "file": "report_tools/launch_detached.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.75s (0:01:25)"}
+{"mutant": "H71 GNN selection job on any data", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 86.61s (0:01:26)"}
+{"mutant": "H72 GNN selection grid on the outer split", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 45.84s"}
+{"mutant": "H73 cached GNN data not compared", "file": "report_tools/check_cached_runs.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 101.58s (0:01:41)"}
+{"mutant": "H74 GNN selection job on the validation of another fold", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 92.30s (0:01:32)"}
+{"mutant": "H75 GNN selection job data role not read", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 91.91s (0:01:31)"}
+{"mutant": "H76 guard run killed from outside counted as killed", "file": "report_tools/guard_mutation_check.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 93.56s (0:01:33)"}
+{"mutant": "H77 guard run with no output crashes the tool", "file": "report_tools/guard_mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.21s (0:01:25)"}
+{"mutant": "H78 MF selection grid on any data", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.26s (0:01:25)"}
+{"mutant": "H79 MF selection grid on the outer split", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 41.97s"}
+{"mutant": "H80 Hybrid selection MF fit cloned from the outer split", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 52.02s"}
+{"mutant": "H81 Hybrid selection MF fit data not checked", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.47s (0:01:25)"}
+{"mutant": "H82 Hybrid backbone recorded as the best standalone GNN", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 84.83s (0:01:24)"}
+{"mutant": "H83 test Hybrid scored with the standalone GNN", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.11s (0:01:25)"}
+{"mutant": "H84 novel test run with the repeat settings", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.54s (0:01:25)"}
+{"mutant": "H85 test Hybrid vectors from the standalone GNN refit", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.41s (0:01:25)"}
+{"mutant": "H86 GNN refit keeps early stopping", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "2 failed, 100 passed, 2 deselected in 72.86s (0:01:12)"}
+{"mutant": "H87 GNN refit epochs not checked", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "4 failed, 98 passed, 2 deselected in 85.37s (0:01:25)"}
+{"mutant": "H88 guard run output read with the locale codec", "file": "report_tools/guard_mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected, 1 warning in 85.75s (0:01:25)"}
+{"mutant": "H89 guard run output encoding left to the console", "file": "report_tools/guard_mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.64s (0:01:25)"}
+{"mutant": "H90 mutation tool counts any non-zero exit as killed", "file": "report_tools/mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.30s (0:01:25)"}
+{"mutant": "H91 mutation tool output read with the locale codec", "file": "report_tools/mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected, 1 warning in 85.49s (0:01:25)"}
+{"mutant": "H92 mutation tool output encoding left to the console", "file": "report_tools/mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.35s (0:01:25)"}
+{"mutant": "H93 mutation tool passes with aborted runs", "file": "report_tools/mutation_check.py", "result": "killed", "returncode": 1, "summary": "1 failed, 101 passed, 2 deselected in 85.02s (0:01:25)"}
+{"mutant": "H94 GNN refit judged by its recorded mode and epochs only", "file": "rolling_protocol.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 85.49s (0:01:25)"}
+{"mutant": "H95 cache audit does not compare MF fit data", "file": "report_tools/check_cached_runs.py", "result": "killed", "returncode": 1, "summary": "3 failed, 99 passed, 2 deselected in 85.04s (0:01:25)"}
+result {"killed": 95, "survived": 0, "aborted": 0}

@@ -773,5 +773,6 @@
 - 결정(사용자): Taobao 1% 한 fold, Diginetica는 봉인 시험에서 제외(검정력 없음, feasibility에만 기록), `audit/v8_feasibility.md` §5 설계 승인.
 - 구현(13e8bfe): `rolling_protocol.py` `V8`(v7 grid 그대로, 재정렬 두 설계를 내부 validation에서 학습·봉인, Hybrid 세 가지 × baseline 한 Holm 묶음), `stats_tools.compare_families`, `hybrid_ltr.ABLATIONS`·`item_tables`, `test_v8_protocol.py` 7개, 가드 H59·H84의 문자열 갱신.
 - 검증: 작업 폴더 213/213, 변이 P1–P12 모두 검출(P10·P11은 처음에 살아남아 테스트 보강), 가드 H59·H84 검출, 시험 구간을 섞어도 선택·재정렬 모델이 바이트 단위로 같음(CPU GNN). 커밋 후 b69b1f1·13e8bfe 새 worktree + lock venv 통과, SHA256 60/60·28/28.
+- 가드: 13e8bfe 코드로 H1–H95 95/95 검출, 수정 안 한 사본 102 통과 (`audit/v8protocol/guard_mutants_v8.json`). 결과 정리 도구 `audit/v8protocol/package_results.py`·`summarize_results.py`를 시험 열기 전에 작성(합성 결과로만 시험).
 - 실행: `audit_runs/v8_taobao` 시작. 첫 시도는 GNN 작업의 일시적 `WinError 5`로 MF 선택 뒤 멈춤(I-151, 시험 열람 없음). 같은 코드로 launcher를 써서 재개.
 - 상세: `validation_report.md` §34.
