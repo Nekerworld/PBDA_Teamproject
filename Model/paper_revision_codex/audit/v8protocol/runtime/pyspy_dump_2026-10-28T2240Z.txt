@@ -1,0 +1,110 @@
+Process 20904: "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\python.exe" -u rolling_protocol.py run --root audit_runs/v8_taobao --raw audit_runs/v8_raw/taobao_p1 --protocol v8
+Python v3.11.9 (C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\python.exe)
+
+Thread 3728 (active+gil): "MainThread"
+    hybrid_grid (rolling_protocol.py:699)
+        Arguments:
+            context: <EvaluationContext at 0x2440f761310>
+            als: {366: <numpy.ndarray at 0x2445346a910>, 1378: <numpy.ndarray at 0x24451ca8cf0>, 2306: <numpy.ndarray at 0x244106f5050>, ...}
+            bpr: {366: <numpy.ndarray at 0x2441049c030>, 1378: <numpy.ndarray at 0x2441049ccf0>, 2306: <numpy.ndarray at 0x2441049cdb0>, ...}
+            gnn: {366: <numpy.ndarray at 0x244143f9410>, 1378: <numpy.ndarray at 0x244143f97d0>, 2306: <numpy.ndarray at 0x244143f9530>, ...}
+            backbone: "gnn_layers1_embedding_dim128_learning_rate0p0005"
+        Locals:
+            scores: <FactorScores at 0x2440f793750>
+            rows: [{"backbone": "gnn_layers1_embedding_dim128_learning_rate0p0005", "alpha": 0.25, "strategy": "blend", ...}, {...}, ...]
+            alpha: 0.75
+            count: 20000
+            strategy: "balanced_union"
+            group: <itertools._grouper at 0x2443f6c3790>
+            prepared: {366: <numpy.ndarray at 0x24414dc4270>, 1378: <numpy.ndarray at 0x24414dc5bf0>, 2306: <numpy.ndarray at 0x24414dc4ff0>, ...}
+            cached: {366: (<numpy.ndarray at 0x24414dc57d0>, <numpy.ndarray at 0x24414dc4a50>, <numpy.ndarray at 0x24414dc6550>, ...), ...}
+            uid: 642360
+            idx: <numpy.ndarray at 0x24414d55dd0>
+            mf: <numpy.ndarray at 0x24414ee3c90>
+            g: <numpy.ndarray at 0x24414ee3570>
+            config: {"alpha": 0.75, "strategy": "balanced_union", "candidate_k": 20000, "fusion": "rrf", "omega": 0.8, "gamma": 1.5}
+            rankings: {366: <numpy.ndarray at 0x24414f2d350>, 1378: <numpy.ndarray at 0x24414f2d2f0>, 2306: <numpy.ndarray at 0x24414f2dd70>, ...}
+            mf_n: <numpy.ndarray at 0x24414d563d0>
+            g_n: <numpy.ndarray at 0x24414d56310>
+            mr: <numpy.ndarray at 0x24414d558f0>
+            gr: <numpy.ndarray at 0x24414d56190>
+            available: <numpy.ndarray at 0x24414d55770>
+            w: 0.8
+            fused: <numpy.ndarray at 0x24414f2d3b0>
+            metrics: {"ndcg": 0.0646641770849987, "recall": 0.10872643048125225, "precision": 0.0052287166454892, ...}
+    <lambda> (rolling_protocol.py:1340)
+    cached_grid (rolling_protocol.py:727)
+        Arguments:
+            path: <WindowsPath at 0x24410a5bbe0>
+            compute: <function at 0x2445360d080>
+    run_fold (rolling_protocol.py:1340)
+        Arguments:
+            root: <cell at 0x2440312bb50>
+            fold: {"name": "TB1_full", "end_fraction": 1, "test_size": 0.25, "validation_size": 0.2, ...}
+            raw: <WindowsPath at 0x2440f5f9780>
+            plan_hash: "6123504f9731500f5d115ff7822a7b075decfd33db20a7164c8dc900815c0909"
+        Locals:
+            prepared: <WindowsPath at 0x2440de43100>
+            fold_raw: {"end_fraction": 1, "end_cutoff_timestamp": None, ...}
+            mf: {"als": {"factors": 512, "regularization": 0.002, "alpha": 40, "iterations": 8}, "bpr": {"factors": 256, ...}, ...}
+            gnn_validation: [...]
+            results: {"gnn": [...]}
+            val_mf: <WindowsPath at 0x2440f0343a0>
+            gnn_rows: [{"name": "gnn_layers1_embedding_dim128_learning_rate0p0005", "config": {"layers": 1, "embedding_dim": 128, ...}, ...}, ...]
+            spec: {...}
+            result: {"spec": {...}, "chosen_epochs": 20, "seconds": 420.0416052000073, "evaluated_checkpoints": 9, "last_epoch": 80, ...}
+            vectors: {366: <numpy.ndarray at 0x2443f6daa30>, 1378: <numpy.ndarray at 0x2443f6d88d0>, 2306: <numpy.ndarray at 0x2443f6da9d0>, ...}
+            scores: {"repeat": {"ndcg": 0.05420306638783543, "recall": 0.10744120202722096, "precision": 0.005120711562897079, ...}, ...}
+            extend: <function at 0x244535f3f60>
+            extension_results: [...]
+            policies: {}
+            grid_rows: {}
+            policy: "repeat"
+            alpha_rows: [{"alpha": 0, "ndcg": 0.06316402377175577, "recall": 0.10792140797121343, "precision": 0.005108005082592123, ...}, ...]
+            m: {"ndcg": 0.06384101552947191, "recall": 0.10783186335657352, "precision": 0.005152477763659467, ...}
+            rows: []
+            path: <WindowsPath at 0x24410a5b940>
+    run (rolling_protocol.py:1477)
+        Arguments:
+            root: <WindowsPath at 0x2440df07ee0>
+            raw: <WindowsPath at 0x2440f5f9780>
+            folds: <cell at 0x2440f630fa0>
+            posthoc: True
+            protocol: "v8"
+        Locals:
+            unknown: []
+            plan: {"protocol": "rolling-origin-v8", "folds": [...], "seeds": [42, 43, 44], "selection_seed": 42, ...}
+            plan_text: ?
+            plan_hash: "6123504f9731500f5d115ff7822a7b075decfd33db20a7164c8dc900815c0909"
+            plan_path: <WindowsPath at 0x2440f65ece0>
+            stored: {"plan_sha256": "6123504f9731500f5d115ff7822a7b075decfd33db20a7164c8dc900815c0909", ...}
+            conflicts: []
+            fold: {"name": "TB1_full", "end_fraction": 1, "test_size": 0.25, "validation_size": 0.2, ...}
+    <module> (rolling_protocol.py:1499)
+Thread 32392 (idle): "tqdm_monitor"
+    wait (threading.py:331)
+        Arguments:
+            self: <Condition at 0x24414bb7150>
+            timeout: 10
+        Locals:
+            waiter: <_thread.lock at 0x24450bccf00>
+            saved_state: None
+            gotit: False
+    wait (threading.py:629)
+        Arguments:
+            self: <Event at 0x24414be3790>
+            timeout: 10
+        Locals:
+            signaled: False
+    run (tqdm\_monitor.py:69)
+        Arguments:
+            self: <TMonitor at 0x2440d28acd0>
+        Locals:
+            cur_t: 1793226779.6915686
+    _bootstrap_inner (threading.py:1045)
+        Arguments:
+            self: <TMonitor at 0x2440d28acd0>
+    _bootstrap (threading.py:1002)
+        Arguments:
+            self: <TMonitor at 0x2440d28acd0>
+Thread 7584 (idle)
