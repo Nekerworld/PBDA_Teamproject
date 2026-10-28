@@ -151,7 +151,8 @@ def test_fold_test_uses_each_policy_selection_and_the_hybrid_backbone_refit(tmp_
         def population(self):
             return {}
 
-    def rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection):
+    def rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection, rerankers=None, item_tables=None):
+        assert rerankers is None and item_tables is None  # v6/v7 protocols have no re-rankers
         calls.append((context.policy, policy_selection, gnn_std, gnn_hybrid))
         if len(calls) == len(rp.POLICIES) * len(rp.SEEDS):
             raise Stop

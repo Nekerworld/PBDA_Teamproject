@@ -1,4 +1,4 @@
-"""Preregistered single-pass rolling-origin evaluation (protocols v6 and v7).
+"""Preregistered single-pass rolling-origin evaluation (protocols v6, v7 and v8).
 
 Every grid, fold, seed and selection rule below is frozen into plan.json before
 any model is trained. Selection reads inner-validation labels only. Each fold's
@@ -12,6 +12,7 @@ selection decides the same configurations as the one that record opened the fold
 Usage (from Model/paper_revision_codex):
   python rolling_protocol.py run --root audit_runs/v6 --raw ../../data
   python rolling_protocol.py run --root audit_runs/v7 --raw ../../data --protocol v7
+  python rolling_protocol.py run --root audit_runs/v8_taobao --raw audit_runs/v8_raw/taobao_p1 --protocol v8
   python rolling_protocol.py gnn-job <spec.json>      (internal worker)
 """
 import os
@@ -40,7 +41,7 @@ from experiments import clone_protocol  # noqa: E402
 from policy_evaluation import (POLICIES, EvaluationContext, FactorScores, candidate_indices,  # noqa: E402
                                factor_vectors, hybrid_ranking, selection_score, top_k)
 from recommendation_scoring import hybrid_scores, minmax, ranks_from_scores  # noqa: E402
-from stats_tools import compare_family  # noqa: E402
+from stats_tools import compare_families  # noqa: E402
 
 KS = (10, 20, 30, 40, 50)
 PRIMARY_K = 50
@@ -84,6 +85,10 @@ MAX_PARALLEL_GNN = 4
 PROTOCOL = 'rolling-origin-v6'
 POSTHOC = True
 PLAN_EXTRA = {}
+RERANKER = False  # v8: stacked Hybrid re-rankers (hybrid_ltr) trained on the inner validation window
+HYBRIDS = ['Hybrid']  # references of the Holm family
+RERANKER_NAMES = {'policy_truth': 'Hybrid_LTR', 'weighted': 'Hybrid_LTR_W'}
+RERANKER_CV_FOLDS = 5
 
 # v7: one fold on the only window never evaluated or used for selection in v1-v6
 # (v6 opened 0.45-1.0 as tests and 0.36-0.45 as F3 inner validation), and every
@@ -110,8 +115,40 @@ V7 = dict(
                        'GNN or ALS+BPR, larger than most v6 differences; non-significance is the expected outcome '
                        'for differences of v6 size.'),
         'posthoc_test_analyses': 'none'},
+    RERANKER=False,
+    HYBRIDS=['Hybrid'],
 )
-PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7}
+# v8: the v7 design on a larger population (Taobao UserBehavior, 1% of users), plus the stacked Hybrid
+# re-rankers of the v8 development record (audit/v8_feasibility.md section 5).
+V8 = dict(
+    V7,
+    PROTOCOL='rolling-origin-v8',
+    FOLDS=[{'name': 'TB1_full', 'end_fraction': 1.0, 'test_size': 0.25, 'validation_size': 0.2,
+            'test_window': ('Last 25% of the events of the Taobao UserBehavior 1% user sample '
+                            '(2017-11-25 to 2017-12-03 UTC); never evaluated or used for selection.')}],
+    RERANKER=True,
+    HYBRIDS=['Hybrid', 'Hybrid_LTR', 'Hybrid_LTR_W'],
+    PLAN_EXTRA={
+        'purpose': ('Confirmatory test of the Hybrid family (v1 fusion and the two stacked re-rankers) against '
+                    'ALS, BPR, ALS+BPR, GNN and the heuristics on a population large enough to detect '
+                    'differences of the v8 development size.'),
+        'dataset': ('Taobao UserBehavior (Alibaba, 2017-11-25 to 2017-12-03): users kept by '
+                    'dataset_adapters.taobao_to_raw(user_percent=1, seed=42) (SplitMix64 hash of the user id); '
+                    'pv/cart/buy -> view/addtocart/transaction, fav and out-of-period rows dropped; no stock flag '
+                    '(has_available is 0 for every item). Diginetica is not tested: 166 warm repeat users.'),
+        'grid_edge_rule': V7['PLAN_EXTRA']['grid_edge_rule'],
+        'power_note': ('Reference only (assumes the RetailRocket per-user variance): the v7 F4 Hybrid - ALS+BPR '
+                       'NDCG@50 SE (0.0036, 413 users) scaled to about 4,800 repeat test users gives SE about '
+                       '0.0011, so a difference of about 0.0045 is detected with 80% power at the strictest Holm '
+                       'step of the 42-comparison family per policy (about 0.0037 for a family of 4).'),
+        'statistics': ('Per policy: user-level paired bootstrap 95% CI (10,000) and two-sided sign-flip test '
+                       '(10,000) on seed-averaged per-user metrics. Confirmatory family (one Holm correction per '
+                       'policy): Hybrid, Hybrid_LTR and Hybrid_LTR_W each vs every baseline on NDCG@50 and '
+                       'Recall@50. Secondary family (own Holm correction): Hybrid_LTR and Hybrid_LTR_W vs Hybrid. '
+                       'Feature-group ablations of the re-rankers are descriptive only. Seed SD reported separately.'),
+        'posthoc_test_analyses': 'none'},
+)
+PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7, 'v8': V8}
 
 
 def use_protocol(name):
@@ -177,8 +214,30 @@ def plan_payload():
                                   f'{POSTHOC_GAMMAS}, and an IF preprocessing ablation with the sealed configs.'),
         'preprocessing': dict(use_if=False, core_mode='events', min_user_events=3, min_item_events=3,
                               random_state=42),
+        **({'reranker': reranker_plan()} if RERANKER else {}),
         **PLAN_EXTRA,
     }
+
+
+def reranker_plan():
+    import hybrid_ltr as ltr  # imports torch (learning), so only when the re-rankers are used
+    return {
+        'models': RERANKER_NAMES,
+        'designs': {'policy_truth': 'labels: policy truth (add-to-cart/purchase) of the evaluation users',
+                    'weighted': ('labels: every label-period event of every warm user, weighted by the strongest '
+                                 'event (hybrid_ltr.TrainingWindow, weighted_labels)')},
+        'training_window': ('inner validation split: features from its training events and the selected MF fit '
+                            '(seed 42) and Hybrid backbone GNN of the selection runs, labels from its label period; '
+                            'per policy'),
+        'selection': (f'user-grouped {RERANKER_CV_FOLDS}-fold CV inside the training window, maximize '
+                      'mean(NDCG@50, Recall@50) of the held-out users\' policy truth'),
+        'param_grid': ltr.PARAM_GRID, 'pool': ltr.POOL, 'feature_groups': ltr.FEATURE_GROUPS,
+        'ablations': {f'{name}_{variant}': columns for name in RERANKER_NAMES.values()
+                      for variant, columns in ltr.ABLATIONS.items()},
+        'ablation_rule': 'the settings selected for the full feature set, one fit, descriptive only',
+        'application': ('fixed models applied on the test to the features of every refit seed (full training '
+                        'period, ALS/BPR of the seed and its Hybrid backbone GNN); top 50 of the candidate pool'),
+        'threads': 'single-threaded (OMP_NUM_THREADS=1, as every fit of this protocol)'}
 
 
 # ----------------------------------------------------------------------------- utilities
@@ -676,7 +735,9 @@ def best_row(rows, keys):
 
 
 # ----------------------------------------------------------------------------- test evaluation
-def model_rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection):
+def model_rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection, rerankers=None, item_tables=None):
+    """rerankers: name -> (model, selection entry) of the policy, scored on the Hybrid backbone's features;
+    item_tables: hybrid_ltr.item_tables of the same fits."""
     std = FactorScores(context, als, bpr, gnn_std)
     hyb = FactorScores(context, als, bpr, gnn_hybrid)
     alpha = policy_selection['mf_alpha']
@@ -689,7 +750,80 @@ def model_rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection):
         'Hybrid_ALS_only': hybrid_ranking(hyb, config, max(KS), mf_source='als'),
         'Popularity': context.popularity(max(KS)), 'Recent': context.recent(max(KS)),
         'RecentPop': context.recent(max(KS), fill=True)}
+    if rerankers:
+        import hybrid_ltr as ltr
+        history = ltr.History(context)
+        frame = ltr.features(context, hyb, history, ltr.candidates(context, hyb, history, ltr.POOL), *item_tables)
+        for name, (model, entry) in rerankers.items():
+            rankings[name] = ltr.rank(model, frame, entry['features'], max(KS))
     return rankings
+
+
+def train_rerankers(fold_dir, val_mf, gnn_dir):
+    """Stacked Hybrid re-rankers of every policy, trained on the inner validation window only: features from its
+    training events, the selected MF fit in ``val_mf`` and the Hybrid backbone GNN run in ``gnn_dir``; labels from
+    its label period. Settings by user-grouped CV inside the window; ablations reuse the full set's settings.
+    Each policy's record is written when it is complete, so a resumed run does not retrain it."""
+    import pickle
+    import hybrid_ltr as ltr
+    out = Path(fold_dir) / 'rerankers'
+    out.mkdir(exist_ok=True)
+    records = {}
+    for policy in POLICIES:
+        path = out / f'{policy}.json'
+        if path.exists():
+            records[policy] = json.loads(path.read_text(encoding='utf-8'))
+            continue
+        context = EvaluationContext(val_mf, policy)
+        tables = ltr.item_tables(context, val_mf, gnn_dir)
+        history = ltr.History(context)
+        record = {'models': {}, 'training': {}}
+        for design, name in RERANKER_NAMES.items():
+            start = time.perf_counter()
+            window = context if design == 'policy_truth' else ltr.TrainingWindow(val_mf, policy)
+            if not np.array_equal(window.ids, context.ids):
+                raise RuntimeError('Training window catalog differs from the validation catalog')
+            als, bpr = load_factors(val_mf, window)
+            scores = FactorScores(window, als, bpr, load_gnn(gnn_dir, window))
+            del als, bpr
+            pool = ltr.candidates(window, scores, history, ltr.POOL)
+            frame = ltr.features(window, scores, history, pool, *tables)
+            del scores
+            y, weight = (ltr.labels(window, frame), None) if design == 'policy_truth' else ltr.weighted_labels(window, frame)
+            params, table = ltr.select_params(window, frame, y, ltr.FEATURES, grid=ltr.PARAM_GRID,
+                                              folds=RERANKER_CV_FOLDS, sample_weight=weight)
+            table.to_csv(out / f'cv_{policy}_{name}.csv', index=False)
+            for variant, columns in [('full', ltr.FEATURES), *ltr.ABLATIONS.items()]:
+                model_name = name if variant == 'full' else f'{name}_{variant}'
+                model_path = out / f'{policy}_{model_name}.pkl'
+                with open(model_path, 'wb') as stream:
+                    pickle.dump(ltr.fit(frame, y, columns, params, sample_weight=weight), stream)
+                record['models'][model_name] = {'design': design, 'variant': variant, 'features': columns,
+                                                'params': params, 'model': model_path.name,
+                                                'sha256': sha256(model_path)}
+            record['training'][name] = {
+                'users': len(window.active), 'users_with_policy_truth': sum(1 for t in window.truth.values() if t),
+                'rows': len(frame), 'positive_rows': int(y.sum()),
+                'truth_in_pool': float(np.mean([len(window.truth_idx[u] & set(pool.get(u, ()))) / len(t)
+                                                for u, t in window.truth.items() if t])),
+                'cv_score': float(table.cv_score.max()), 'fits': len(ltr.PARAM_GRID) * RERANKER_CV_FOLDS + 1 + len(ltr.ABLATIONS),
+                'seconds': time.perf_counter() - start}
+        dump_json(path, record)
+        records[policy] = record
+    return records
+
+
+def load_rerankers(fold_dir, selection, policy):
+    """name -> (model, entry) of the sealed re-rankers; refuses a model file that is not the sealed one."""
+    import pickle
+    models = {}
+    for name, entry in selection['rerankers'][policy]['models'].items():
+        path = Path(fold_dir) / 'rerankers' / entry['model']
+        if sha256(path) != entry['sha256']:
+            raise RuntimeError(f'{path} is not the re-ranker sealed in selection.json')
+        with open(path, 'rb') as stream:
+            models[name] = (pickle.load(stream), entry)
+    return models
 
 
 def access_log(root, entry, record=True):
@@ -753,6 +887,9 @@ def selection_decision(path):
                     **{k: {'config': s[k]['config'], 'epochs': s[k]['epochs']} for k in ('gnn', 'hybrid_backbone')},
                     'policies': {p: {'mf_alpha': v['mf_alpha'], 'hybrid': {k: v['hybrid'][k] for k in HYBRID_DECISION}}
                                  for p, v in s['policies'].items()}}
+        if 'rerankers' in s:
+            decision['rerankers'] = {p: {name: {k: entry[k] for k in ('features', 'params')}
+                                         for name, entry in v['models'].items()} for p, v in s['rerankers'].items()}
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
     return hashlib.sha256(json.dumps(decision, sort_keys=True).encode()).hexdigest()
@@ -881,8 +1018,11 @@ def fold_statistics(policy, details):
     """details: model -> list of per-seed per-user frames (k=50)."""
     per_user = {m: pd.concat(frames).groupby('visitorid')[['ndcg', 'recall', 'precision', 'hit_rate']].mean()
                 for m, frames in details.items()}
-    rows = compare_family(per_user, 'Hybrid', BASELINES)
-    frame = pd.DataFrame(rows)
+    frame = pd.DataFrame(compare_families(per_user, HYBRIDS, BASELINES))
+    if len(HYBRIDS) > 1:
+        secondary = pd.DataFrame(compare_families(per_user, HYBRIDS[1:], HYBRIDS[:1]))
+        frame = pd.concat([frame.assign(family='confirmatory'), secondary.assign(family='secondary')],
+                          ignore_index=True)
     frame.insert(0, 'policy', policy)
     distribution = []
     for model, frames in details.items():
@@ -903,6 +1043,9 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
     metric_rows, stats_rows, dist_rows, populations = [], [], [], []
     for policy in POLICIES:
         details = {}
+        rerankers = load_rerankers(fold_dir, selection, policy) if RERANKER else None
+        if RERANKER:
+            import hybrid_ltr as ltr
         for seed in SEEDS:
             seed_dir = Path(refits[seed]['mf'])
             context = EvaluationContext(seed_dir, policy)
@@ -911,7 +1054,10 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
             als, bpr = load_factors(seed_dir, context)
             gnn_std = load_gnn(refits[seed]['gnn'], context)
             gnn_hyb = load_gnn(refits[seed]['hybrid_gnn'], context)
-            rankings = model_rankings(context, als, bpr, gnn_std, gnn_hyb, selection['policies'][policy])
+            tables = ltr.item_tables(context, seed_dir, refits[seed]['hybrid_gnn']) if RERANKER else None
+            rankings = model_rankings(context, als, bpr, gnn_std, gnn_hyb, selection['policies'][policy],
+                                      rerankers, tables)
+            del als, bpr, gnn_std, gnn_hyb
             for model, ranked in rankings.items():
                 records = [(u, int(context.ids[i]), r) for u, items in ranked.items() for r, i in enumerate(items, 1)]
                 pd.DataFrame(records, columns=['visitorid', 'itemid', 'rank']).to_csv(
@@ -1230,6 +1376,14 @@ def run_fold(root, fold, raw, plan_hash):
                             'train_seconds': {'ALS': mf['train_seconds']['ALS'], 'BPR': mf['train_seconds']['BPR'],
                                               'GNN': sum(r['seconds'] for r in gnn_results)},
                             'note': 'Hybrid adds no training fits; it reuses the MF and GNN fits above.'}}
+    if RERANKER and not (fold_dir / 'selection.json').exists():
+        rerankers = train_rerankers(fold_dir, val_mf, selection['hybrid_backbone']['job_dir'])
+        log(root, 'rerankers_trained', fold=fold['name'])
+        selection['rerankers'] = rerankers
+        selection['budget']['fits']['Reranker'] = sum(t['fits'] for r in rerankers.values()
+                                                      for t in r['training'].values())
+        selection['budget']['train_seconds']['Reranker'] = sum(t['seconds'] for r in rerankers.values()
+                                                               for t in r['training'].values())
     if not (fold_dir / 'selection.json').exists():
         dump_json(fold_dir / 'selection.json', selection)
     selection = sealed_selection(fold_dir, plan_hash)

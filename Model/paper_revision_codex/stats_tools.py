@@ -76,9 +76,20 @@ def compare_family(per_user, reference, competitors, metrics=('ndcg', 'recall'),
                          'ci_low': low, 'ci_high': high, 'p_value': sign_flip_pvalue(diff, samples),
                          'users': len(diff), 'users_better': int((diff > 0).sum()),
                          'users_worse': int((diff < 0).sum()), 'users_tied': int((diff == 0).sum())})
+    return _apply_holm(rows, alpha)
+
+
+def _apply_holm(rows, alpha):
     adjusted = holm([row['p_value'] for row in rows])
     for row, value in zip(rows, adjusted):
         row['p_holm'] = float(value)
         row['significant_holm'] = bool(value < alpha)
         row['claim'] = ('higher' if row['difference'] > 0 else 'lower') if value < alpha else 'not significant'
     return rows
+
+
+def compare_families(per_user, references, competitors, metrics=('ndcg', 'recall'), alpha=.05, samples=10000):
+    """Every reference against every competitor; all comparisons of all references form one Holm family."""
+    rows = [row for reference in references
+            for row in compare_family(per_user, reference, competitors, metrics, alpha, samples)]
+    return _apply_holm(rows, alpha)

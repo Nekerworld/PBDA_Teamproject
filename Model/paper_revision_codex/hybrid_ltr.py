@@ -31,6 +31,8 @@ FEATURE_GROUPS = {
     'context': ['i_pop', 'i_pop7', 'i_pos7', 'i_days_last', 'i_available', 'u_events', 'u_items', 'u_days_last'],
 }
 FEATURES = [f for group in FEATURE_GROUPS.values() for f in group]
+ABLATIONS = {'mf': FEATURE_GROUPS['mf'], 'mf_gnn': FEATURE_GROUPS['mf'] + FEATURE_GROUPS['gnn'],
+             'no_history': [f for f in FEATURES if f not in FEATURE_GROUPS['history']]}
 PARAM_GRID = [dict(learning_rate=lr, max_iter=it, max_leaf_nodes=leaves)
               for lr, it, leaves in itertools.product((.05, .1), (100, 300), (15, 31))]
 POOL = dict(per_model=100, history=100, popular=50)
@@ -53,6 +55,14 @@ def aligned_item_factors(item_ids, factors, context):
     rows = np.asarray(factors, dtype=np.float64)[order]
     norms = np.linalg.norm(rows, axis=1, keepdims=True)
     return rows / np.where(norms == 0, 1, norms)
+
+
+def item_tables(context, mf_dir, gnn_dir):
+    """(ALS, GNN) item factor tables of the fits in ``mf_dir`` and ``gnn_dir``, aligned with the context catalog."""
+    als = aligned_item_factors(pd.read_csv(Path(mf_dir) / 'als_item_mapping.csv').itemid,
+                               np.load(Path(mf_dir) / 'als_item_factors.npy'), context)
+    gnn = pd.read_csv(Path(gnn_dir) / 'gnn_item_embeddings.csv')
+    return als, aligned_item_factors(gnn.itemid, gnn.drop(columns='itemid').to_numpy(), context)
 
 
 class History:

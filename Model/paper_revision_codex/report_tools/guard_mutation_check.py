@@ -115,8 +115,8 @@ M = {
  'H58 precision check reads an outer-test folder': ('report_tools/check_score_precision.py',
                                                     "    if role != 'validation':", "    if False:"),
  'H59 use_protocol v6 keeps v7 values': ('rolling_protocol.py',
-                                         "PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7}",
-                                         "PROTOCOLS = {'v6': {}, 'v7': V7}"),
+                                         "PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7, 'v8': V8}",
+                                         "PROTOCOLS = {'v6': {}, 'v7': V7, 'v8': V8}"),
  'H60 Hybrid grid-end flags without alpha, candidate ends of blend only': (
      'rolling_protocol.py', "    grid = [c for c in HYBRID_GRID if c['strategy'] == best['strategy']]\n",
      "    return {'candidate_k': str(best['candidate_k']) in (str(CANDIDATE_KS[0]), str(CANDIDATE_KS[-1])),\n"
@@ -177,7 +177,7 @@ M = {
  'H83 test Hybrid scored with the standalone GNN': (
      'rolling_protocol.py', "    hyb = FactorScores(context, als, bpr, gnn_hybrid)", "    hyb = FactorScores(context, als, bpr, gnn_std)"),
  'H84 novel test run with the repeat settings': (
-     'rolling_protocol.py', "gnn_std, gnn_hyb, selection['policies'][policy])", "gnn_std, gnn_hyb, selection['policies']['repeat'])"),
+     'rolling_protocol.py', "gnn_std, gnn_hyb, selection['policies'][policy],", "gnn_std, gnn_hyb, selection['policies']['repeat'],"),
  'H85 test Hybrid vectors from the standalone GNN refit': (
      'rolling_protocol.py', "gnn_hyb = load_gnn(refits[seed]['hybrid_gnn'], context)", "gnn_hyb = load_gnn(refits[seed]['gnn'], context)"),
  'H86 GNN refit keeps early stopping': (

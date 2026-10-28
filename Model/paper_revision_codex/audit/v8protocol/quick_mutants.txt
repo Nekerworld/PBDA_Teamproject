@@ -1,0 +1,16 @@
+started_utc 2026-10-28T10:55:17.494240+00:00
+tests ['test_v8_protocol.py']
+unmutated rc=0 7 passed, 1 warning in 69.13s (0:01:09)
+P1 re-ranker labels from the outer test split: rc=1 killed | 1 failed, 6 passed, 1 warning in 18.59s
+P2 re-rankers trained after the selection is sealed: rc=1 killed | 1 failed, 6 passed, 1 warning in 27.67s
+P3 Holm per Hybrid instead of one family: rc=1 killed | 1 failed, 6 passed, 1 warning in 37.48s
+P4 secondary family dropped: rc=1 killed | 1 failed, 6 passed, 1 warning in 36.58s
+P5 sealed model hash not checked: rc=1 killed | 1 failed, 6 passed, 1 warning in 67.46s (0:01:07)
+P6 decision ignores the re-rankers: rc=1 killed | 1 failed, 6 passed, 1 warning in 66.00s (0:01:06)
+P7 plan omits the re-rankers: rc=1 killed | 2 failed, 5 passed, 1 warning in 36.41s
+P8 v7 plan gets the re-ranker record: rc=1 killed | 2 failed, 5 passed, 1 warning in 67.04s (0:01:07)
+P9 CV grid from the definition-time default: rc=1 killed | 1 failed, 6 passed, 1 warning in 49.43s
+P10 resume retrains the re-rankers: rc=1 killed | 1 failed, 6 passed, 1 warning in 41.42s
+P11 ablations get their own (first-grid) settings: rc=1 killed | 1 failed, 6 passed, 1 warning in 36.12s
+P12 joint Holm skipped in compare_families: rc=1 killed | 2 failed, 5 passed, 1 warning in 35.94s
+finished_utc 2026-10-28T11:05:25.377639+00:00

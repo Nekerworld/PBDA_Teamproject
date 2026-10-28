@@ -1,0 +1,6 @@
+started_utc 2026-10-28T11:07:05.964977+00:00
+mutants ['H59', 'H84']
+unmutated rc=0 102 passed, 2 deselected in 81.35s (0:01:21)
+H59 use_protocol v6 keeps v7 values: rc=1 killed | 1 failed, 101 passed, 2 deselected in 81.11s (0:01:21)
+H84 novel test run with the repeat settings: rc=1 killed | 1 failed, 101 passed, 2 deselected in 81.08s (0:01:21)
+finished_utc 2026-10-28T11:11:13.739105+00:00
