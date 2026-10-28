@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§33은 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§34는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -29,6 +29,7 @@
 | 회귀 테스트 (Cycle 21) | `test_cycle21_guards.py` 2개 추가 후 172/172 (v7 venv, `audit/cycle21/precommit_pytest.txt`). 커밋 afc4d0a의 새 worktree + lock venv 171 통과, 1 건너뜀 → §30 |
 | 회귀 테스트 (Cycle 22) | `test_cycle22_guards.py` 7개 추가 후 179/179 (v7 venv, `audit/cycle22/precommit_pytest.txt`), I-143의 3개를 더해 182/182 (`precommit_pytest_io.txt`). 커밋 a61880b의 새 worktree + lock venv 178 통과, 1 건너뜀, 커밋 35ce91c 181 통과, 1 건너뜀 → §31 |
 | 회귀 테스트 (Cycle 23) | `test_cycle22_guards.py`·`test_cycle19_guards.py`에 매개변수화 테스트 하나씩(각 3경우) 추가 후 188/188 (v7 venv, `audit/cycle23/precommit_pytest.txt`). 커밋 2753bfc의 새 worktree + lock venv 187 통과, 1 건너뜀 → §32 |
+| 회귀 테스트 (v8 봉인 protocol) | `test_v8_protocol.py` 7개 추가, `test_cycle22_guards.py` 시험 조립 테스트의 대역 함수를 새 인자에 맞춤 → 213/213 (v7 venv, `audit/v8protocol/precommit_pytest.txt`). 커밋 13e8bfe의 새 worktree + lock venv 212 통과, 1 건너뜀 → §34 |
 | 회귀 테스트 (v8 개발) | `test_hybrid_ltr.py` 13개 추가 후 201/201 (v7 venv, `audit/v8dev/precommit_pytest.txt`). 커밋 649cbbd의 새 worktree + lock venv 200 통과, 1 건너뜀 → §33 |
 | v7 시험 지표 독립 재계산 | 270행 최대 차이 1.0e-16, novel 목록 위반 0건 → §12.1 |
 | 통합 smoke 실행 (합성 데이터, 전체 파이프라인) | 통과. 재실행 시 시험 접근이 늘지 않음. plan이 바뀌면 거부됨 |
@@ -691,3 +692,21 @@ D2 결과 (K=50, seed 42, repeat 294명, novel 206명):
 | 재실행 | 커밋 649cbbd 코드로 두 설계를 다시 실행(기본 모델 캐시 사용): `weighted`는 시각 필드 밖에서 저장본과 모두 같음. `policy_truth`는 D2 지표·선택 설정·쌍대 통계가 모두 같고, CV 값 35개가 최대 1.1e-16 다름(첫 실행 뒤 `ndcg_of`를 `EvaluationContext.details`와 같은 식으로 바꿔 합산 순서가 달라짐. 같은 값임을 테스트로 확인)과 첫 실행에 없던 `design` 키 (`audit/v8dev/rerun_compare.py`, `rerun_compare.txt`, `rerun_head.txt`) |
 
 결론: RetailRocket의 평가 모집단(fold당 수백 명. v7 F4 repeat에서는 413명 중 332명의 사용자별 NDCG가 Hybrid와 ALS+BPR에서 같음)에서는 이 구조로 Hybrid의 우위를 통계적으로 보일 수 없었다. 재정렬 구조, 학습 사용자 확대 모두 기존 Hybrid·ALS+BPR과의 차이가 오차 범위 안이다. 원고에는 "Hybrid가 유의하게 우수"라고 쓸 수 없고, 구조 개선의 확인은 평가 모집단이 큰 새 사전등록 봉인 시험에서 해야 한다.
+
+## 34. v8 봉인 시험 준비: Taobao 1% protocol 구현과 사전 검증 (시험 열기 전)
+
+사용자 승인(Taobao 1%, Diginetica는 봉인 시험에서 제외, `audit/v8_feasibility.md` §5 설계)에 따라 v8 protocol을 구현했다. 이 절은 시험을 열기 전의 구현·검증 기록이다. 시험 결과는 실행과 검증이 끝난 뒤 따로 적는다.
+
+| 항목 | 내용 |
+|---|---|
+| protocol (`rolling_protocol.py` `V8`, 커밋 13e8bfe) | v7의 ALS·BPR·GNN grid, seed 42/43/44, ALS+BPR α 11개, Hybrid(v1) grid 2,808개를 그대로 씀. fold 하나 `TB1_full`(끝 비율 1.0, 시험 0.25, validation 0.2, 전처리 v7과 같음). 재정렬 Hybrid 두 설계 `Hybrid_LTR`(`policy_truth`)·`Hybrid_LTR_W`(`weighted`)와 특징 묶음 ablation 6개(`_mf`, `_mf_gnn`, `_no_history`)를 더함. 사후 분석 없음. v6·v7 plan 해시는 그대로임(테스트로 확인) |
+| 재정렬 학습 위치 | 내부 validation 분할만 씀. 특징은 그 학습 구간 이벤트, 선택된 MF 설정의 seed 42 fit(`val_mf`), Hybrid backbone GNN의 선택 실행에서, 라벨은 그 라벨 구간에서 얻음. 설정은 그 안의 사용자 단위 5-fold CV로 고름(8개 설정, mean(NDCG@50, Recall@50)). ablation은 전체 특징으로 고른 설정을 그대로 쓰고 한 번만 학습함(서술용). 모델 파일과 SHA256, 설정, CV 표를 `selection.json`에 넣어 봉인한 뒤에야 seed별 재학습과 시험 평가가 시작됨. 시험에서는 봉인된 모델 파일의 해시를 확인한 뒤, 각 seed의 전체 학습 구간 ALS·BPR과 backbone GNN 위에서 후보 상위 50개를 냄 |
+| 통계 | 정책마다 확인 묶음 하나: Hybrid·Hybrid_LTR·Hybrid_LTR_W 각각 × baseline 7개 × NDCG·Recall@50 = 42개 비교에 Holm을 한 번 적용(`stats_tools.compare_families`). 보조 묶음(따로 Holm): 재정렬 두 설계 − Hybrid. 검정력(참고값, RetailRocket의 사용자별 분산을 가정): SE 약 0.0011, 42개 묶음의 가장 엄격한 Holm 단계에서 80% 검정력의 최소 검출 차이 약 0.0045 (`v8_feasibility.md` §3의 0.0035는 비교 4개 기준) |
+| 원본 | `dataset_adapters.taobao_to_raw(user_percent=1, seed=42)`로 `audit_runs/v8_raw/taobao_p1`을 만듦: 이벤트 975,486, 사용자 9,920, 상품 397,650. `events.csv`는 feasibility의 1% 부분집합(10% 변환에서 뽑음)과 바이트 단위로 같음(SHA256 `284972ec…`). 상품 속성 파일만 다름(feasibility는 10% 변환의 상품 목록을 씀). 카탈로그는 이벤트로 정해지므로 결과에는 영향이 없음. adapter의 `fav_dropped`·`outside_period`는 사용자 표본을 뽑기 전 전체 파일 기준의 개수임 |
+| 테스트 (`test_v8_protocol.py` 7개) | v6·v7 plan 해시 유지, v8 plan 기록, Holm 한 묶음(`compare_families`), 합성 데이터 끝-끝 실행(재정렬이 봉인 전에 학습됨, 기록된 설정이 실제 모델의 설정과 같음, 확인 묶음 42개와 보조 묶음의 Holm, 시험 1회 열람, 재개 때 재학습·재열람 없음, 중단 뒤 재개 때 정책별 기록 재사용), 바꾼 모델 파일 거부, 선택 결정에 재정렬 포함. **시험 구간 불변성**: 시험 구간 이벤트의 상품·행동을 섞은 원본으로 새 root에서 다시 실행하면 Hybrid 선택, 재정렬 학습 통계, CV 표, 모델 파일이 바이트 단위로 같고 시험 지표만 다름. 이 테스트는 GNN을 CPU로 고정함: CUDA에서는 GNN 임베딩이 실행마다 약 3e-8 달라 모델 파일 바이트가 달라짐(학습 통계·설정은 같았음) |
+| 구현 중 테스트가 찾아 고친 결함 (커밋 전) | (1) `hybrid_ltr.select_params`·`candidates`의 기본 인자가 정의 시점의 grid·후보 수를 잡아, plan 기록과 실제로 쓴 값이 어긋날 수 있었음 → protocol에서 명시적으로 넘김. (2) 처음 쓴 비교(임의 입력의 예측값)는 학습 분포 밖이라 GNN 미세 차이로 크게 달라져 불안정했음 → CPU GNN 고정과 바이트 비교로 바꿈. (3) `test_cycle22_guards.py`의 시험 조립 대역 함수가 옛 인자 수라 실패함 → 새 인자를 받고 v6/v7에서는 재정렬이 없음을 확인하도록 고침 |
+| 변이 P1–P12 (`audit/v8protocol/quick_mutants.txt`) | 12개 모두 검출, 수정 안 한 사본 7개 통과. 처음에는 P10(재개 때 재학습)과 P11(ablation을 다른 설정으로 학습)이 살아남아 테스트를 보강함. P11의 첫 "검출"은 불안정한 예측값 비교 때문이었음 |
+| 가드 변이 | 코드 변경으로 H59·H84가 찾는 원래 문자열이 사라져 같은 의미로 고침. 두 변이 모두 검출, 수정 안 한 사본 102개 통과(`audit/v8protocol/guard_H59_H84.txt`). H1–H95 전체 재실행은 봉인 실행과 동시에 진행 중 |
+| 회귀 테스트 | 커밋 전 작업 폴더 213/213 (v7 venv). 커밋 후 새 worktree + lock venv: b69b1f1 205 통과·1 건너뜀, 13e8bfe 212 통과·1 건너뜀. 두 커밋 모두 SHA256 v6 60/60, v7 28/28 (`audit/v8protocol/postcommit_*`) |
+| 실행 | `audit_runs/v8_taobao`, plan `6123504f…`, git 13e8bfe, dirty 없음, 누수 검사 통과. 첫 실행은 문서 절차와 달리 `launch_detached.py` 없이 셸 백그라운드로 시작함. GNN validation 작업 하나가 hard link 복제 폴더의 이름 바꾸기에서 `PermissionError [WinError 5]`로 실패했고(I-151), 실행은 MF 선택이 끝난 뒤 멈춤(시험 열람 없음, `audit/v8protocol/incident_run1/`). 같은 코드·plan·root로 `launch_detached.py`를 써서 재개함(MF 선택은 캐시를 쓰고, GNN 작업은 다시 학습함) |
+| 재정렬 학습 시간 (참고) | 같은 크기의 임의 행렬(200만 행 × 23 특징)에서 한 스레드 fit 49.6초(`audit/v8protocol/hgb_thread_benchmark.py`. 8스레드 비교는 출력 경로 오류로 실행되지 않음). 실제 데이터는 보지 않음. protocol 전체가 한 스레드라 재정렬도 한 스레드로 둠 |

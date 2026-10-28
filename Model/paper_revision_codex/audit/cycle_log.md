@@ -767,3 +767,11 @@
 - 구현: `hybrid_ltr.py`(후보 모음 + gradient boosting 재정렬, 학습 창 `TrainingWindow`), `hybrid_ltr_dev.py`(D1 학습·선택, D2 점수), `test_hybrid_ltr.py` 13개. 커밋 649cbbd.
 - 결과: 설계 두 개(`policy_truth`, `weighted`) 모두 ALS·BPR·GNN·ALS+BPR·기존 Hybrid와 유의한 차이 없음. 검정력 계산상 v7 F4 크기의 차이를 보려면 평가 사용자 약 1,080명이 필요(현재 413명). 상세는 `validation_report.md` §33.
 - 검증: 변이 L1–L9 모두 검출 (`audit/v8dev/quick_mutants.txt`), 작업 폴더 201/201, 649cbbd 새 worktree + lock venv 200 통과·1 건너뜀·SHA256 60/60·28/28, 커밋된 코드로 두 설계 재실행이 저장본과 같음(CV 값 35개의 1.1e-16 이하 차이 제외, `audit/v8dev/rerun_compare.txt`).
+
+## v8 봉인 시험 준비 (2026-10-28 KST): Taobao 1% protocol
+
+- 결정(사용자): Taobao 1% 한 fold, Diginetica는 봉인 시험에서 제외(검정력 없음, feasibility에만 기록), `audit/v8_feasibility.md` §5 설계 승인.
+- 구현(13e8bfe): `rolling_protocol.py` `V8`(v7 grid 그대로, 재정렬 두 설계를 내부 validation에서 학습·봉인, Hybrid 세 가지 × baseline 한 Holm 묶음), `stats_tools.compare_families`, `hybrid_ltr.ABLATIONS`·`item_tables`, `test_v8_protocol.py` 7개, 가드 H59·H84의 문자열 갱신.
+- 검증: 작업 폴더 213/213, 변이 P1–P12 모두 검출(P10·P11은 처음에 살아남아 테스트 보강), 가드 H59·H84 검출, 시험 구간을 섞어도 선택·재정렬 모델이 바이트 단위로 같음(CPU GNN). 커밋 후 b69b1f1·13e8bfe 새 worktree + lock venv 통과, SHA256 60/60·28/28.
+- 실행: `audit_runs/v8_taobao` 시작. 첫 시도는 GNN 작업의 일시적 `WinError 5`로 MF 선택 뒤 멈춤(I-151, 시험 열람 없음). 같은 코드로 launcher를 써서 재개.
+- 상세: `validation_report.md` §34.

@@ -151,6 +151,12 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | v8 개발 비교: 학습형 재정렬 Hybrid, 설계 `policy_truth`·`weighted` (시험 아님. D1 학습·선택, D2 점수. 첫 실행은 649cbbd 커밋 전 작업 폴더, 649cbbd 코드로 재실행해 같음) | `hybrid_ltr.py`, `hybrid_ltr_dev.py` | `audit/v8dev/dev_results.json`, `dev_results_weighted.json`, `dev_run1_policy_truth_log.txt`, `dev_run2_weighted_log.txt`, `rerun_compare.txt` |
 | v8 재정렬 규칙 변이 L1–L9 (사본에서 실행) | `audit/v8dev/quick_mutants.py` | `audit/v8dev/quick_mutants.txt` |
 | 검정력: 관측 차이를 Holm 후 80% 검정력으로 보는 데 필요한 평가 사용자 수 (커밋된 v7 쌍대 검정과 v8 개발 결과만 읽음) | `audit/v8dev/power_check.py` | `audit/v8dev/power_check.csv` |
+| v8 protocol 테스트와 변이 P1–P12 (사본에서 실행) | `test_v8_protocol.py`, `audit/v8protocol/quick_mutants.py` | `audit/v8protocol/quick_mutants.txt`, `precommit_pytest.txt` |
+| 가드 변이 H59·H84 (문자열 갱신 뒤 다시 실행) | `audit/v8protocol/guard_subset.py` | `audit/v8protocol/guard_H59_H84.txt` |
+| 커밋 후 재검증 b69b1f1·13e8bfe (새 worktree + lock venv) | `audit_runs/cycle23/postcommit.sh` | `audit/v8protocol/postcommit_b69b1f1_*.txt`, `postcommit_13e8bfe_*.txt` |
+| v8 원본: Taobao 1% (seed 42) | `dataset_adapters.taobao_to_raw` | `audit_runs/v8_raw/taobao_p1` (커밋 안 함. `adapter.json`에 원본 해시) |
+| v8 봉인 실행 (Taobao 1%, plan `6123504f…`, git 13e8bfe. 진행 중) | `rolling_protocol.py run --protocol v8` | `audit_runs/v8_taobao`. 첫 시도의 실패 기록 `audit/v8protocol/incident_run1/` |
+| 재정렬 학습 시간 측정 (임의 행렬, 실제 데이터 안 봄) | `audit/v8protocol/hgb_thread_benchmark.py` | 출력 저장 안 함 (한 스레드 49.6초, `validation_report.md` §34) |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 

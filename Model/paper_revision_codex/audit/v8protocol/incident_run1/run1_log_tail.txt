@@ -1,0 +1,40 @@
+Weighted BPR epoch 575/1024: 0.369470
+Weighted BPR epoch 600/1024: 0.369651
+Weighted BPR epoch 625/1024: 0.369335
+Weighted BPR epoch 650/1024: 0.368018
+Weighted BPR epoch 675/1024: 0.368478
+Weighted BPR epoch 700/1024: 0.367703
+Weighted BPR epoch 725/1024: 0.366960
+Weighted BPR epoch 750/1024: 0.366071
+BPR {'factors': 256, 'learning_rate': 0.02, 'regularization': 0.03} 768 {'ndcg': 0.047100466348002815, 'recall': 0.07662869866865661, 'precision': 0.003519695044472682, 'hit_rate': 0.15184243964421856, 'hit_users': 478, 'users': 3148}
+Weighted BPR epoch 775/1024: 0.365975
+Weighted BPR epoch 800/1024: 0.366071
+Weighted BPR epoch 825/1024: 0.365344
+Weighted BPR epoch 850/1024: 0.365005
+Weighted BPR epoch 875/1024: 0.364494
+Weighted BPR epoch 900/1024: 0.364478
+Weighted BPR epoch 925/1024: 0.363582
+Weighted BPR epoch 950/1024: 0.363354
+Weighted BPR epoch 975/1024: 0.363121
+Weighted BPR epoch 1000/1024: 0.362911
+BPR {'factors': 256, 'learning_rate': 0.02, 'regularization': 0.03} 1024 {'ndcg': 0.04415761766538314, 'recall': 0.07449335021164734, 'precision': 0.003506988564167725, 'hit_rate': 0.14961880559085133, 'hit_users': 471, 'users': 3148}
+Traceback (most recent call last):
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 1499, in <module>
+    run(args.root, args.raw, args.folds, not args.no_posthoc, args.protocol)
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 1477, in run
+    selection, refits = run_fold(root, fold, raw, plan_hash)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 1295, in run_fold
+    mf, gnn_validation = alongside(lambda stop: run_gnn_jobs(root, specs, stop),
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 1280, in alongside
+    raise box['error']
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 1267, in worker
+    box['value'] = background(stop)
+                   ^^^^^^^^^^^^^^^^
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 1295, in <lambda>
+    mf, gnn_validation = alongside(lambda stop: run_gnn_jobs(root, specs, stop),
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\rolling_protocol.py", line 662, in run_gnn_jobs
+    raise RuntimeError(f'GNN job failed: {spec["job_dir"]} (see .log)')
+RuntimeError: GNN job failed: C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\audit_runs\v8_taobao\TB1_full\gnn_val\gnn_layers1_embedding_dim64_learning_rate0p001 (see .log)

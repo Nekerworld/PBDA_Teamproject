@@ -2,7 +2,7 @@
 
 ## 1. 입력 데이터
 
-원본 RetailRocket 파일 4개는 `<repo>/data/`에 있으며 저장소에는 포함되지 않음 (`.gitignore`). v6 `plan.json`의 `raw_input_sha256`에 해시를 기록함. 이 해시는 v1–v5 manifest의 `input_hashes`와 같음 (이 PC에서 확인).
+v8은 Taobao UserBehavior(`<repo>/data/taobao/UserBehavior.csv`)를 `dataset_adapters.taobao_to_raw`로 같은 4개 파일 형식으로 바꿔 씀(3단계 13). 원본 RetailRocket 파일 4개는 `<repo>/data/`에 있으며 저장소에는 포함되지 않음 (`.gitignore`). v6 `plan.json`의 `raw_input_sha256`에 해시를 기록함. 이 해시는 v1–v5 manifest의 `input_hashes`와 같음 (이 PC에서 확인).
 
 | 파일 | 용도 |
 |---|---|
@@ -42,7 +42,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 ```powershell
 cd Model/paper_revision_codex
-# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 201개)
+# 1) 회귀 테스트 (pytest.ini가 수집 범위를 정함. 현재 213개)
 $env:OPENBLAS_NUM_THREADS='1'; $env:OMP_NUM_THREADS='1'; $env:MKL_NUM_THREADS='1'; $env:MPLBACKEND='Agg'
 python -m pytest -q -p no:cacheprovider
 # 2) 누수 검사만 단독 실행 (전처리된 디렉터리 대상)
@@ -78,6 +78,9 @@ python report_tools/compare_outputs.py --output audit_runs/repro/compare.json au
 python hybrid_ltr_dev.py --design policy_truth   # 비교: audit/v8dev/dev_results.json
 python hybrid_ltr_dev.py --design weighted       # 비교: audit/v8dev/dev_results_weighted.json
 python audit/v8dev/rerun_compare.py audit_runs/v8dev/rr_f4_inner audit_runs/repro/v8dev_compare.txt   # 비교: audit/v8dev/rerun_compare.txt
+# 13) v8 봉인 시험 (Taobao 1%. 원본 `../../data/taobao/UserBehavior.csv`가 필요함. 약 10–12시간 예상)
+python -c "import dataset_adapters as da, pathlib; da.taobao_to_raw(pathlib.Path('../../data/taobao/UserBehavior.csv'), pathlib.Path('audit_runs/v8_raw/taobao_p1').resolve(), user_percent=1, seed=42)"
+python report_tools/launch_detached.py --log audit_runs/v8_taobao_run.log -- python -u rolling_protocol.py run --root audit_runs/v8_taobao --raw audit_runs/v8_raw/taobao_p1 --protocol v8
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.
@@ -161,3 +164,6 @@ python report_tools/recompute_test_metrics.py --root audit_runs/v7 --fold F4_uns
 3. v1–v5 결과는 다른 PC의 절대경로를 포함하고, v5는 v3의 학습 산출물을 재사용함. 원래 환경과 산출물 없이는 v5를 비트 단위로 재현할 수 없음. v6가 이를 대체하는 일괄 재실행임.
 4. BPR·GNN(GPU)은 GPU·torch 빌드·장치(CPU/GPU)에 따라 값이 달라짐 (I-19, I-33, I-34). 다른 GPU로 다시 실행하면 소수 셋째 자리 수준의 차이를 예상해야 함.
 5. v6 실행 폴더(`audit_runs/v6`, 추천 목록 포함)는 v6 PC에만 있음. 이 PC에서는 v6 시험 지표를 추천 목록으로 다시 계산할 수 없음 (v6 지표 교차 계산은 Cycle 2에 v6 PC에서 함).
+
+6. v8 재정렬 모델 파일(`rerankers/*.pkl`)은 GNN 임베딩에 따라 바이트가 달라짐. CUDA GNN은 실행마다 약 3e-8 달라지므로 같은 코드로 다시 실행해도 모델 파일 해시가 다를 수 있음(설정·학습 통계는 같았음, `validation_report.md` §34). 시험 평가는 봉인된 파일의 해시를 확인하고 그 파일을 씀.
+7. Windows에서 GNN 작업 여러 개가 동시에 hard link 복제를 하다 폴더 이름 바꾸기가 `WinError 5`로 거부될 수 있음(I-151). 같은 명령으로 재개하면 실패한 작업만 다시 학습함.
