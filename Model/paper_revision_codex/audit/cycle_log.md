@@ -785,4 +785,5 @@
 - 독립 확인: 원본에서 시험 지표 510행 재계산(최대 차이 1e-16), 모델 파일 해시 16/16, Holm 재계산, 단계 순서 (`recompute_test_metrics.json`, `verify_results.txt`).
 - 결과: repeat에서 재정렬 두 설계가 NDCG@50으로 baseline 7개 모두보다 Holm 뒤 유의하게 높음(ALS+BPR 대비 +0.0049, +0.0060). Recall@50은 ALS·ALS+BPR과 차이 없음. 결합만 하는 Hybrid는 ALS·ALS+BPR과 차이 없음. novel에서는 어느 Hybrid도 ALS·ALS+BPR보다 유의하게 높지 않음.
 - 기록: I-153(재시작 중단), I-154(학습 통계 필드 의미).
+- 커밋 후 검증(ea9b9a3): 테스트·v6·v7 해시 통과, `results_v8`의 모델 파일 16개가 `.gitignore`의 `*.pkl`에 걸려 빠짐(I-155) → 예외 추가 후 커밋, 다시 확인.
 - 상세: `validation_report.md` §35.

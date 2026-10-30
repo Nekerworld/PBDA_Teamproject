@@ -1,0 +1,94 @@
+commit: ea9b9a3283a77b9cfcd12fa0dfe2b692f9f8b62a
+== results_v8
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_no_history.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W_no_history.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_no_history.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W_no_history.pkl: No such file or directory
+sha256sum: WARNING: 16 listed files could not be read
+34
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_no_history.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/novel_Hybrid_LTR_W_no_history.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_no_history.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W_mf.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W_mf_gnn.pkl: No such file or directory
+sha256sum: TB1_full/rerankers/repeat_Hybrid_LTR_W_no_history.pkl: No such file or directory
+sha256sum: WARNING: 16 listed files could not be read
+TB1_full/rerankers/novel_Hybrid_LTR.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_mf.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_mf_gnn.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_no_history.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_W.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_W_mf.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_W_mf_gnn.pkl: FAILED open or read
+TB1_full/rerankers/novel_Hybrid_LTR_W_no_history.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_mf.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_mf_gnn.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_no_history.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_W.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_W_mf.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_W_mf_gnn.pkl: FAILED open or read
+TB1_full/rerankers/repeat_Hybrid_LTR_W_no_history.pkl: FAILED open or read
+== verify_results (fresh worktree, lock venv)
+1,14c1,24
+< Traceback (most recent call last):
+<   File "C:\Users\chris\AppData\Local\Temp\pc_ea9b9a3\Model\paper_revision_codex\audit\v8protocol\verify_results.py", line 22, in <module>
+<     mismatch += sha(fold / 'rerankers' / f'{policy}_{name}.pkl') != model['sha256']
+<                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<   File "C:\Users\chris\AppData\Local\Temp\pc_ea9b9a3\Model\paper_revision_codex\audit\v8protocol\verify_results.py", line 15, in <lambda>
+<     sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+<                                    ^^^^^^^^^^^^^^
+<   File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\pathlib.py", line 1050, in read_bytes
+<     with self.open(mode='rb') as f:
+<          ^^^^^^^^^^^^^^^^^^^^
+<   File "C:\Users\chris\AppData\Roaming\uv\python\cpython-3.11.9-windows-x86_64-none\Lib\pathlib.py", line 1044, in open
+<     return io.open(self, mode, buffering, encoding, errors, newline)
+<            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+< FileNotFoundError: [Errno 2] No such file or directory: 'audit\\results_v8\\TB1_full\\rerankers\\repeat_Hybrid_LTR.pkl'
+---
+> sealed model files 16, sha256 mismatches 0
+> repeat Hybrid_LTR: features 23, used in splits 20, history used ['h_carts', 'h_days', 'h_purchases', 'h_recent_pos', 'h_views', 'h_weight']
+> repeat Hybrid_LTR_mf: features 5, used in splits 5, history used []
+> repeat Hybrid_LTR_mf_gnn: features 8, used in splits 8, history used []
+> repeat Hybrid_LTR_no_history: features 16, used in splits 14, history used []
+> repeat Hybrid_LTR_W: features 23, used in splits 20, history used ['h_carts', 'h_days', 'h_purchases', 'h_recent_pos', 'h_views', 'h_weight']
+> repeat Hybrid_LTR_W_mf: features 5, used in splits 5, history used []
+> repeat Hybrid_LTR_W_mf_gnn: features 8, used in splits 8, history used []
+> repeat Hybrid_LTR_W_no_history: features 16, used in splits 14, history used []
+> novel Hybrid_LTR: features 23, used in splits 14, history used []
+> novel Hybrid_LTR_mf: features 5, used in splits 5, history used []
+> novel Hybrid_LTR_mf_gnn: features 8, used in splits 8, history used []
+> novel Hybrid_LTR_no_history: features 16, used in splits 14, history used []
+> novel Hybrid_LTR_W: features 23, used in splits 14, history used []
+> novel Hybrid_LTR_W_mf: features 5, used in splits 5, history used []
+> novel Hybrid_LTR_W_mf_gnn: features 8, used in splits 8, history used []
+> novel Hybrid_LTR_W_no_history: features 16, used in splits 14, history used []
+> novel confirmatory: comparisons 42, significant 29, max |Holm recomputed - reported| 5.55e-17
+> novel secondary: comparisons 4, significant 0, max |Holm recomputed - reported| 0.00e+00
+> repeat confirmatory: comparisons 42, significant 33, max |Holm recomputed - reported| 5.55e-17
+> repeat secondary: comparisons 4, significant 2, max |Holm recomputed - reported| 1.11e-16
+> stages {'rerankers_trained': '2026-10-30T14:14:11.338152+00:00', 'selection_sealed': '2026-10-30T14:14:11.349185+00:00', 'test_evaluated': '2026-10-30T16:10:51.692235+00:00', 'completed': '2026-10-30T16:10:57.132577+00:00'}
+> test openings 1 ['2026-10-30T14:48:33.211168+00:00'] selection sha matches access log True
+> order rerankers_trained <= selection_sealed < test opened < test_evaluated <= completed: True

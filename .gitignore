@@ -94,6 +94,8 @@ htmlcov/
 /Model/paper_revision_codex/audit_runs/
 # Small, verified audit summary tables are tracked
 !/Model/paper_revision_codex/audit/**/*.csv
+# Sealed v8 re-ranker models are part of the test record (sha256 in selection.json)
+!/Model/paper_revision_codex/audit/results_v8/TB1_full/rerankers/*.pkl
 
 # Packaged datasets and delivery bundles
 *.zip
