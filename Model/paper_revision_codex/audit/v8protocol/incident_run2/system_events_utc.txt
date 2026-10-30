@@ -1,0 +1,8 @@
+LastBootUpTime(UTC): 2026-10-30 00:48:05Z
+2026-10-30 00:48:14Z id=6005 The Event log service was started.
+2026-10-30 00:47:42Z id=1074 The process C:\WINDOWS\servicing\TrustedInstaller.exe (DAISY) has initiated the 다시 시작 of computer DAISY on behalf of user NT AUTHORITY\SYSTEM for the following reason: 운영 체제: 업그레이드(계획됨) Reason Code: 0x80020003 Shutdown Type: 다시 시작 Comment: 
+2026-10-30 00:47:42Z id=6006 The Event log service was stopped.
+2026-10-30 00:46:56Z id=6005 The Event log service was started.
+2026-10-30 00:46:11Z id=6006 The Event log service was stopped.
+2026-10-30 00:44:23Z id=7002 User Logoff Notification for Customer Experience Improvement Program
+2026-10-30 00:44:09Z id=1074 The process C:\WINDOWS\uus\AMD64\MoUsoCoreWorker.exe (DAISY) has initiated the 다시 시작 of computer DAISY on behalf of user NT AUTHORITY\SYSTEM for the following reason: 운영 체제: 서비스 팩(계획됨) Reason Code: 0x80020010 Shutdown Type: 다시 시작 Comment: 

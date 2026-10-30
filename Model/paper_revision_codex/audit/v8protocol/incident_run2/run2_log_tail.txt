@@ -1,0 +1,30 @@
+Weighted BPR epoch 150/768: 0.076917
+Weighted BPR epoch 175/768: 0.075726
+Weighted BPR epoch 200/768: 0.074782
+Weighted BPR epoch 225/768: 0.073963
+Weighted BPR epoch 250/768: 0.073403
+Weighted BPR epoch 275/768: 0.072904
+Weighted BPR epoch 300/768: 0.072474
+Weighted BPR epoch 325/768: 0.072072
+Weighted BPR epoch 350/768: 0.071871
+Weighted BPR epoch 375/768: 0.071600
+Weighted BPR epoch 400/768: 0.071332
+Weighted BPR epoch 425/768: 0.071198
+Weighted BPR epoch 450/768: 0.071058
+Weighted BPR epoch 475/768: 0.070872
+Weighted BPR epoch 500/768: 0.070841
+Weighted BPR epoch 525/768: 0.070714
+Weighted BPR epoch 550/768: 0.070669
+Weighted BPR epoch 575/768: 0.070564
+Weighted BPR epoch 600/768: 0.070521
+Weighted BPR epoch 625/768: 0.070467
+Weighted BPR epoch 650/768: 0.070373
+Weighted BPR epoch 675/768: 0.070356
+Weighted BPR epoch 700/768: 0.070363
+Weighted BPR epoch 725/768: 0.070324
+Weighted BPR epoch 750/768: 0.070251
+{"utc": "2026-10-28T16:35:06.151784+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim128_learning_rate0p0005_cap800"}
+{"utc": "2026-10-28T22:54:59.383626+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "repeat", "backbone": "gnn_layers1_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-29T05:54:12.483628+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "repeat", "backbone": "gnn_layers1_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-29T12:46:51.742083+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "repeat", "backbone": "gnn_layers3_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-29T19:08:06.210653+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "novel", "backbone": "gnn_layers1_embedding_dim128_learning_rate0p0005"}
