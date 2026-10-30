@@ -1,0 +1,58 @@
+{"utc": "2026-10-28T11:18:30.550286+00:00", "stage": "run_started", "git": "13e8bfea2fd72dbf6cd6d2d10d293820c28d1a34", "native_threads": [["openblas", 1], ["openmp", 1]]}
+{"utc": "2026-10-28T11:18:50.285569+00:00", "stage": "prepared", "fold": "TB1_full"}
+{"utc": "2026-10-28T13:50:01.226309+00:00", "stage": "run_started", "git": "13e8bfea2fd72dbf6cd6d2d10d293820c28d1a34", "native_threads": [["openblas", 1], ["openmp", 1]]}
+{"utc": "2026-10-28T13:50:01.233310+00:00", "stage": "prepared", "fold": "TB1_full"}
+{"utc": "2026-10-28T13:57:38.599628+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim64_learning_rate0p003"}
+{"utc": "2026-10-28T14:00:03.658645+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-28T14:05:18.712654+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim128_learning_rate0p001"}
+{"utc": "2026-10-28T14:07:43.772271+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim64_learning_rate0p0005"}
+{"utc": "2026-10-28T14:11:08.819257+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-28T14:11:43.858658+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim256_learning_rate0p0005"}
+{"utc": "2026-10-28T14:14:23.900450+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim256_learning_rate0p001"}
+{"utc": "2026-10-28T14:17:03.951457+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim128_learning_rate0p003"}
+{"utc": "2026-10-28T14:23:44.007909+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim64_learning_rate0p003"}
+{"utc": "2026-10-28T14:27:54.066788+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-28T14:28:39.115907+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-28T14:29:29.158051+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim64_learning_rate0p0005"}
+{"utc": "2026-10-28T14:39:09.239702+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim128_learning_rate0p001"}
+{"utc": "2026-10-28T14:39:09.242702+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim128_learning_rate0p003"}
+{"utc": "2026-10-28T14:40:14.310271+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-28T14:45:59.364172+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim256_learning_rate0p0005"}
+{"utc": "2026-10-28T14:48:39.410358+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-28T14:48:59.446480+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers2_embedding_dim256_learning_rate0p001"}
+{"utc": "2026-10-28T14:57:24.516669+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim64_learning_rate0p003"}
+{"utc": "2026-10-28T14:59:29.561765+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-28T15:02:14.610766+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-28T15:02:39.647610+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim64_learning_rate0p0005"}
+{"utc": "2026-10-28T15:09:34.703916+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim128_learning_rate0p001"}
+{"utc": "2026-10-28T15:09:34.705916+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim128_learning_rate0p003"}
+{"utc": "2026-10-28T15:15:14.788142+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim256_learning_rate0p001"}
+{"utc": "2026-10-28T15:17:04.826798+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim256_learning_rate0p0005"}
+{"utc": "2026-10-28T15:21:24.883170+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers3_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-28T15:32:04.960978+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim64_learning_rate0p003"}
+{"utc": "2026-10-28T15:33:20.001796+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim64_learning_rate0p0005"}
+{"utc": "2026-10-28T15:35:00.043363+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-28T15:42:15.105797+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-28T15:45:15.169113+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim128_learning_rate0p001"}
+{"utc": "2026-10-28T15:45:30.211141+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim128_learning_rate0p003"}
+{"utc": "2026-10-28T15:52:25.239698+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-28T15:52:45.243855+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim256_learning_rate0p0005"}
+{"utc": "2026-10-28T15:55:25.256638+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers4_embedding_dim256_learning_rate0p001"}
+{"utc": "2026-10-28T15:55:25.292757+00:00", "stage": "mf_selected", "fold": "TB1_full", "als": {"factors": 512, "regularization": 0.002, "alpha": 40.0, "iterations": 8}, "bpr": {"factors": 256, "learning_rate": 0.005, "regularization": 0.003}, "bpr_epochs": 768}
+{"utc": "2026-10-28T16:35:06.151784+00:00", "stage": "gnn_job_done", "job": "TB1_full/gnn_val/gnn_layers1_embedding_dim128_learning_rate0p0005_cap800"}
+{"utc": "2026-10-28T22:54:59.383626+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "repeat", "backbone": "gnn_layers1_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-29T05:54:12.483628+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "repeat", "backbone": "gnn_layers1_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-29T12:46:51.742083+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "repeat", "backbone": "gnn_layers3_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-29T19:08:06.210653+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "novel", "backbone": "gnn_layers1_embedding_dim128_learning_rate0p0005"}
+{"utc": "2026-10-30T01:25:03.170820+00:00", "stage": "run_started", "git": "01f972ce885c9c8e4c0c37949c6a891e34cee534", "native_threads": [["openblas", 1], ["openmp", 1]]}
+{"utc": "2026-10-30T01:25:03.179878+00:00", "stage": "prepared", "fold": "TB1_full"}
+{"utc": "2026-10-30T01:25:05.900722+00:00", "stage": "mf_selected", "fold": "TB1_full", "als": {"factors": 512, "regularization": 0.002, "alpha": 40.0, "iterations": 8}, "bpr": {"factors": 256, "learning_rate": 0.005, "regularization": 0.003}, "bpr_epochs": 768}
+{"utc": "2026-10-30T07:24:25.284102+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "novel", "backbone": "gnn_layers1_embedding_dim256_learning_rate0p003"}
+{"utc": "2026-10-30T13:12:55.442019+00:00", "stage": "hybrid_grid_done", "fold": "TB1_full", "policy": "novel", "backbone": "gnn_layers3_embedding_dim64_learning_rate0p001"}
+{"utc": "2026-10-30T14:14:11.338152+00:00", "stage": "rerankers_trained", "fold": "TB1_full"}
+{"utc": "2026-10-30T14:14:11.349185+00:00", "stage": "selection_sealed", "fold": "TB1_full", "selection": "aaacc1bc6373c0bef0b5940edc824b33ad892403cfd267da3c5867b29521e463"}
+{"utc": "2026-10-30T14:48:28.091715+00:00", "stage": "gnn_job_done", "job": "TB1_full/runs/gnn_seed_42"}
+{"utc": "2026-10-30T14:48:33.095145+00:00", "stage": "gnn_job_done", "job": "TB1_full/runs/gnn_seed_43"}
+{"utc": "2026-10-30T14:48:33.098150+00:00", "stage": "gnn_job_done", "job": "TB1_full/runs/gnn_seed_44"}
+{"utc": "2026-10-30T16:10:51.692235+00:00", "stage": "test_evaluated", "fold": "TB1_full"}
+{"utc": "2026-10-30T16:10:57.132577+00:00", "stage": "completed"}

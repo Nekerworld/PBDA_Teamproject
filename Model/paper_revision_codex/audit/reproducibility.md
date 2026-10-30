@@ -78,9 +78,12 @@ python report_tools/compare_outputs.py --output audit_runs/repro/compare.json au
 python hybrid_ltr_dev.py --design policy_truth   # 비교: audit/v8dev/dev_results.json
 python hybrid_ltr_dev.py --design weighted       # 비교: audit/v8dev/dev_results_weighted.json
 python audit/v8dev/rerun_compare.py audit_runs/v8dev/rr_f4_inner audit_runs/repro/v8dev_compare.txt   # 비교: audit/v8dev/rerun_compare.txt
-# 13) v8 봉인 시험 (Taobao 1%. 원본 `../../data/taobao/UserBehavior.csv`가 필요함. 약 10–12시간 예상)
+# 13) v8 봉인 시험 (Taobao 1%. 원본 `../../data/taobao/UserBehavior.csv`가 필요함. 이 PC에서 실제 약 40시간, 대부분 한 스레드 Hybrid grid. I-152)
 python -c "import dataset_adapters as da, pathlib; da.taobao_to_raw(pathlib.Path('../../data/taobao/UserBehavior.csv'), pathlib.Path('audit_runs/v8_raw/taobao_p1').resolve(), user_percent=1, seed=42)"
 python report_tools/launch_detached.py --log audit_runs/v8_taobao_run.log -- python -u rolling_protocol.py run --root audit_runs/v8_taobao --raw audit_runs/v8_raw/taobao_p1 --protocol v8
+python audit/v8protocol/package_results.py audit_runs/v8_taobao audit_runs/repro/results_v8   # 비교: audit/results_v8 (CUDA GNN이라 끝자리·모델 파일 바이트는 다를 수 있음)
+python report_tools/recompute_test_metrics.py --root audit_runs/v8_taobao --fold TB1_full --raw audit_runs/v8_raw/taobao_p1 --output audit_runs/repro/v8_recompute.json
+python audit/v8protocol/verify_results.py audit/results_v8   # 비교: audit/v8protocol/verify_results.txt
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.

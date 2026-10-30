@@ -1,0 +1,7 @@
+{
+  "end_fraction": 1.0,
+  "end_cutoff_timestamp": null,
+  "source_events_sha256": "284972ecc8df1658b1e757f5f17f1190dc11bc42f6f2413c053b2f5e452a90ff",
+  "fold_events_sha256": "284972ecc8df1658b1e757f5f17f1190dc11bc42f6f2413c053b2f5e452a90ff",
+  "rule": "keep raw events with timestamp < end cutoff (tie-safe, file order preserved)"
+}

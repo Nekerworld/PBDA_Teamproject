@@ -49,6 +49,7 @@
 7. v6와 v7은 서로 다른 PC·GPU에서 실행했다 (RTX 5060 Ti / RTX 3090 Ti). BPR·GNN은 GPU·torch 빌드에 따라 소수점 아래 값이 달라진다 (`reproducibility.md` §4).
 8. 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, novel에서는 추론 설정(Hybrid 결합, ALS+BPR α)만 다시 골랐다. 그래서 novel의 ALS·GNN 단독은 novel로 튜닝되지 않았다. 같은 grid에서 novel로 골랐다면 GNN의 validation 점수가 F2·F3·F4에서 높아지고, F4에서는 Hybrid보다 높았다 (`validation_report.md` §8 항목 5). novel의 Hybrid − GNN, Hybrid − ALS 유의 결과는 이 조건과 함께 보고한다. 자동 생성 표(`audit/figures_v*/table_paired_tests.*`)의 `claim` 열은 이 조건을 표시하지 않으므로, 표를 원고에 옮길 때 주석을 단다.
 9. 재고 신호(학습 종료 시점 이전의 `available`과 가중 γ)는 Hybrid(와 ablation `Hybrid_ALS_only`)에만 들어가고 baseline 7종에는 없다. validation에서 고른 γ는 8개 설정 모두 1보다 크다. 따라서 Hybrid − baseline 차이는 GNN 결합의 효과만이 아니다. 사후 분석이 있는 F1 repeat·seed 42에서는 Hybrid − ALS+BPR(NDCG +0.0031, Recall +0.0123)의 NDCG 약 79%, Recall 약 53%가 γ 1 대비 재고 가중 효과였다 (`validation_report.md` §6.2). 다른 fold·정책에서는 측정하지 않았다. 자동 생성 표와 그림에도 이 조건을 주석으로 단다.
+10. v8 봉인 시험(Taobao 1% 표본, fold 하나, `validation_report.md` §35): repeat에서 재정렬 Hybrid 두 설계가 NDCG@50으로 baseline 7개 모두보다 Holm 뒤 유의하게 높다(ALS+BPR 대비 +0.0049, +0.0060). Recall@50은 ALS·ALS+BPR과 유의한 차이가 없고, novel에서는 어느 Hybrid도 ALS·ALS+BPR보다 유의하게 높지 않다. 재정렬 모델은 MF·GNN 점수 외에 이력·인기·재고·사용자 활동 특징을 쓰고 baseline은 쓰지 않으므로, 차이는 GNN 결합만의 효과가 아니다(ablation은 서술용). novel 비교에는 공개 사항 8과 같은 튜닝 비대칭이 있다.
 
 ## 4. 원고에 쓰면 안 되는 표현
 
@@ -60,5 +61,4 @@
 - "계산 비용 절감" (GNN 단독 대비 근거 없음).
 - "cold-start 해결".
 - v8 개발 비교(`validation_report.md` §33)의 수치나 "구조 개선으로 Hybrid가 우수" (시험이 아닌 개발 구간이고, 어느 설계도 기본 모델과 유의한 차이가 없음).
-
-- v8 봉인 시험(Taobao 1%, `validation_report.md` §34)의 수치. 실행과 검증이 끝나 결과 절이 생기기 전에는 쓰지 않음. 결과가 나와도 Holm 보정 뒤 유의하지 않은 차이는 "우수"로 쓰지 않음.
+- v8 봉인 시험(Taobao 1%, `validation_report.md` §35)에서 Holm 뒤 유의하지 않은 차이를 "우수"로 쓰는 것: repeat Recall@50의 재정렬 − ALS·ALS+BPR, 결합만 하는 Hybrid − ALS·ALS+BPR, novel의 모든 Hybrid − ALS·ALS+BPR, novel 재정렬 − Hybrid. 데이터 하나·fold 하나의 결과를 일반적인 우월성으로 쓰는 것. 재정렬의 차이를 "GNN 결합 구조의 효과"로 쓰는 것(아래 공개 사항 10).

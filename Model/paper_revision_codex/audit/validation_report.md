@@ -1,6 +1,6 @@
 # Validation report (실제 실행 기반 검증 결과)
 
-모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§34는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
+모든 수치는 실제 실행 결과다. v6(§2–§8)는 v6 실행 PC(RTX 5060 Ti)에서, v7과 §9–§35는 두 번째 PC(RTX 3090 Ti)에서 얻었다 (§8 항목 5의 표는 커밋된 v6·v7 선택 파일에서 계산). 원본 표는 `audit/results_v6/`에 있다. 표의 값은 K=50, 세 seed(42/43/44) 평균이다.
 
 ## 1. 코드 검증
 
@@ -711,3 +711,68 @@ D2 결과 (K=50, seed 42, repeat 294명, novel 206명):
 | 실행 | `audit_runs/v8_taobao`, plan `6123504f…`, git 13e8bfe, dirty 없음, 누수 검사 통과. 첫 실행은 문서 절차와 달리 `launch_detached.py` 없이 셸 백그라운드로 시작함. GNN validation 작업 하나가 hard link 복제 폴더의 이름 바꾸기에서 `PermissionError [WinError 5]`로 실패했고(I-151), 실행은 MF 선택이 끝난 뒤 멈춤(시험 열람 없음, `audit/v8protocol/incident_run1/`). 같은 코드·plan·root로 `launch_detached.py`를 써서 재개함(MF 선택은 캐시를 쓰고, GNN 작업은 다시 학습함) |
 | 결과 정리 도구 (시험 열기 전에 작성) | `audit/v8protocol/package_results.py`: 실행 root에서 v7 결과와 같은 파일 묶음(plan, 진행·열람 기록, fold의 선택·validation·재학습 기록, report)과 재정렬 기록(설정·CV 표·모델 파일)을 `audit/results_v8`로 복사하고 SHA256SUMS를 씀(이미 있으면 거부). `summarize_results.py`: 정해진 모델 순서(Popularity … Hybrid, 재정렬 ablation, Hybrid_LTR, Hybrid_LTR_W)의 K=50 seed 평균·표준편차 표와 정책별 확인·보조 묶음 Holm 표를 만듦. 두 도구 모두 합성 데이터 끝-끝 실행 결과로만 시험함(48개 파일 SHA256 확인). 실제 시험 결과를 보기 전에 정한 표 이외의 사후 분석은 하지 않음 |
 | 재정렬 학습 시간 (참고) | 같은 크기의 임의 행렬(200만 행 × 23 특징)에서 한 스레드 fit 49.6초(`audit/v8protocol/hgb_thread_benchmark.py`. 8스레드 비교는 출력 경로 오류로 실행되지 않음). 실제 데이터는 보지 않음. protocol 전체가 한 스레드라 재정렬도 한 스레드로 둠 |
+
+## 35. v8 봉인 시험 결과: Taobao 1% (시험 1회 열람)
+
+§34의 protocol을 그대로 실행한 결과다. 시험은 한 번 열었고, 표와 분석은 시험 전에 정한 것(`audit/v8protocol/summarize_results.py`)만 썼다. 모든 표는 `audit/results_v8/`(SHA256SUMS 50개 파일)에서 나왔다.
+
+| 항목 | 내용 |
+|---|---|
+| 실행 | plan `6123504f…`, 시작 git 13e8bfe. 시작은 세 번: 첫 시도는 GNN 작업의 `WinError 5`(I-151), 두 번째는 Windows Update의 자동 재시작(2026-10-30 00:44 UTC, I-153)으로 멈춤. 두 번 모두 시험 열람 전이고, 같은 plan·root로 재개함. 마지막 재개는 커밋 01f972c(13e8bfe 이후 커밋은 `audit/` 아래 문서·증거뿐, 코드 동일). Hybrid grid 블록 6개가 각 약 5.8–7.0시간(I-152). 2026-10-30 16:10:57 UTC `completed` |
+| 시험 열람 | 1회, 2026-10-30 14:48:33 UTC, `selection.json` sha256 `aaacc1bc…`(봉인 14:14:11 UTC)와 일치 |
+| 선택 (validation) | ALS(512, reg 0.002, α 40, 8회), BPR(256, lr 0.005, reg 0.003, 768 epoch), ALS+BPR α 0.6(두 정책). GNN 1위와 Hybrid backbone 모두 `layers1_dim128_lr0.0005`. Hybrid: repeat α 0.5·balanced_union·후보 5,000·minmax·ω 0.5·γ 1.0, novel α 0.5·balanced_union·후보 1,000·rrf·ω 0.4·γ 1.0. 두 정책 모두 γ가 grid 하한(1.0). novel만 따로 보면 다른 backbone(`layers3_dim64`)이 더 좋았지만 사전 규칙대로 repeat backbone을 씀. 재정렬 설정(lr, max_iter, max_leaf_nodes): repeat `Hybrid_LTR` (0.05, 100, 15), `Hybrid_LTR_W` (0.05, 300, 15), novel `Hybrid_LTR` (0.05, 100, 15), `Hybrid_LTR_W` (0.1, 100, 31). 재정렬 후보 안 정답 비율: repeat 0.125·0.132, novel 0.032·0.035 |
+| 독립 확인 | (1) 원본 `events.csv`에서 정답·이력·모집단을 다시 만들어 시험 지표 510행(정책 2 × seed 3 × 모델 17 × K 5)을 다시 계산: 최대 차이 1e-16, 모집단 일치, novel 목록의 본 상품 0, 중복 0 (`audit/v8protocol/recompute_test_metrics.json`). (2) 봉인된 모델 파일 16개의 SHA256이 `selection.json`과 일치, Holm을 묶음별로 다시 계산해 차이 1.1e-16 이하, 단계 순서 재정렬 학습 ≤ 봉인 < 시험 열람 < 평가 (`audit/v8protocol/verify_results.txt`) |
+| novel의 ablation | novel 재정렬 모델(전체 특징)은 분기에 history 특징(`h_*`)을 한 번도 쓰지 않음. novel은 이미 본 상품을 후보에서 빼므로 그 특징이 모두 0임. 그래서 novel의 `Hybrid_LTR`·`Hybrid_LTR_W`는 각각 `_no_history`와 값이 같음(결함 아님) |
+| 공개 (I-63과 같은 비대칭) | 학습 설정은 repeat validation으로 고름. novel에서는 Hybrid 결합 설정, ALS+BPR α, 재정렬 모델만 novel validation으로 다시 고르고 ALS·BPR·GNN 단독은 다시 고르지 않음. novel 비교는 Hybrid 쪽에 유리한 조건임 |
+
+K=50, seed 42/43/44 평균 ± 표준편차 (`report/test_summary.csv`). 평가 사용자 repeat 4,811명, novel 4,387명, 카탈로그 69,933개.
+
+| 모델 | repeat NDCG@50 | repeat Recall@50 | novel NDCG@50 | novel Recall@50 |
+|---|---|---|---|---|
+| Popularity | 0.0021 ± 0.0000 | 0.0051 ± 0.0000 | 0.0016 ± 0.0000 | 0.0044 ± 0.0000 |
+| Recent | 0.0604 ± 0.0000 | 0.1034 ± 0.0000 | 0.0000 ± 0.0000 | 0.0000 ± 0.0000 |
+| RecentPop | 0.0609 ± 0.0000 | 0.1052 ± 0.0000 | 0.0016 ± 0.0000 | 0.0044 ± 0.0000 |
+| ALS | 0.0638 ± 0.0003 | 0.1095 ± 0.0002 | 0.0054 ± 0.0003 | 0.0138 ± 0.0008 |
+| BPR | 0.0637 ± 0.0004 | 0.1088 ± 0.0009 | 0.0045 ± 0.0001 | 0.0121 ± 0.0006 |
+| ALS+BPR | 0.0659 ± 0.0003 | 0.1111 ± 0.0010 | 0.0059 ± 0.0000 | 0.0152 ± 0.0004 |
+| GNN | 0.0624 ± 0.0003 | 0.1070 ± 0.0006 | 0.0029 ± 0.0004 | 0.0081 ± 0.0011 |
+| Hybrid_ALS_only | 0.0660 ± 0.0005 | 0.1095 ± 0.0005 | 0.0052 ± 0.0005 | 0.0131 ± 0.0005 |
+| Hybrid | 0.0658 ± 0.0002 | 0.1108 ± 0.0003 | 0.0054 ± 0.0004 | 0.0138 ± 0.0010 |
+| Hybrid_LTR_mf | 0.0677 ± 0.0007 | 0.1098 ± 0.0005 | 0.0051 ± 0.0002 | 0.0139 ± 0.0006 |
+| Hybrid_LTR_mf_gnn | 0.0681 ± 0.0002 | 0.1096 ± 0.0002 | 0.0055 ± 0.0002 | 0.0139 ± 0.0006 |
+| Hybrid_LTR_no_history | 0.0695 ± 0.0008 | 0.1104 ± 0.0007 | 0.0057 ± 0.0002 | 0.0150 ± 0.0011 |
+| Hybrid_LTR | 0.0708 ± 0.0002 | 0.1109 ± 0.0002 | 0.0057 ± 0.0002 | 0.0150 ± 0.0011 |
+| Hybrid_LTR_W_mf | 0.0677 ± 0.0004 | 0.1095 ± 0.0001 | 0.0051 ± 0.0001 | 0.0145 ± 0.0006 |
+| Hybrid_LTR_W_mf_gnn | 0.0691 ± 0.0005 | 0.1102 ± 0.0002 | 0.0054 ± 0.0004 | 0.0141 ± 0.0008 |
+| Hybrid_LTR_W_no_history | 0.0705 ± 0.0003 | 0.1108 ± 0.0006 | 0.0060 ± 0.0003 | 0.0150 ± 0.0003 |
+| Hybrid_LTR_W | 0.0720 ± 0.0002 | 0.1114 ± 0.0004 | 0.0060 ± 0.0003 | 0.0150 ± 0.0003 |
+
+주요 비교 (사용자 단위 쌍대 bootstrap CI, 부호 뒤집기 검정, Holm). 확인 묶음은 정책마다 42개(Hybrid 세 가지 × baseline 7개 × 지표 2개), 보조 묶음(재정렬 − Hybrid)은 4개. 전체 표: `audit/v8protocol/results_summary.md`.
+
+| 비교 | 정책 | NDCG@50 차이 [95% CI], Holm p | Recall@50 차이 [95% CI], Holm p |
+|---|---|---|---|
+| Hybrid - ALS | repeat | +0.0020 [+0.0004, +0.0037], Holm p 0.153 | +0.0013 [-0.0000, +0.0026], Holm p 0.340 |
+| Hybrid - ALS+BPR | repeat | -0.0002 [-0.0008, +0.0004], Holm p 1.000 | -0.0003 [-0.0012, +0.0005], Holm p 1.000 |
+| Hybrid_LTR - ALS | repeat | +0.0071 [+0.0052, +0.0089], Holm p 0.004 | +0.0014 [-0.0002, +0.0030], Holm p 0.487 |
+| Hybrid_LTR - ALS+BPR | repeat | +0.0049 [+0.0031, +0.0067], Holm p 0.004 | -0.0002 [-0.0015, +0.0010], Holm p 1.000 |
+| Hybrid_LTR_W - ALS | repeat | +0.0082 [+0.0064, +0.0101], Holm p 0.004 | +0.0019 [+0.0004, +0.0034], Holm p 0.153 |
+| Hybrid_LTR_W - ALS+BPR | repeat | +0.0060 [+0.0044, +0.0078], Holm p 0.004 | +0.0003 [-0.0009, +0.0015], Holm p 1.000 |
+| Hybrid_LTR - Hybrid | repeat | +0.0051 [+0.0033, +0.0068], Holm p < 0.001 | +0.0001 [-0.0010, +0.0012], Holm p 0.851 |
+| Hybrid_LTR_W - Hybrid | repeat | +0.0062 [+0.0045, +0.0079], Holm p < 0.001 | +0.0006 [-0.0005, +0.0017], Holm p 0.573 |
+| Hybrid - ALS | novel | +0.0001 [-0.0004, +0.0006], Holm p 1.000 | +0.0000 [-0.0015, +0.0015], Holm p 1.000 |
+| Hybrid - ALS+BPR | novel | -0.0004 [-0.0009, +0.0000], Holm p 0.592 | -0.0014 [-0.0028, -0.0001], Holm p 0.485 |
+| Hybrid_LTR - ALS | novel | +0.0004 [-0.0005, +0.0012], Holm p 1.000 | +0.0012 [-0.0010, +0.0033], Holm p 1.000 |
+| Hybrid_LTR - ALS+BPR | novel | -0.0002 [-0.0010, +0.0007], Holm p 1.000 | -0.0003 [-0.0023, +0.0017], Holm p 1.000 |
+| Hybrid_LTR_W - ALS | novel | +0.0006 [-0.0001, +0.0014], Holm p 1.000 | +0.0012 [-0.0007, +0.0032], Holm p 1.000 |
+| Hybrid_LTR_W - ALS+BPR | novel | +0.0001 [-0.0007, +0.0008], Holm p 1.000 | -0.0002 [-0.0020, +0.0015], Holm p 1.000 |
+| Hybrid_LTR - Hybrid | novel | +0.0003 [-0.0005, +0.0010], Holm p 0.594 | +0.0011 [-0.0005, +0.0028], Holm p 0.594 |
+| Hybrid_LTR_W - Hybrid | novel | +0.0005 [-0.0002, +0.0012], Holm p 0.594 | +0.0012 [-0.0004, +0.0028], Holm p 0.594 |
+
+| 해석 | 내용 |
+|---|---|
+| repeat | 재정렬 두 설계는 NDCG@50에서 baseline 7개 모두보다 Holm 뒤 유의하게 높음. 가장 강한 baseline ALS+BPR보다 `Hybrid_LTR` +0.0049, `Hybrid_LTR_W` +0.0060(상대 약 7%·9%). 이 차이는 검정력 계획의 최소 검출 차이(약 0.0045)보다 큼. Recall@50은 ALS, ALS+BPR과 유의한 차이가 없음(`Hybrid_LTR`은 BPR과도 없음). 즉 같은 수의 정답을 찾되 더 위에 놓는 효과임. 결합만 하는 Hybrid(v1)는 ALS, ALS+BPR과 유의한 차이가 없음. 재정렬 − Hybrid: NDCG 유의하게 높음(+0.0051, +0.0062), Recall 차이 없음 |
+| novel | 어느 Hybrid도 ALS, ALS+BPR보다 유의하게 높지 않음(위의 유리한 조건에서도). 재정렬 − Hybrid도 유의한 차이 없음. 유의한 것은 BPR, GNN, 인기·최근 기반 baseline과의 비교뿐 |
+| ablation (서술용, 검정 안 함) | repeat에서는 두 설계 모두 특징 묶음을 더할수록 NDCG 평균이 오름(mf → mf+GNN → history 제외 전체 → 전체). 결합만 하는 Hybrid(0.0658)는 GNN을 뺀 `Hybrid_ALS_only`(0.0660)보다 높지 않음. novel에서는 순서가 일정하지 않음 |
+| 차이의 출처 | 재정렬 모델의 특징은 MF·GNN 점수와 순위 외에 사용자-상품 이력(`h_*`), 상품 인기·최근 인기·재고(`i_available`), 사용자 활동량을 포함함. baseline 7종은 이 신호를 함께 쓰지 않음. 그래서 재정렬 − baseline 차이는 ALS·GNN 결합 구조만의 효과가 아님. ablation에서 MF 특징만 쓴 재정렬(repeat `Hybrid_LTR_mf` 0.0677)도 ALS+BPR(0.0659)보다 평균이 높았고(검정 안 함), GNN 특징을 더한 증가(+0.0005, W +0.0014)는 그 뒤 맥락·이력 특징을 더한 증가(+0.0027, W +0.0028)보다 작음 |
+| 한계 | 데이터 하나(Taobao 사용자 1% 표본, seed 42), 봉인 fold 하나. RetailRocket·Diginetica 결과가 아님. GNN은 CUDA라 같은 코드로 다시 실행해도 소수 끝자리와 모델 파일 바이트가 달라질 수 있음(재현성 한계 6). 원고에서는 repeat NDCG의 유의한 차이만 "높음"으로 쓰고, Recall과 novel은 "유의한 차이 없음"으로 씀 |
+| 기록 의미 (I-154) | 재정렬 학습 통계의 `users`는 학습 행이 있는 사용자 수(`window.active`)이고 `users_with_policy_truth`는 학습 이력이 없는 사용자까지 포함한 정답 보유 사용자 수라, 앞의 값이 더 작을 수 있음(repeat `Hybrid_LTR` 2,960 대 3,148). 결과에는 영향 없음 |

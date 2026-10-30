@@ -1,0 +1,1867 @@
+{
+  "plan_sha256": "6123504f9731500f5d115ff7822a7b075decfd33db20a7164c8dc900815c0909",
+  "plan": {
+    "protocol": "rolling-origin-v8",
+    "folds": [
+      {
+        "name": "TB1_full",
+        "end_fraction": 1.0,
+        "test_size": 0.25,
+        "validation_size": 0.2,
+        "test_window": "Last 25% of the events of the Taobao UserBehavior 1% user sample (2017-11-25 to 2017-12-03 UTC); never evaluated or used for selection."
+      }
+    ],
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "selection_seed": 42,
+    "selection_rule": "maximize mean(NDCG@50, Recall@50) on inner validation, identical for every model family",
+    "policy_rule": "Trained model configurations are selected under the repeat policy. Inference-time parameters (ALS+BPR alpha, all Hybrid fusion parameters) are re-selected per policy.",
+    "als_grid": [
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 128,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 256,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 512,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.02,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 0.2,
+        "alpha": 80.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 10.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 20.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 40.0,
+        "iterations": 32
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 8
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 16
+      },
+      {
+        "factors": 1024,
+        "regularization": 2.0,
+        "alpha": 80.0,
+        "iterations": 32
+      }
+    ],
+    "bpr_grid": [
+      {
+        "factors": 128,
+        "learning_rate": 0.0025,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.0025,
+        "regularization": 0.003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.0025,
+        "regularization": 0.03
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.005,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.005,
+        "regularization": 0.003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.005,
+        "regularization": 0.03
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.01,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.01,
+        "regularization": 0.003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.01,
+        "regularization": 0.03
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.02,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.02,
+        "regularization": 0.003
+      },
+      {
+        "factors": 128,
+        "learning_rate": 0.02,
+        "regularization": 0.03
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.0025,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.0025,
+        "regularization": 0.003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.0025,
+        "regularization": 0.03
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.005,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.005,
+        "regularization": 0.003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.005,
+        "regularization": 0.03
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.01,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.01,
+        "regularization": 0.003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.01,
+        "regularization": 0.03
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.02,
+        "regularization": 0.0003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.02,
+        "regularization": 0.003
+      },
+      {
+        "factors": 256,
+        "learning_rate": 0.02,
+        "regularization": 0.03
+      }
+    ],
+    "bpr_epoch_checkpoints": [
+      64,
+      128,
+      256,
+      384,
+      512,
+      768,
+      1024
+    ],
+    "bpr_negatives": "popularity",
+    "mf_common": {
+      "behavior_weighted": true,
+      "time_decay": true,
+      "half_life_days": 7.0
+    },
+    "gnn_grid": [
+      {
+        "layers": 1,
+        "embedding_dim": 64,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 64,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 64,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 128,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 128,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 128,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 256,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 256,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 1,
+        "embedding_dim": 256,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 64,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 64,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 64,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 128,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 128,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 128,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 256,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 256,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 2,
+        "embedding_dim": 256,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 64,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 64,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 64,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 128,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 128,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 128,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 256,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 256,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 3,
+        "embedding_dim": 256,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 64,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 64,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 64,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 128,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 128,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 128,
+        "learning_rate": 0.003
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 256,
+        "learning_rate": 0.0005
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 256,
+        "learning_rate": 0.001
+      },
+      {
+        "layers": 4,
+        "embedding_dim": 256,
+        "learning_rate": 0.003
+      }
+    ],
+    "gnn_fixed": {
+      "batch_size": 8192,
+      "reg": 0.0001,
+      "graph_mode": "bipartite",
+      "loss_mode": "infonce",
+      "n_negatives": 32,
+      "temperature": 0.2,
+      "edge_dropout": 0.1,
+      "propagation": "unweighted",
+      "time_decay": true,
+      "half_life_days": 7.0,
+      "negative_mode": "uniform",
+      "validation_interval": 10,
+      "early_stopping_patience": 60,
+      "min_epochs": 20,
+      "validation_metric": "ndcg_recall_mean"
+    },
+    "gnn_max_epochs": 400,
+    "gnn_cap_rule": "If a top-3 GNN configuration selects an epoch within one validation interval of 400, it is retrained on validation with cap 800 and the extended run replaces it.",
+    "mf_alphas": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ],
+    "hybrid_backbones": "top 3 GNN configurations by validation score",
+    "hybrid_grid_size": 2808,
+    "candidate_ks": [
+      500,
+      1000,
+      2000,
+      5000,
+      10000,
+      20000,
+      "all"
+    ],
+    "hybrid_grid_axes": {
+      "alpha": [
+        0.25,
+        0.5,
+        0.75
+      ],
+      "strategy": [
+        "blend",
+        "balanced_union"
+      ],
+      "fusion": [
+        "minmax",
+        "rrf"
+      ],
+      "omega": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9
+      ],
+      "gamma": [
+        1.0,
+        1.1,
+        1.25,
+        1.5
+      ]
+    },
+    "baselines": [
+      "ALS",
+      "BPR",
+      "ALS+BPR",
+      "GNN",
+      "Popularity",
+      "Recent",
+      "RecentPop"
+    ],
+    "ks": [
+      10,
+      20,
+      30,
+      40,
+      50
+    ],
+    "primary_k": 50,
+    "statistics": "Per policy: user-level paired bootstrap 95% CI (10,000) and two-sided sign-flip test (10,000) on seed-averaged per-user metrics. Confirmatory family (one Holm correction per policy): Hybrid, Hybrid_LTR and Hybrid_LTR_W each vs every baseline on NDCG@50 and Recall@50. Secondary family (own Holm correction): Hybrid_LTR and Hybrid_LTR_W vs Hybrid. Feature-group ablations of the re-rankers are descriptive only. Seed SD reported separately.",
+    "posthoc_test_analyses": "none",
+    "preprocessing": {
+      "use_if": false,
+      "core_mode": "events",
+      "min_user_events": 3,
+      "min_item_events": 3,
+      "random_state": 42
+    },
+    "reranker": {
+      "models": {
+        "policy_truth": "Hybrid_LTR",
+        "weighted": "Hybrid_LTR_W"
+      },
+      "designs": {
+        "policy_truth": "labels: policy truth (add-to-cart/purchase) of the evaluation users",
+        "weighted": "labels: every label-period event of every warm user, weighted by the strongest event (hybrid_ltr.TrainingWindow, weighted_labels)"
+      },
+      "training_window": "inner validation split: features from its training events and the selected MF fit (seed 42) and Hybrid backbone GNN of the selection runs, labels from its label period; per policy",
+      "selection": "user-grouped 5-fold CV inside the training window, maximize mean(NDCG@50, Recall@50) of the held-out users' policy truth",
+      "param_grid": [
+        {
+          "learning_rate": 0.05,
+          "max_iter": 100,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.05,
+          "max_iter": 100,
+          "max_leaf_nodes": 31
+        },
+        {
+          "learning_rate": 0.05,
+          "max_iter": 300,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.05,
+          "max_iter": 300,
+          "max_leaf_nodes": 31
+        },
+        {
+          "learning_rate": 0.1,
+          "max_iter": 100,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.1,
+          "max_iter": 100,
+          "max_leaf_nodes": 31
+        },
+        {
+          "learning_rate": 0.1,
+          "max_iter": 300,
+          "max_leaf_nodes": 15
+        },
+        {
+          "learning_rate": 0.1,
+          "max_iter": 300,
+          "max_leaf_nodes": 31
+        }
+      ],
+      "pool": {
+        "per_model": 100,
+        "history": 100,
+        "popular": 50
+      },
+      "feature_groups": {
+        "mf": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last"
+        ],
+        "gnn": [
+          "gnn",
+          "gnn_rank",
+          "sim_gnn_last"
+        ],
+        "history": [
+          "h_views",
+          "h_carts",
+          "h_purchases",
+          "h_weight",
+          "h_days",
+          "h_recent_pos",
+          "h_seen"
+        ],
+        "context": [
+          "i_pop",
+          "i_pop7",
+          "i_pos7",
+          "i_days_last",
+          "i_available",
+          "u_events",
+          "u_items",
+          "u_days_last"
+        ]
+      },
+      "ablations": {
+        "Hybrid_LTR_mf": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last"
+        ],
+        "Hybrid_LTR_mf_gnn": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last",
+          "gnn",
+          "gnn_rank",
+          "sim_gnn_last"
+        ],
+        "Hybrid_LTR_no_history": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last",
+          "gnn",
+          "gnn_rank",
+          "sim_gnn_last",
+          "i_pop",
+          "i_pop7",
+          "i_pos7",
+          "i_days_last",
+          "i_available",
+          "u_events",
+          "u_items",
+          "u_days_last"
+        ],
+        "Hybrid_LTR_W_mf": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last"
+        ],
+        "Hybrid_LTR_W_mf_gnn": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last",
+          "gnn",
+          "gnn_rank",
+          "sim_gnn_last"
+        ],
+        "Hybrid_LTR_W_no_history": [
+          "als",
+          "bpr",
+          "als_rank",
+          "bpr_rank",
+          "sim_als_last",
+          "gnn",
+          "gnn_rank",
+          "sim_gnn_last",
+          "i_pop",
+          "i_pop7",
+          "i_pos7",
+          "i_days_last",
+          "i_available",
+          "u_events",
+          "u_items",
+          "u_days_last"
+        ]
+      },
+      "ablation_rule": "the settings selected for the full feature set, one fit, descriptive only",
+      "application": "fixed models applied on the test to the features of every refit seed (full training period, ALS/BPR of the seed and its Hybrid backbone GNN); top 50 of the candidate pool",
+      "threads": "single-threaded (OMP_NUM_THREADS=1, as every fit of this protocol)"
+    },
+    "purpose": "Confirmatory test of the Hybrid family (v1 fusion and the two stacked re-rankers) against ALS, BPR, ALS+BPR, GNN and the heuristics on a population large enough to detect differences of the v8 development size.",
+    "dataset": "Taobao UserBehavior (Alibaba, 2017-11-25 to 2017-12-03): users kept by dataset_adapters.taobao_to_raw(user_percent=1, seed=42) (SplitMix64 hash of the user id); pv/cart/buy -> view/addtocart/transaction, fav and out-of-period rows dropped; no stock flag (has_available is 0 for every item). Diginetica is not tested: 166 warm repeat users.",
+    "grid_edge_rule": "Grids are not widened again. A selection on an edge of a widened axis is recorded in selection.json (grid_edges) and reported as a limitation.",
+    "power_note": "Reference only (assumes the RetailRocket per-user variance): the v7 F4 Hybrid - ALS+BPR NDCG@50 SE (0.0036, 413 users) scaled to about 4,800 repeat test users gives SE about 0.0011, so a difference of about 0.0045 is detected with 80% power at the strictest Holm step of the 42-comparison family per policy (about 0.0037 for a family of 4)."
+  },
+  "git": {
+    "commit": "13e8bfea2fd72dbf6cd6d2d10d293820c28d1a34",
+    "branch": "dev",
+    "dirty_files": []
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "sklearn": "1.9.0",
+    "torch": "2.11.0+cu128",
+    "implicit": "0.7.3",
+    "cuda": "12.8",
+    "gpu": "NVIDIA GeForce RTX 3090 Ti",
+    "device": "cuda",
+    "thread_env": {
+      "OPENBLAS_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1"
+    },
+    "native_threads": [
+      [
+        "openblas",
+        1
+      ],
+      [
+        "openmp",
+        1
+      ]
+    ],
+    "torch_threads": 1
+  },
+  "raw_input_sha256": {
+    "events.csv": "284972ecc8df1658b1e757f5f17f1190dc11bc42f6f2413c053b2f5e452a90ff",
+    "item_properties_part1.csv": "334c9d6a232fee3a7cb927b837c8414fde9845c50136c849b5de889e541e4906",
+    "item_properties_part2.csv": "1f4babecadbb919cee6997a72a38b044357414b9dbaed9a92410a4bd88da1c56",
+    "category_tree.csv": "1b22d48bf49c6c15916d24181e52abe0fd75d98bde201c034109aa7e0ee53407"
+  },
+  "created_utc": "2026-10-28T11:18:30.129148+00:00",
+  "code_hash_scheme": "sha256-lf",
+  "code_sha256": {
+    "als_debug.py": "3a88ca5020cf9cf958aaa6645d1d93af31a37687823e29aee08bb2417fce482c",
+    "audit_revision.py": "e093c91bff075baa54d25b29378aa8b98f9b5dea40dddd092e8f72a53a2d66b3",
+    "data_protocol.py": "c1346b7f6a86e6fb6136387b3945776c638ecc0d7e53d12d84d50faa73154e71",
+    "dataset_adapters.py": "7c4779f2d2779084b0cbbd5a5453acb245484293dec22d0bce743453737a004c",
+    "experiments.py": "99247bd6e9bdee951c9bf11c1465a674970990c593332b2a683627ff96af8e20",
+    "export_legacy_gnn_split.py": "bcdbb9a9be66abe377e2a45530466fa2ee164ef7f54b7617f677fa1fb72151b2",
+    "fast_fusion.py": "2857ca24ca43e73cefe3db91228639cf3e337059e98244365b0d7faf8c67e031",
+    "hybrid_ltr.py": "130de0f93849ba06409f17a140e5c8cafcfd046608ba1cc5b570708c80771d65",
+    "hybrid_ltr_dev.py": "c10dc93bf8c86b45835afd83c6ab10e30a1060f4831800e365c5f4114bd439ae",
+    "improve_hybrid.py": "8275e520565cd17150c502bba83afb75d2c6584f56be8414e926d08c2e6e9285",
+    "learning.py": "4762c8d4e6def6c0537a6878a9fdc7d399125228c21cc253ab2ccad9a3934d60",
+    "model.py": "94439477f43a2f556861f9beebe3dad2543304d4d57e0b642cdbfcc58d86c6b0",
+    "past_code.py": "c30a5ad00cce1d5159d0740fb5ccccadd9fdfd4b029d49aa7a858a8faf63bc18",
+    "policy_evaluation.py": "abcb129df07e0b9e117b58701ed24832e3085ee1ac3a611f1055ca27a66dfb5a",
+    "ranking_evaluation.py": "db2be93ca8d587c6761f635848f1b898c5186542a881c2f4b3ad259524f14b6b",
+    "recommendation_scoring.py": "2fff8abe3cc419aedf06e91a64f94d1627197af73db8e1975305fab4e243629d",
+    "robust_hybrid.py": "226db3b5d20916ef8becae0fb392be87d8d362bc8a288a4d7f051bfc734f0966",
+    "rolling_protocol.py": "e05431c7c364e0f25451c99028fb94f72a224a084adf46645e18e87520fd4aab",
+    "stats_tools.py": "c126c27e9916bfb4bf669c676afa2fa6cc872a0b832db15b70929535530c8291",
+    "test_codex_audit.py": "4ad61dddc364a0b0965a5e7def418d35fbdbd177db128a36bbd17efa372bc6ad",
+    "test_compare_outputs.py": "c70a4e21fd61e8fbce994642ac188e581e33180f46f97f99fd02ee48e8d8b480",
+    "test_cycle10_guards.py": "5d2d04accd0dd077efdf1c7a0744a78d35863a4f1613da7993c468e37710bc60",
+    "test_cycle11_guards.py": "6b66d39de46a57b039ea888bbacb0452bc2994f3866992acd4c9273e929cb2c5",
+    "test_cycle12_guards.py": "75aeaadc30439a8ece25de8f896adaec02c636af50e6300e754c3450f0499289",
+    "test_cycle13_guards.py": "b331566c078aed6032dc8bccf0b4bed34dc901ff2a6505a9b160fdc39c70b5ee",
+    "test_cycle14_guards.py": "923b88a799e74db819e7e79f5dc3fc4579f2f7b7b5af835aa1f6a817defc7c90",
+    "test_cycle15_guards.py": "bc4428f42bd465f9a0e6f130e9654044a1922e4f106bf8d709afd414dfbf0c0f",
+    "test_cycle16_guards.py": "b35111f9da9c6e7171f9ce2432d8bd72b9a1b2a1be126767c857ee7c63dd7827",
+    "test_cycle17_guards.py": "866b14f8921d9e7b82cfaca276829dfce9abc820f108dd9fa3af0f5e14ffb6f2",
+    "test_cycle18_guards.py": "4dee62c91b162a932e334d0c79c62fe6ac57992189c9279e08ee76495ec12bf2",
+    "test_cycle19_guards.py": "943cad296ed1feae35e4680a8cedc1c361290c54bd3d7727f682140d5ae2c8e3",
+    "test_cycle20_guards.py": "56059b4ccc51b37e8e854eb0a1a4ef26222fe488f4cd14ba6b521007d189fb5d",
+    "test_cycle21_guards.py": "6baac1237aba01852c5c3097d365a597f2a62e3f182e77990c476d0a344dec84",
+    "test_cycle22_guards.py": "1cffa08a04b7acca0a463d0cf22fe7c51eca115b21c6f8fc2fbc544991814d16",
+    "test_cycle3_consistency.py": "2eb3d1c797355bf3ec38fb11324807c47ba6ec8ae8c20ba0455a0767da25dc32",
+    "test_cycle4_guards.py": "9ee50c6f877b54f3fd28b177a6145993e3f1ca253f29db03b9e5798df3edb157",
+    "test_cycle5_guards.py": "1d2f8441b7771e2498dbd2c63b3f0c578ed30522ff2cec495e3299395fcce51a",
+    "test_cycle7_guards.py": "29190d8b020f00be6da0b879ea8acacaa1cf9d6219e0970fa6f642a2ee8950c6",
+    "test_cycle8_guards.py": "2c9a4ebce1bc396d2edd25e5957ab6fc1e11a28322bcb7f3d0e0735cefc31726",
+    "test_cycle9_guards.py": "b7171a39d38196bb68949e59fa29f4c5582782189d8fc3173fb6b0410ed164ee",
+    "test_dataset_adapters.py": "a691b23bd08f6b1e9809b8da624b374b0225e1a6c86ca528e7c7b9446b14cd88",
+    "test_fast_fusion.py": "ca4e2ed05498fae6d326196fa90118b50f3d8f507a6288d4614f6a2baa8e81bd",
+    "test_hybrid_improvement.py": "e31c85fffa1f09ae2148bffb6057eb96dda815dc0e325d61664ea665b16c28ca",
+    "test_hybrid_ltr.py": "cb1ee4be56909d1aa85e076f248fb389d66e18ad782655158c6617110e1f61b6",
+    "test_policy_tuning_gap.py": "ecc83038c4065c33a17add5b715a470f6f6f1e1855176897d8b7212d4613216a",
+    "test_revision.py": "3435e4e444497bf9317236198ee1f7e5744b3fce0688184fffd14758198ffeab",
+    "test_robust_hybrid.py": "1b5d1b4ceef9c2e3021864e301078f255b44628758795060517b0da12ecef41d",
+    "test_stamp_code_check.py": "0820c28a7c713177aeab9252fa680675073984c0246ad2ee59d46f2a7d9fabb7",
+    "test_v6_protocol.py": "e21c89525d79c19c01ce0302190512de27aacb7bbd92463ce4716f560bcd4be7",
+    "test_v6_smoke.py": "9ccaec9b340954cdc891ef85b1e5175cece23316486b2c54df95b1c333be8ecc",
+    "test_v7_protocol.py": "6880a2f32dff445befc312bb73e703fe9d31445aa650ee225ab36a892360a79d",
+    "test_v8_protocol.py": "3e9f6212693114f09c334c3f840a0b703360ab45bf1757049afd6635687d4271",
+    "viz.py": "eb8569fade99b952056f19b4e9b6fa2c6ba943b0351a40911cccdab102458d82",
+    "audit_tools/leakage_check.py": "ece63c4b8ac634d9912d42b14170d99c2347894b90bd4ecc830d6205097c5f28"
+  }
+}

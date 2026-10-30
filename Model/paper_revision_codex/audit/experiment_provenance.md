@@ -155,7 +155,11 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | 가드 변이 H59·H84 (문자열 갱신 뒤 다시 실행) | `audit/v8protocol/guard_subset.py` | `audit/v8protocol/guard_H59_H84.txt` |
 | 커밋 후 재검증 b69b1f1·13e8bfe (새 worktree + lock venv) | `audit_runs/cycle23/postcommit.sh` | `audit/v8protocol/postcommit_b69b1f1_*.txt`, `postcommit_13e8bfe_*.txt` |
 | v8 원본: Taobao 1% (seed 42) | `dataset_adapters.taobao_to_raw` | `audit_runs/v8_raw/taobao_p1` (커밋 안 함. `adapter.json`에 원본 해시) |
-| v8 봉인 실행 (Taobao 1%, plan `6123504f…`, git 13e8bfe. 진행 중) | `rolling_protocol.py run --protocol v8` | `audit_runs/v8_taobao`. 첫 시도의 실패 기록 `audit/v8protocol/incident_run1/` |
+| v8 봉인 실행 (Taobao 1%, plan `6123504f…`, 시작 git 13e8bfe, 시험 열람 git 01f972c(코드 동일). 2026-10-30 완료) | `rolling_protocol.py run --protocol v8` | `audit_runs/v8_taobao`(커밋 안 함), 결과 `audit/results_v8/`. 중단 기록 `audit/v8protocol/incident_run1/`, `incident_run2/` |
+| v8 결과 묶음과 표 | `audit/v8protocol/package_results.py`, `summarize_results.py` | `audit/results_v8/SHA256SUMS.txt`, `audit/v8protocol/results_summary.md` |
+| v8 시험 지표 독립 재계산 (원본 `events.csv`에서) | `report_tools/recompute_test_metrics.py --root audit_runs/v8_taobao --fold TB1_full --raw audit_runs/v8_raw/taobao_p1` | `audit/v8protocol/recompute_test_metrics.json` |
+| v8 모델 파일 해시·Holm·단계 순서·history 특징 사용 확인 | `audit/v8protocol/verify_results.py audit/results_v8` | `audit/v8protocol/verify_results.txt` |
+| v8 실행 위치 확인 (실행 중, 별도 venv의 py-spy) | `py-spy dump --locals` | `audit/v8protocol/runtime/` |
 | 재정렬 학습 시간 측정 (임의 행렬, 실제 데이터 안 봄) | `audit/v8protocol/hgb_thread_benchmark.py` | 출력 저장 안 함 (한 스레드 49.6초, `validation_report.md` §34) |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).

@@ -1,0 +1,17 @@
+{
+  "42": {
+    "mf": "TB1_full/runs/seed_42",
+    "gnn": "TB1_full/runs/gnn_seed_42",
+    "hybrid_gnn": "TB1_full/runs/gnn_seed_42"
+  },
+  "43": {
+    "mf": "TB1_full/runs/seed_43",
+    "gnn": "TB1_full/runs/gnn_seed_43",
+    "hybrid_gnn": "TB1_full/runs/gnn_seed_43"
+  },
+  "44": {
+    "mf": "TB1_full/runs/seed_44",
+    "gnn": "TB1_full/runs/gnn_seed_44",
+    "hybrid_gnn": "TB1_full/runs/gnn_seed_44"
+  }
+}

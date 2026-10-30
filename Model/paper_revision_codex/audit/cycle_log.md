@@ -777,3 +777,12 @@
 - 실행: `audit_runs/v8_taobao` 시작. 첫 시도는 GNN 작업의 일시적 `WinError 5`로 MF 선택 뒤 멈춤(I-151, 시험 열람 없음). 같은 코드로 launcher를 써서 재개.
 - 실행 시간(I-152): Hybrid grid 첫 블록이 6시간 17분(추정은 grid 전체 5–6시간). 계획 변경 없이 계속함.
 - 상세: `validation_report.md` §34.
+
+## v8 봉인 시험 결과 (2026-10-31 KST): Taobao 1%
+
+- 실행: 2026-10-30 16:10:57 UTC 완료. 시험 1회 열람(14:48:33 UTC). 두 번째 중단은 Windows Update 자동 재시작(I-153), 같은 plan·root로 재개(01f972c, 코드는 13e8bfe와 같음).
+- 정리: `audit/v8protocol/package_results.py`로 `audit/results_v8/`(50개 파일, SHA256SUMS), `summarize_results.py`로 `results_summary.md`.
+- 독립 확인: 원본에서 시험 지표 510행 재계산(최대 차이 1e-16), 모델 파일 해시 16/16, Holm 재계산, 단계 순서 (`recompute_test_metrics.json`, `verify_results.txt`).
+- 결과: repeat에서 재정렬 두 설계가 NDCG@50으로 baseline 7개 모두보다 Holm 뒤 유의하게 높음(ALS+BPR 대비 +0.0049, +0.0060). Recall@50은 ALS·ALS+BPR과 차이 없음. 결합만 하는 Hybrid는 ALS·ALS+BPR과 차이 없음. novel에서는 어느 Hybrid도 ALS·ALS+BPR보다 유의하게 높지 않음.
+- 기록: I-153(재시작 중단), I-154(학습 통계 필드 의미).
+- 상세: `validation_report.md` §35.
