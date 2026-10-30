@@ -1,0 +1,1 @@
+verify_results identical in fresh worktree (lock venv)
