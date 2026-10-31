@@ -56,7 +56,7 @@ RetailRocket은 열지 않은 시험 구간이 없으므로(`v7_feasibility.md` 
 4. 확인 표본: [300, 400) (1%) → [300, 500) (2%). 이유: 검정력. D2 novel에서 L3 − L2 차이의 표준오차가 약 0.00042(평가 사용자 6,246명)였고, 1% 표본은 평가 사용자가 약 절반이라 표준오차가 약 1.4배가 된다. [400, 500)은 지금까지 어떤 용도로도 변환하거나 열지 않았다.
 5. 확인 시험 설계: H에서 기준(위 2의 비율)을 넘으면 a02(LambdaRank, weighted 학습 구간, 음성 100개, `hybrid_v9.DESIGNS['a02']`)로 고정한다. 확인 시험은 `rolling_protocol.py --protocol v9`(fold `TB2_full`)로 ALS·BPR·ALS+BPR α·GNN을 v8 grid로 다시 고르고, 그래프 모듈의 GNN은 단독 GNN baseline으로 고른 것과 같은 모델을 쓴다. 순위 모델은 내부 validation 구간에서만 학습하고, 봉인(sha256) 뒤 시험을 한 번 연다. H에서 무너지면 확인 시험을 하지 않고 개발을 계속한다.
 
-## 6. 확인 시험 전 추가 (2026-11-01 07:00 KST, 확인 시험 실행 중, 시험 열람 전)
+## 6. 확인 시험 전 추가 (2026-11-01 06:43 KST, 확인 시험 실행 중, 시험 열람 전)
 
 1. 민감도 분석 "novel 튜닝 baseline"을 미리 정한다. 이유: protocol은 ALS·BPR·GNN의 학습 설정을 repeat validation으로 고르고(v6부터의 규칙), 사다리 순위 모델은 정책마다 그 정책의 라벨로 학습한다. §5에서 novel을 주 판단 정책으로 바꿨으므로 이 비대칭은 novel에서 baseline에 불리하다.
 2. 방법(`audit/v9protocol/novel_tuned_baselines.py`): protocol의 validation 기록만 다시 읽어 novel validation 점수로 ALS, BPR(설정과 epoch), GNN을 고르고(새 grid 없음, 같은 선택 점수와 동점 규칙), 그 fit으로 novel validation에서 ALS+BPR α를 고른다. 전체 학습 구간에서 protocol seed 3개로 다시 학습하고, 봉인된 사다리 순위 모델의 시험 목록(바꾸지 않음)과 비교한다. 시험 열람은 같은 plan·selection으로 접근 로그에 먼저 기록한다. 비교는 한 Holm family: Hybrid − ALS_n·BPR_n·ALS+BPR_n·GNN_n, Hybrid_MF_Graph − ALS+BPR_n, ALS+BPR_n − ALS_n·BPR_n·GNN_n (NDCG@50, Recall@50).
