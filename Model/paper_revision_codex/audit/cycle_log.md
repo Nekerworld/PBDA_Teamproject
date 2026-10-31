@@ -804,3 +804,8 @@
 - 설계 선택: D2 최소 단계가 가장 큰 a02(novel). `--variant a02`가 a02 특징 표를 오차 0으로 재현(`check_variant_a02_novel.json`). H 열람 1회 시작(`h_looks.csv`).
 - 계획 변경(02:30 KST, H 결과를 보기 전, 확인 표본 변환 전, `v9_dev_plan.md` §5): 주 판단 정책 repeat → novel(D2 안 CV 상한 0.0724 < 기준 0.0797), "유의미" 판정에 Holm 유의 조건 추가, CoVisit baseline 추가, 확인 표본 [300,400) → [300,500)(검정력). D2를 본 뒤의 변경이므로 보고에 함께 적고, repeat 결과도 그대로 보고.
 - 확인 시험 실행기: `rolling_protocol.py --protocol v9`(fold TB2_full, Hybrid 융합 grid 대신 사다리 순위 모델을 내부 validation에서 학습·봉인, 단계·ablation 검정 family), `test_v9_protocol.py` 9개(v6·v7·v8 plan 해시 유지, 끝까지 실행, 시험 구간을 섞어도 선택·모델 바이트 같음, 재개 시 재학습 없음, 바뀐 모델 거부).
+- H 열람 1회(a02h, D2에서 순위 모델·α 학습, H에서 평가, `ladder_a02h_h.json`, 2026-11-01 06:2x KST 끝):
+  - repeat: L2/L1 1.075, L3/L2 1.022 → 기준 미달(D2와 같은 양상).
+  - novel(평가 9,376명): ALS+BPR 0.00733, MF+그래프 0.00809, Hybrid 0.00923. L1/L0 1.114, L2/L1 1.104, L3/L2 1.141 → 비율 기준 통과. Hybrid − Hybrid_MF_Graph NDCG +0.00114(Holm 0.0024), Hybrid_MF_Graph − ALS+BPR NDCG +0.00076(Holm 0.045, Recall은 유의하지 않음).
+  - ablation: Hybrid − Hybrid_no_graph는 두 정책 모두 유의하지 않음(novel +0.00021, p 0.41). 최종 Hybrid 안에서 그래프 모듈을 빼도 차이가 없다는 뜻이므로, 그래프 모듈의 기여는 문맥 모듈이 없을 때(L2 단계)만 확인됨.
+  - 결정: §5 규칙대로 a02 설계를 고정하고(코드 b6f848e) 확인 시험을 한 번 실행.
