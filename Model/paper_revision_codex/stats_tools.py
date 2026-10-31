@@ -93,3 +93,10 @@ def compare_families(per_user, references, competitors, metrics=('ndcg', 'recall
     rows = [row for reference in references
             for row in compare_family(per_user, reference, competitors, metrics, alpha, samples)]
     return _apply_holm(rows, alpha)
+
+
+def compare_pairs(per_user, pairs, metrics=('ndcg', 'recall'), alpha=.05, samples=10000):
+    """(reference, competitor) pairs; all comparisons of all pairs form one Holm family."""
+    rows = [row for reference, model in pairs
+            for row in compare_family(per_user, reference, [model], metrics, alpha, samples)]
+    return _apply_holm(rows, alpha)

@@ -36,6 +36,21 @@ FEATURE_GROUPS = {
                 's_in_last', 's_events_last', 'uc_items', 'uc_carts', 'uc_item_share', 'uc_item_rank'],
 }
 SESSION_GAP_MS = 30 * 60_000
+# name -> modules the ranker pools and reads. L2 and L3 are the ladder of audit/v9_dev_plan.md; the rest are ablations.
+RANKERS = {'Hybrid_MF_Graph': ('mf', 'graph'), 'Hybrid': ('mf', 'graph', 'context'),
+           'LTR_MF': ('mf',), 'Hybrid_no_graph': ('mf', 'context'), 'Hybrid_no_mf': ('graph', 'context')}
+LADDER = {'L0': ('ALS', 'BPR', 'GNN'), 'L1': 'ALS+BPR', 'L2': 'Hybrid_MF_Graph', 'L3': 'Hybrid'}
+STEP = 1.10
+
+
+def ladder_summary(ndcg, baselines):
+    """The plan's criterion on NDCG@50: L1 > max(L0), L2 >= 1.1 L1, L3 >= 1.1 L2, L3 above every baseline."""
+    l0 = max(ndcg[m] for m in LADDER['L0'])
+    l1, l2, l3 = (ndcg[LADDER[s]] for s in ('L1', 'L2', 'L3'))
+    best = max(ndcg[m] for m in baselines)
+    return {'L0_max': l0, 'L1': l1, 'L2': l2, 'L3': l3, 'L1/L0': l1 / l0, 'L2/L1': l2 / l1, 'L3/L2': l3 / l2,
+            'min_step': min(l2 / l1, l3 / l2), 'best_baseline': best,
+            'pass': bool(l1 > l0 and l2 >= STEP * l1 and l3 >= STEP * l2 and l3 > best)}
 FEATURES = [f for m in MODULES for f in FEATURE_GROUPS[m]]
 POOL = dict(per_model=100, covisit=200, covisit2=50, conversion=100, history=100, popular=50, category=50)
 # development designs (audit/v9dev/attempts.csv): candidate pool and features left out of the rankers

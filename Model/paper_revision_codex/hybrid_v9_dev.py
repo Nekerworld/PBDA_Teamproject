@@ -104,10 +104,7 @@ def bases(root=ROOT):
 
 
 # ----------------------------------------------------------------------------- ladder
-# name -> modules the ranker pools and reads. L2 and L3 are the ladder of the plan; the rest are descriptive.
-RANKERS = {'Hybrid_MF_Graph': ('mf', 'graph'), 'Hybrid': ('mf', 'graph', 'context'),
-           'LTR_MF': ('mf',), 'Hybrid_no_graph': ('mf', 'context'), 'Hybrid_no_mf': ('graph', 'context')}
-LADDER = {'L1': 'ALS+BPR', 'L2': 'Hybrid_MF_Graph', 'L3': 'Hybrid'}
+RANKERS, LADDER = v9.RANKERS, v9.LADDER
 
 
 def load(policy, mf_dir, gnn_dir):
@@ -187,13 +184,7 @@ def ladder_policy(policy, train_window, eval_window, cache_dir, design, objectiv
 
 
 def ladder_summary(metrics):
-    ndcg = {m: v['ndcg'] for m, v in metrics.items()}
-    l0 = max(ndcg[m] for m in ('ALS', 'BPR', 'GNN'))
-    l1, l2, l3 = (ndcg[LADDER[s]] for s in ('L1', 'L2', 'L3'))
-    baselines = max(ndcg[m] for m in rp.BASELINES + ['CoVisit'])
-    return {'L0_max': l0, 'L1': l1, 'L2': l2, 'L3': l3, 'L1/L0': l1 / l0, 'L2/L1': l2 / l1, 'L3/L2': l3 / l2,
-            'min_step': min(l2 / l1, l3 / l2), 'best_baseline': baselines,
-            'pass': bool(l1 > l0 and l2 >= 1.1 * l1 and l3 >= 1.1 * l2 and l3 > baselines)}
+    return v9.ladder_summary({m: v['ndcg'] for m, v in metrics.items()}, rp.BASELINES + ['CoVisit'])
 
 
 def log_attempt(attempt, note, design, eval_window, result, root=ROOT):
