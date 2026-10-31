@@ -222,8 +222,51 @@ def sample_negatives(frame, y, negatives, seed=42):
     return (order.to_numpy() <= positives + negatives)
 
 
+GRADES = {1.: 1, 6.: 2, 12.: 3}  # view, add-to-cart, purchase (hybrid_ltr.weighted_labels weights)
+
+
+def grades(y, sample_weight=None):
+    """Relevance grades for the lambdarank objective: the event grade of a weighted label, else the binary label."""
+    if sample_weight is None:
+        return np.asarray(y, dtype=np.int32)
+    return np.where(np.asarray(y) == 1, pd.Series(sample_weight).map(GRADES).fillna(0).to_numpy(), 0).astype(np.int32)
+
+
+def fit(frame, y, columns, params, objective='binary', seed=42, sample_weight=None):
+    """``binary``: hybrid_ltr.fit (pointwise, sample-weighted). ``lambdarank``: LightGBM LambdaMART on per-user groups
+    with graded labels; users without a positive candidate are dropped as in hybrid_ltr.fit."""
+    if objective == 'binary':
+        return ltr.fit(frame, y, columns, params, seed, sample_weight)
+    import lightgbm as lgb
+    keep = frame.uid.isin(frame.uid[np.asarray(y) == 1].unique()).to_numpy()
+    part = frame.loc[keep]
+    uid = part.uid.to_numpy()
+    starts = np.r_[True, uid[1:] != uid[:-1]]
+    if starts.sum() != len(np.unique(uid)):
+        raise ValueError('Rows of a user must be contiguous')
+    groups = np.diff(np.r_[np.flatnonzero(starts), len(uid)])
+    model = lgb.LGBMRanker(objective='lambdarank', learning_rate=params['learning_rate'],
+                           n_estimators=params['max_iter'], num_leaves=params['max_leaf_nodes'], min_child_samples=50,
+                           reg_lambda=1., lambdarank_truncation_level=50, random_state=seed, deterministic=True,
+                           force_row_wise=True, n_jobs=16, verbose=-1)
+    label = grades(y, sample_weight)[keep]
+    model.fit(part[columns].to_numpy(dtype=np.float64), label, group=groups)
+    return model
+
+
+def rank(model, frame, columns, k=50):
+    """uid -> top-k catalog positions by ranker score (ties: lower catalog position)."""
+    x = frame[columns].to_numpy(dtype=np.float64)
+    score = model.predict_proba(x)[:, 1] if hasattr(model, 'predict_proba') else model.predict(x)
+    out = {}
+    for uid, rows in frame.assign(score=score).groupby('uid', sort=False):
+        idx, s = rows.idx.to_numpy(dtype=np.int64), rows.score.to_numpy()
+        out[int(uid)] = idx[np.lexsort((idx, -s))][:k]
+    return out
+
+
 def select_params(context, frame, y, columns, grid=ltr.PARAM_GRID, folds=5, seed=42, k=50, sample_weight=None,
-                  negatives=100):
+                  negatives=100, objective='binary'):
     """ltr.select_params with negatives sampled in the training folds only; held-out users keep their full pool."""
     users = np.array(sorted(frame.uid.unique()))
     rng = np.random.default_rng(seed)
@@ -235,10 +278,10 @@ def select_params(context, frame, y, columns, grid=ltr.PARAM_GRID, folds=5, seed
         values = []
         for f in range(folds):
             train, held = (fold_of != f) & sampled, fold_of == f
-            model = ltr.fit(frame.loc[train].reset_index(drop=True), y[train], columns, params, seed,
-                            None if sample_weight is None else np.asarray(sample_weight)[train])
+            model = fit(frame.loc[train].reset_index(drop=True), y[train], columns, params, objective, seed,
+                        None if sample_weight is None else np.asarray(sample_weight)[train])
             held_users = [u for u in users if assignment[u] == f]
-            values.append(ltr.ndcg_of(context, ltr.rank(model, frame.loc[held], columns, k), held_users, k))
+            values.append(ltr.ndcg_of(context, rank(model, frame.loc[held], columns, k), held_users, k))
         ndcg, recall = np.mean(values, axis=0)
         rows.append({**params, 'cv_ndcg': ndcg, 'cv_recall': recall, 'cv_score': (ndcg + recall) / 2})
     table = pd.DataFrame(rows)

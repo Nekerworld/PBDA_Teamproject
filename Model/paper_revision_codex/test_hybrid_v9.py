@@ -120,6 +120,26 @@ def test_negative_sampling_keeps_every_positive_and_caps_negatives_per_user():
     assert np.array_equal(mask, v9.sample_negatives(frame, y, 2, seed=3))
 
 
+def test_grades_follow_the_strongest_label_event():
+    y = np.array([1, 1, 1, 0, 0])
+    assert v9.grades(y, np.array([1., 6., 12., 1., 1.])).tolist() == [1, 2, 3, 0, 0]
+    assert v9.grades(y).tolist() == [1, 1, 1, 0, 0]
+
+
+def test_lambdarank_ranker_is_deterministic_and_lists_are_valid(prepared):
+    context, scores, signals, pool, (als, gnn) = setup(prepared, 'novel')
+    frame = v9.features(context, scores, signals, pool, als, gnn)
+    y = ltr.labels(context, frame)
+    params = dict(learning_rate=.1, max_iter=20, max_leaf_nodes=7)
+    first, second = (v9.rank(v9.fit(frame, y, v9.FEATURES, params, 'lambdarank'), frame, v9.FEATURES, 4)
+                     for _ in range(2))
+    assert {u: v.tolist() for u, v in first.items()} == {u: v.tolist() for u, v in second.items()}
+    context.metrics(first, 4)
+    shuffled = frame.sample(frac=1, random_state=0)
+    with pytest.raises(ValueError, match='contiguous'):
+        v9.fit(shuffled, y[shuffled.index.to_numpy()], v9.FEATURES, params, 'lambdarank')
+
+
 def test_covisit_ranking_respects_the_novel_exclusions(prepared):
     context, scores, signals, pool, _ = setup(prepared, 'novel')
     rankings = v9.covisit_ranking(context, signals, 4)
