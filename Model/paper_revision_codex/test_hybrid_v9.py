@@ -109,6 +109,17 @@ def test_category_share_is_the_users_history_weight_by_category(prepared):
     assert totals and all(t == pytest.approx(1.) for t in totals.values())
 
 
+def test_negative_sampling_keeps_every_positive_and_caps_negatives_per_user():
+    frame = pd.DataFrame({'uid': np.repeat([1, 2, 3], [10, 4, 6]), 'idx': np.arange(20)})
+    y = np.zeros(20, dtype=np.int8)
+    y[[0, 5, 11, 12]] = 1
+    mask = v9.sample_negatives(frame, y, 2, seed=3)
+    assert mask[y == 1].all()
+    kept_negatives = pd.Series(mask & (y == 0)).groupby(frame.uid).sum().to_dict()
+    assert kept_negatives == {1: 2, 2: 2, 3: 2}
+    assert np.array_equal(mask, v9.sample_negatives(frame, y, 2, seed=3))
+
+
 def test_covisit_ranking_respects_the_novel_exclusions(prepared):
     context, scores, signals, pool, _ = setup(prepared, 'novel')
     rankings = v9.covisit_ranking(context, signals, 4)

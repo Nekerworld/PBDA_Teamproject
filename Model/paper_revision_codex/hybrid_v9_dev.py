@@ -166,11 +166,13 @@ def ladder_policy(policy, train_window, eval_window, cache_dir, design):
         columns = v9.module_features(modules)
         train = f1.loc[keep1].reset_index(drop=True)
         weight = None if w1 is None else w1[keep1]
-        params, table = ltr.select_params(cv_context, train, y1[keep1], columns, sample_weight=weight)
-        model = ltr.fit(train, y1[keep1], columns, params, sample_weight=weight)
+        params, table, sampled = v9.select_params(cv_context, train, y1[keep1], columns, sample_weight=weight)
+        model = ltr.fit(train.loc[sampled].reset_index(drop=True), y1[keep1][sampled], columns, params,
+                        sample_weight=None if weight is None else weight[sampled])
         rankings[name] = ltr.rank(model, f2.loc[keep2], columns, k)
         record['ranker'][name] = {'modules': list(modules), 'params': params, 'cv': table.to_dict('records'),
-                                  'train_rows': int(keep1.sum()), 'seconds': time.perf_counter() - start}
+                                  'train_rows': int(keep1.sum()), 'train_rows_sampled': int(sampled.sum()),
+                                  'seconds': time.perf_counter() - start}
         print(policy, name, params, f'{time.perf_counter() - start:.0f}s', flush=True)
     per_user = {m: c2.details(r, k).set_index('visitorid') for m, r in rankings.items()}
     record['metrics'] = {m: {'ndcg': float(f.ndcg.mean()), 'recall': float(f.recall.mean()), 'users': len(f)}
@@ -204,13 +206,15 @@ def log_attempt(attempt, note, design, eval_window, result, root=ROOT):
     frame.to_csv(path, mode='a', header=not path.exists(), index=False)
 
 
-def ladder(attempt, note, design='weighted', train_window='d1', eval_window='d2', root=ROOT):
+def ladder(attempt, note, design='weighted', train_window='d1', eval_window='d2', root=ROOT, features_from=None):
+    """``features_from``: reuse the feature tables of an earlier attempt (only when the feature code is unchanged)."""
     if eval_window == 'h' and train_window != 'd2':
         raise ValueError('H is evaluated with rankers trained on d2')
-    cache_dir = root / 'attempts' / attempt
+    cache_dir = root / 'attempts' / (features_from or attempt)
     cache_dir.mkdir(parents=True, exist_ok=True)
     result = {'attempt': attempt, 'note': note, 'design': design, 'train_window': train_window,
-              'eval_window': eval_window, 'started_utc': pd.Timestamp.now(tz='UTC').isoformat(),
+              'eval_window': eval_window, 'feature_cache': str(cache_dir.relative_to(root)),
+              'started_utc': pd.Timestamp.now(tz='UTC').isoformat(),
               'pool': v9.POOL, 'features': v9.FEATURE_GROUPS, 'param_grid': ltr.PARAM_GRID, 'policies': {}}
     for policy in POLICIES:
         result['policies'][policy] = ladder_policy(policy, train_window, eval_window, cache_dir, design)
@@ -230,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--attempt')
     parser.add_argument('--note', default='')
     parser.add_argument('--design', choices=('weighted', 'policy_truth'), default='weighted')
+    parser.add_argument('--features-from')
     args = parser.parse_args()
     if args.command == 'prepare':
         print(json.dumps(prepare(), indent=2))
@@ -237,4 +242,4 @@ if __name__ == '__main__':
         fit_bases(args.window)
         print('done', args.window)
     else:
-        ladder(args.attempt, args.note, args.design)
+        ladder(args.attempt, args.note, args.design, features_from=args.features_from)

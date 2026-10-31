@@ -212,6 +212,40 @@ def module_features(modules):
     return [f for m in MODULES if m in modules for f in FEATURE_GROUPS[m]]
 
 
+def sample_negatives(frame, y, negatives, seed=42):
+    """Row mask: every positive row and at most ``negatives`` random negative rows per user (training rows only)."""
+    rng = np.random.default_rng(seed)
+    key = rng.random(len(frame))
+    key[np.asarray(y) == 1] = -1.
+    order = pd.DataFrame({'uid': frame.uid.to_numpy(), 'key': key}).groupby('uid').key.rank(method='first')
+    positives = pd.Series(np.asarray(y) == 1).groupby(frame.uid.to_numpy()).transform('sum').to_numpy()
+    return (order.to_numpy() <= positives + negatives)
+
+
+def select_params(context, frame, y, columns, grid=ltr.PARAM_GRID, folds=5, seed=42, k=50, sample_weight=None,
+                  negatives=100):
+    """ltr.select_params with negatives sampled in the training folds only; held-out users keep their full pool."""
+    users = np.array(sorted(frame.uid.unique()))
+    rng = np.random.default_rng(seed)
+    assignment = dict(zip(users, rng.permutation(len(users)) % folds))
+    fold_of = frame.uid.map(assignment).to_numpy()
+    sampled = sample_negatives(frame, y, negatives, seed)
+    rows = []
+    for params in grid:
+        values = []
+        for f in range(folds):
+            train, held = (fold_of != f) & sampled, fold_of == f
+            model = ltr.fit(frame.loc[train].reset_index(drop=True), y[train], columns, params, seed,
+                            None if sample_weight is None else np.asarray(sample_weight)[train])
+            held_users = [u for u in users if assignment[u] == f]
+            values.append(ltr.ndcg_of(context, ltr.rank(model, frame.loc[held], columns, k), held_users, k))
+        ndcg, recall = np.mean(values, axis=0)
+        rows.append({**params, 'cv_ndcg': ndcg, 'cv_recall': recall, 'cv_score': (ndcg + recall) / 2})
+    table = pd.DataFrame(rows)
+    best = table.sort_values('cv_score', ascending=False, kind='stable').iloc[0]
+    return {key: (int(best[key]) if key != 'learning_rate' else float(best[key])) for key in grid[0]}, table, sampled
+
+
 def covisit_ranking(context, signals, k=50):
     """Stand-alone co-visit recommender: the user's co-visit scores, top k (policy exclusions applied)."""
     out = {}
