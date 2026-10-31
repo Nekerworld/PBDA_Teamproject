@@ -4,8 +4,8 @@ Modules and what each one adds to the candidate pool and to the re-ranker featur
   mf       ALS and BPR: top items of each, scores, catalog ranks, similarity to the user's last items in ALS space.
   graph    LightGCN (GNN) and two item graphs built from the training events: a co-visit graph (two items are linked
            when one user touches both within an hour; cosine-normalised) and a directed conversion graph (a -> b when
-           touching a is followed by an add-to-cart or purchase of b within a day). Top items of each, scores, ranks,
-           similarity to the last items, graph weight from the last item.
+           touching a is followed by an add-to-cart or purchase of b within a day). Top items of each (and of two
+           co-visit steps), scores, ranks, similarity to the last items, graph weight from the last item.
   context  the user's own history (repeat policy only), recently popular items and popular items of the user's recent
            categories; history counts and recency, the last session, item popularity, trend and conversion rate, the
            user's affinity to the item's category and the item's place among the user's items of that category, user
@@ -29,7 +29,7 @@ HOUR_MS = 3_600_000
 MODULES = ('mf', 'graph', 'context')
 FEATURE_GROUPS = {
     'mf': ['als', 'bpr', 'als_rank', 'bpr_rank', 'sim_als_last'],
-    'graph': ['gnn', 'gnn_rank', 'sim_gnn_last', 'cv', 'cv_rank', 'cv_last', 'cg', 'cg_rank', 'cg_last'],
+    'graph': ['gnn', 'gnn_rank', 'sim_gnn_last', 'cv', 'cv_rank', 'cv_last', 'cg', 'cg_rank', 'cg_last', 'cv2'],
     'context': ['h_views', 'h_carts', 'h_purchases', 'h_weight', 'h_days', 'h_recent_pos', 'h_seen',
                 'i_pop', 'i_pop7', 'i_pos7', 'i_days_last', 'i_pop1', 'i_cvr', 'c_pop7',
                 'u_events', 'u_items', 'u_days_last', 'uc_share', 'uc_recent_pos', 'uc_last',
@@ -37,7 +37,7 @@ FEATURE_GROUPS = {
 }
 SESSION_GAP_MS = 30 * 60_000
 FEATURES = [f for m in MODULES for f in FEATURE_GROUPS[m]]
-POOL = dict(per_model=100, conversion=50, history=100, popular=50, category=50)
+POOL = dict(per_model=100, covisit=200, covisit2=50, conversion=100, history=100, popular=50, category=50)
 
 
 def event_pairs(context, window_ms, max_lag, half_life_days):
@@ -174,6 +174,12 @@ class Signals:
         weights = self.history.pairs.loc[uid].reindex(recent).weight.to_numpy()
         return self.graph.scores(recent, weights)
 
+    def covisit2(self, uid, width=100):
+        """Two steps on the co-visit graph: the ``width`` best one-step scores propagated once more."""
+        positions, values = self.covisit(uid)
+        keep = np.lexsort((positions, -values))[:width]
+        return self.graph.scores(positions[keep], values[keep])
+
     def conversion(self, uid):
         """Conversion-graph scores from the same seeds."""
         recent = self.history.recent.get(uid, np.empty(0, dtype=np.int64))[:self.seeds]
@@ -199,10 +205,12 @@ def candidates(context, scores, signals, pool=POOL):
         exclude = context.exclusion(uid)
         cv_pos, cv_val = signals.covisit(uid)
         cg_pos, cg_val = signals.conversion(uid)
+        c2_pos, c2_val = signals.covisit2(uid)
         parts = {'mf': [top_k(scores.als[uid], pool['per_model'], exclude),
                         top_k(scores.bpr[uid], pool['per_model'], exclude)],
                  'graph': [top_k(scores.gnn[uid], pool['per_model'], exclude),
-                           _top_sparse(cv_pos, cv_val, pool['per_model'], exclude),
+                           _top_sparse(cv_pos, cv_val, pool['covisit'], exclude),
+                           _top_sparse(c2_pos, c2_val, pool['covisit2'], exclude),
                            _top_sparse(cg_pos, cg_val, pool['conversion'], exclude)],
                  'context': [top_k(history.recent_popular, pool['popular'], exclude)]}
         if context.policy == 'repeat':
@@ -224,7 +232,7 @@ def features(context, scores, signals, pool, als_items, gnn_items):
     flags = {m: np.zeros(len(frame), dtype=bool) for m in MODULES}
     cv, cv_rank, cv_last, share, cat_pos, cat_last = (np.zeros(len(frame)) for _ in range(6))
     s_events, uc_items, uc_carts, uc_item_share, uc_item_rank = (np.zeros(len(frame)) for _ in range(5))
-    cg, cg_rank, cg_last = (np.zeros(len(frame)) for _ in range(3))
+    cg, cg_rank, cg_last, cv2 = (np.zeros(len(frame)) for _ in range(4))
     starts = np.r_[0, np.cumsum([len(union[u]) for u in union if len(union[u])])]
     users = [u for u in union if len(union[u])]
     if not np.array_equal(frame.uid.to_numpy(), np.repeat(users, np.diff(starts))):
@@ -244,6 +252,8 @@ def features(context, scores, signals, pool, als_items, gnn_items):
             rank_out[rows] = np.log1p(rank.reindex(idx).fillna(len(context.ids)).to_numpy())
             if len(recent):
                 last_out[rows] = graph.matrix[recent[0]].toarray().ravel()[idx]
+        c2_pos, c2_val = signals.covisit2(uid)
+        cv2[rows] = pd.Series(c2_val, index=c2_pos).reindex(idx).fillna(0.).to_numpy()
         cats = signals.cat_index[idx]
         share[rows] = [signals.user_cat_share.get((uid, c), 0.) for c in cats]
         order_c = {c: i for i, c in enumerate(signals.user_categories(uid))}
@@ -266,6 +276,7 @@ def features(context, scores, signals, pool, als_items, gnn_items):
         frame[f'in_{m}'] = flags[m]
     frame['cv'], frame['cv_rank'], frame['cv_last'] = cv, cv_rank, cv_last
     frame['cg'], frame['cg_rank'], frame['cg_last'] = cg, cg_rank, cg_last
+    frame['cv2'] = cv2
     frame['uc_share'], frame['uc_recent_pos'], frame['uc_last'] = share, cat_pos, cat_last.astype(np.float64)
     for column in signals.item_extra.columns:
         frame[column] = signals.item_extra[column].to_numpy()[frame.idx.to_numpy()]
@@ -328,7 +339,7 @@ def fit(frame, y, columns, params, objective='binary', seed=42, sample_weight=No
 def rank(model, frame, columns, k=50):
     """uid -> top-k catalog positions by ranker score (ties: lower catalog position)."""
     x = frame[columns].to_numpy(dtype=np.float64)
-    score = model.predict_proba(x)[:, 1] if hasattr(model, 'predict_proba') else model.predict(x)
+    score = model.predict_proba(x)[:, 1] if hasattr(model, 'predict_proba') else model.booster_.predict(x)
     out = {}
     for uid, rows in frame.assign(score=score).groupby('uid', sort=False):
         idx, s = rows.idx.to_numpy(dtype=np.int64), rows.score.to_numpy()

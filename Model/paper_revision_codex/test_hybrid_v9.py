@@ -15,7 +15,7 @@ from policy_evaluation import EvaluationContext, FactorScores
 from test_hybrid_ltr import Sealed
 from test_v6_smoke import make_raw
 
-SMALL = dict(per_model=5, conversion=3, history=5, popular=3, category=3)
+SMALL = dict(per_model=5, covisit=5, covisit2=3, conversion=3, history=5, popular=3, category=3)
 
 
 @pytest.fixture(scope='module')
@@ -92,6 +92,25 @@ def test_conversion_graph_counts_positive_events_that_follow_a_touch(prepared):
     assert m[a, b] == pytest.approx(decay(end - 40) / (out_a + 5.))
     assert m[a, c] == 0 and m[b, a] == 0 and m[c, a] == 0
     assert m[b, c] == 0  # c is only viewed after b
+
+
+def test_two_step_covisit_scores_match_the_dense_computation(prepared):
+    context, _, signals, _, _ = setup(prepared, 'repeat')
+    m = signals.graph.matrix.toarray()
+    for uid in context.active[:10]:
+        recent = signals.history.recent[uid][:signals.seeds]
+        seed = np.zeros(len(m))
+        seed[recent] = signals.history.pairs.loc[uid].reindex(recent).weight.to_numpy()
+        one = seed @ m
+        positions = np.flatnonzero(one)
+        keep = positions[np.lexsort((positions, -one[positions]))][:3]
+        two = np.zeros(len(m))
+        two[keep] = one[keep]
+        expected = two @ m
+        got_pos, got_val = signals.covisit2(uid, width=3)
+        got = np.zeros(len(m))
+        got[got_pos] = got_val
+        assert np.allclose(got, expected)
 
 
 @pytest.mark.parametrize('policy', ['repeat', 'novel'])
