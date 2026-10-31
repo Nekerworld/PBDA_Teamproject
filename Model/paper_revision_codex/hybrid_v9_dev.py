@@ -117,16 +117,17 @@ def load(policy, mf_dir, gnn_dir):
     return context, scores, ltr.item_tables(context, mf_dir, gnn_dir)
 
 
-def feature_table(context, scores, tables, cache):
+def feature_table(context, scores, tables, cache, pool=v9.POOL):
     if cache.exists():
         return pd.read_pickle(cache)
     signals = v9.Signals(context)
-    frame = v9.features(context, scores, signals, v9.candidates(context, scores, signals), *tables)
+    frame = v9.features(context, scores, signals, v9.candidates(context, scores, signals, pool), *tables)
     frame.to_pickle(cache)
     return frame
 
 
-def ladder_policy(policy, train_window, eval_window, cache_dir, design, objective='binary'):
+def ladder_policy(policy, train_window, eval_window, cache_dir, design, objective='binary', variant='a03'):
+    pool, drop = v9.DESIGNS[variant]['pool'], v9.DESIGNS[variant]['drop']
     k = rp.PRIMARY_K
     (mf1, gnn1), (mf2, gnn2) = bases()[train_window], bases()[eval_window]
     c1, s1, t1 = load(policy, mf1, gnn1)
@@ -141,15 +142,15 @@ def ladder_policy(policy, train_window, eval_window, cache_dir, design, objectiv
     record['mf_alpha'] = alpha
     signals2 = v9.Signals(c2)
     rankings['CoVisit'] = v9.covisit_ranking(c2, signals2, k)
-    f2 = feature_table(c2, s2, t2, cache_dir / f'{eval_window}_{policy}.pkl')
+    f2 = feature_table(c2, s2, t2, cache_dir / f'{eval_window}_{policy}.pkl', pool)
     if design == 'weighted':
         window = ltr.TrainingWindow(mf1, policy)
         sw = FactorScores(window, *rp.load_factors(mf1, window), rp.load_gnn(gnn1, window))
-        f1 = feature_table(window, sw, t1, cache_dir / f'{train_window}_{policy}_window.pkl')
+        f1 = feature_table(window, sw, t1, cache_dir / f'{train_window}_{policy}_window.pkl', pool)
         y1, w1 = ltr.weighted_labels(window, f1)
         cv_context = window
     else:
-        f1 = feature_table(c1, s1, t1, cache_dir / f'{train_window}_{policy}.pkl')
+        f1 = feature_table(c1, s1, t1, cache_dir / f'{train_window}_{policy}.pkl', pool)
         y1, w1, cv_context = ltr.labels(c1, f1), None, c1
     record['pool'] = {}
     for name, frame, ctx in ((train_window, f1, cv_context), (eval_window, f2, c2)):
@@ -163,7 +164,7 @@ def ladder_policy(policy, train_window, eval_window, cache_dir, design, objectiv
     for name, modules in RANKERS.items():
         start = time.perf_counter()
         keep1, keep2 = v9.module_rows(f1, modules), v9.module_rows(f2, modules)
-        columns = v9.module_features(modules)
+        columns = v9.module_features(modules, drop)
         train = f1.loc[keep1].reset_index(drop=True)
         weight = None if w1 is None else w1[keep1]
         params, table, sampled = v9.select_params(cv_context, train, y1[keep1], columns, sample_weight=weight,
@@ -208,20 +209,29 @@ def log_attempt(attempt, note, design, eval_window, result, root=ROOT):
 
 
 def ladder(attempt, note, design='weighted', train_window='d1', eval_window='d2', root=ROOT, features_from=None,
-           objective='binary'):
+           objective='binary', variant='a03'):
     """``features_from``: reuse the feature tables of an earlier attempt (only when the feature code is unchanged)."""
     if eval_window == 'h' and train_window != 'd2':
         raise ValueError('H is evaluated with rankers trained on d2')
+    if eval_window == 'h':  # every look at the holdout is logged before its labels are read
+        looks = HERE / 'audit' / 'v9dev' / 'h_looks.csv'
+        pd.DataFrame([{'utc': pd.Timestamp.now(tz='UTC').isoformat(), 'attempt': attempt, 'note': note,
+                       'git': subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True,
+                                             cwd=HERE).stdout.strip()}]).to_csv(looks, mode='a', header=not looks.exists(),
+                                                                                 index=False)
     cache_dir = root / 'attempts' / (features_from or attempt)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    result = {'attempt': attempt, 'note': note, 'design': design, 'objective': objective, 'train_window': train_window,
+    result = {'attempt': attempt, 'note': note, 'design': design, 'objective': objective, 'variant': variant,
+              'train_window': train_window,
               'eval_window': eval_window, 'feature_cache': str(cache_dir.relative_to(root)),
               'started_utc': pd.Timestamp.now(tz='UTC').isoformat(),
               'git_at_start': subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True,
                                              cwd=HERE).stdout.strip(),
-              'pool': v9.POOL, 'features': v9.FEATURE_GROUPS, 'param_grid': ltr.PARAM_GRID, 'policies': {}}
+              'pool': v9.DESIGNS[variant]['pool'], 'dropped_features': v9.DESIGNS[variant]['drop'],
+              'features': v9.FEATURE_GROUPS, 'param_grid': ltr.PARAM_GRID, 'policies': {}}
     for policy in POLICIES:
-        result['policies'][policy] = ladder_policy(policy, train_window, eval_window, cache_dir, design, objective)
+        result['policies'][policy] = ladder_policy(policy, train_window, eval_window, cache_dir, design, objective,
+                                                   variant)
         print(policy, json.dumps(result['policies'][policy]['ladder'], indent=1), flush=True)
         print(pd.DataFrame(result['policies'][policy]['metrics']).T.round(4).to_string(), flush=True)
     result['finished_utc'] = pd.Timestamp.now(tz='UTC').isoformat()
@@ -240,6 +250,9 @@ if __name__ == '__main__':
     parser.add_argument('--design', choices=('weighted', 'policy_truth'), default='weighted')
     parser.add_argument('--features-from')
     parser.add_argument('--objective', choices=('binary', 'lambdarank'), default='binary')
+    parser.add_argument('--variant', choices=sorted(v9.DESIGNS), default='a03')
+    parser.add_argument('--eval-window', choices=('d2', 'h'), default='d2',
+                        help='h: the development holdout, with rankers and the alpha fit on d2 (logged look)')
     args = parser.parse_args()
     if args.command == 'prepare':
         print(json.dumps(prepare(), indent=2))
@@ -247,4 +260,5 @@ if __name__ == '__main__':
         fit_bases(args.window)
         print('done', args.window)
     else:
-        ladder(args.attempt, args.note, args.design, features_from=args.features_from, objective=args.objective)
+        ladder(args.attempt, args.note, args.design, 'd2' if args.eval_window == 'h' else 'd1', args.eval_window,
+               features_from=args.features_from, objective=args.objective, variant=args.variant)

@@ -38,6 +38,10 @@ FEATURE_GROUPS = {
 SESSION_GAP_MS = 30 * 60_000
 FEATURES = [f for m in MODULES for f in FEATURE_GROUPS[m]]
 POOL = dict(per_model=100, covisit=200, covisit2=50, conversion=100, history=100, popular=50, category=50)
+# development designs (audit/v9dev/attempts.csv): candidate pool and features left out of the rankers
+DESIGNS = {'a02': dict(pool=dict(per_model=100, covisit=100, covisit2=0, conversion=50, history=100, popular=50,
+                                 category=50), drop=('cv2',)),
+           'a03': dict(pool=POOL, drop=())}
 
 
 def event_pairs(context, window_ms, max_lag, half_life_days):
@@ -290,8 +294,8 @@ def module_rows(frame, modules):
     return frame[[f'in_{m}' for m in modules]].any(axis=1).to_numpy()
 
 
-def module_features(modules):
-    return [f for m in MODULES if m in modules for f in FEATURE_GROUPS[m]]
+def module_features(modules, drop=()):
+    return [f for m in MODULES if m in modules for f in FEATURE_GROUPS[m] if f not in drop]
 
 
 def sample_negatives(frame, y, negatives, seed=42):
