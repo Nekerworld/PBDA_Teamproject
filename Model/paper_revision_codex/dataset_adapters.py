@@ -40,16 +40,25 @@ def _sha256(path):
     return digest.hexdigest()
 
 
-def _keep_user(users, percent, seed):
-    """Seeded hash of the user id: the same users are kept whatever the file order."""
-    if percent is None:
+def _keep_user(users, percent, seed, band=None):
+    """Seeded hash of the user id: the same users are kept whatever the file order.
+
+    The hash falls in 0-9,999; ``percent`` keeps [0, percent * 100) and ``band=(low, high)`` keeps [low, high), so
+    samples taken with one seed and non-overlapping bands share no user."""
+    if band is not None:
+        if percent is not None or not 0 <= band[0] < band[1] <= 10_000:
+            raise ValueError('Give either percent or a band inside [0, 10000)')
+    elif percent is None:
         return np.ones(len(users), dtype=bool)
     with np.errstate(over='ignore'):  # SplitMix64; pandas' hash_array ignores its key for integer arrays
         x = np.asarray(users, dtype=np.int64).astype(np.uint64) + np.uint64(seed) * np.uint64(0x9E3779B97F4A7C15)
         x = (x ^ (x >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
         x = (x ^ (x >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
         x = x ^ (x >> np.uint64(31))
-    return (x % np.uint64(10_000)) < np.uint64(round(percent * 100))
+    bucket = x % np.uint64(10_000)
+    if band is not None:
+        return (bucket >= np.uint64(band[0])) & (bucket < np.uint64(band[1]))
+    return bucket < np.uint64(round(percent * 100))
 
 
 def _write(out, events, categories, info):
@@ -71,7 +80,7 @@ def _write(out, events, categories, info):
     return info
 
 
-def taobao_to_raw(source, out, user_percent=None, seed=42, chunksize=5_000_000):
+def taobao_to_raw(source, out, user_percent=None, seed=42, chunksize=5_000_000, user_band=None):
     source = Path(source)
     kept, counts = [], {'rows': 0, 'fav_dropped': 0, 'outside_period': 0, 'unknown_behaviour': 0, 'users_not_sampled': 0}
     categories = []
@@ -88,7 +97,7 @@ def taobao_to_raw(source, out, user_percent=None, seed=42, chunksize=5_000_000):
         known = chunk.behaviour.isin(TAOBAO_EVENTS)
         counts['unknown_behaviour'] += int((~known).sum())
         chunk = chunk.loc[known]
-        sampled = _keep_user(chunk.user.to_numpy(), user_percent, seed)
+        sampled = _keep_user(chunk.user.to_numpy(), user_percent, seed, user_band)
         counts['users_not_sampled'] += int((~sampled).sum())
         chunk = chunk.loc[sampled]
         categories.append(chunk[['item', 'category']].drop_duplicates())
@@ -102,6 +111,7 @@ def taobao_to_raw(source, out, user_percent=None, seed=42, chunksize=5_000_000):
     return _write(out, events, categories, {
         'source': 'taobao_user_behavior', 'files': {source.name: _sha256(source)}, 'mapping': TAOBAO_EVENTS,
         'period_seconds_utc8': TAOBAO_PERIOD, 'user_percent': user_percent, 'seed': seed,
+        **({'user_band': list(user_band)} if user_band is not None else {}),
         'items_with_more_than_one_category': conflicting, 'dropped': counts})
 
 

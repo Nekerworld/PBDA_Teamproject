@@ -76,6 +76,20 @@ def test_taobao_user_sample_is_fixed_by_the_user_id_not_the_file_order(tmp_path)
     assert set(pd.read_csv(tmp_path / 'c' / 'events.csv').visitorid) != a
 
 
+def test_taobao_user_bands_of_one_seed_are_disjoint_and_percent_is_the_first_band(tmp_path):
+    source = taobao_file(tmp_path / 'UserBehavior.csv', users=400)
+    users = lambda d: set(pd.read_csv(tmp_path / d / 'events.csv').visitorid)
+    da.taobao_to_raw(source, tmp_path / 'p', user_percent=20, seed=42)
+    for name, band in (('b0', (0, 2000)), ('b1', (2000, 6000)), ('b2', (6000, 10000))):
+        da.taobao_to_raw(source, tmp_path / name, seed=42, user_band=band)
+    assert users('p') == users('b0')
+    assert not users('b0') & users('b1') and not users('b1') & users('b2') and not users('b0') & users('b2')
+    assert users('b0') | users('b1') | users('b2') == set(pd.read_csv(source, header=None)[0])
+    assert json.loads((tmp_path / 'b1' / 'adapter.json').read_text(encoding='utf-8'))['user_band'] == [2000, 6000]
+    with pytest.raises(ValueError):
+        da.taobao_to_raw(source, tmp_path / 'x', user_percent=20, user_band=(0, 10))
+
+
 def test_diginetica_times_users_and_purchases(tmp_path):
     source = diginetica_dir(tmp_path / 'dg')
     da.diginetica_to_raw(source, tmp_path / 'raw')
