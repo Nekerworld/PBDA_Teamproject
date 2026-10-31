@@ -202,8 +202,7 @@ def log_attempt(attempt, note, design, eval_window, result, root=ROOT):
     for policy, record in result['policies'].items():
         rows.append({'attempt': attempt, 'utc': result['finished_utc'], 'window': eval_window, 'design': design,
                      'policy': policy, **{k: v for k, v in record['ladder'].items()},
-                     'git': subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True,
-                                           cwd=HERE).stdout.strip(), 'note': note})
+                     'git': result['git_at_start'], 'note': note})
     frame = pd.DataFrame(rows)
     frame.to_csv(path, mode='a', header=not path.exists(), index=False)
 
@@ -218,6 +217,8 @@ def ladder(attempt, note, design='weighted', train_window='d1', eval_window='d2'
     result = {'attempt': attempt, 'note': note, 'design': design, 'objective': objective, 'train_window': train_window,
               'eval_window': eval_window, 'feature_cache': str(cache_dir.relative_to(root)),
               'started_utc': pd.Timestamp.now(tz='UTC').isoformat(),
+              'git_at_start': subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True,
+                                             cwd=HERE).stdout.strip(),
               'pool': v9.POOL, 'features': v9.FEATURE_GROUPS, 'param_grid': ltr.PARAM_GRID, 'policies': {}}
     for policy in POLICIES:
         result['policies'][policy] = ladder_policy(policy, train_window, eval_window, cache_dir, design, objective)
