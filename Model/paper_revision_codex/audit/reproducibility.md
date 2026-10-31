@@ -37,6 +37,7 @@ uv pip install --python <venv>\Scripts\python.exe --index-strategy unsafe-best-m
 
 - 확인: 새 venv에 위 명령으로 설치한 뒤 `uv pip freeze` 결과가 v7 venv와 한 줄도 다르지 않음 (2026-10-21. Cycle 6에 다시 확인: 두 venv 36개 패키지 동일, lock 파일과는 패키지 36개가 같고 주석 6줄과 index URL 두 줄만 다름, `audit/cycle6/freeze_pbda_v7.txt`, `freeze_pbda_lockcheck.txt`).
 - uv는 기본적으로 첫 번째로 패키지를 찾은 index만 보므로, `--index-strategy unsafe-best-match`가 없으면 PyTorch index에서 `filelock` 버전을 못 찾아 실패함.
+- v9(`hybrid_v9.py`의 LambdaRank 순위 모델)는 LightGBM 4.6.0이 더 필요함. 두 venv에 `uv pip install --python <venv>\Scripts\python.exe --no-deps lightgbm==4.6.0`으로 넣었고(필요한 numpy·scipy는 이미 있음), 설치 전후 `uv pip freeze` 차이는 `lightgbm==4.6.0` 한 줄뿐이었음(2026-10-31). v6–v8 재현에는 필요 없음. LightGBM은 `n_jobs=16`, `deterministic=True`, `force_row_wise=True`로 고정해 같은 입력이면 같은 모델 바이트가 나옴(`test_hybrid_v9.py`, `test_v9_protocol.py`에서 확인). 스레드 수가 다르면 결과가 달라질 수 있음.
 
 ## 3. 처음부터 실행하는 방법
 
@@ -84,6 +85,12 @@ python report_tools/launch_detached.py --log audit_runs/v8_taobao_run.log -- pyt
 python audit/v8protocol/package_results.py audit_runs/v8_taobao audit_runs/repro/results_v8   # 비교: audit/results_v8 (CUDA GNN이라 끝자리·모델 파일 바이트는 다를 수 있음)
 python report_tools/recompute_test_metrics.py --root audit_runs/v8_taobao --fold TB1_full --raw audit_runs/v8_raw/taobao_p1 --output audit_runs/repro/v8_recompute.json
 python audit/v8protocol/verify_results.py audit/results_v8   # 비교: audit/v8protocol/verify_results.txt
+# 14) v9 개발 루프 (시험 아님. Taobao 해시 구간 [100,300). D1에서 순위 모델·α 학습, D2에서 점수. H는 개발 holdout으로 열람마다 audit/v9dev/h_looks.csv에 기록)
+python -c "import dataset_adapters as da, pathlib; da.taobao_to_raw(pathlib.Path('../../data/taobao/UserBehavior.csv'), pathlib.Path('audit_runs/v9dev/raw_b100_300').resolve(), seed=42, user_band=(100, 300))"
+python hybrid_v9_dev.py prepare
+python hybrid_v9_dev.py bases --window d1   # d2, h도 같은 방식 (GNN 640 epoch, v8 선택 설정)
+python hybrid_v9_dev.py ladder --attempt a02 --variant a02 --objective lambdarank --note "..."   # 비교: audit/v9dev/ladder_a02_d2.json (CUDA GNN이라 끝자리가 다를 수 있음)
+# 15) v9 봉인 확인 시험 (Taobao 해시 구간 [300,500), audit/v9_dev_plan.md §5. 명령과 결과는 실행 후 이 자리에 적음)
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.

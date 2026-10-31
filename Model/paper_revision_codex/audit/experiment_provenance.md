@@ -161,6 +161,13 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | v8 모델 파일 해시·Holm·단계 순서·history 특징 사용 확인 | `audit/v8protocol/verify_results.py audit/results_v8` | `audit/v8protocol/verify_results.txt` |
 | v8 실행 위치 확인 (실행 중, 별도 venv의 py-spy) | `py-spy dump --locals` | `audit/v8protocol/runtime/` |
 | 재정렬 학습 시간 측정 (임의 행렬, 실제 데이터 안 봄) | `audit/v8protocol/hgb_thread_benchmark.py` | 출력 저장 안 함 (한 스레드 49.6초, `validation_report.md` §34) |
+| v9 개발 계획과 변경 기록 (데이터를 보기 전 1112b8d, 변경 §5 cb7d7c4) | - | `audit/v9_dev_plan.md` |
+| v9 개발 원본: Taobao 해시 구간 [100,300) (seed 42) | `dataset_adapters.taobao_to_raw(user_band=(100, 300))` | `audit_runs/v9dev/raw_b100_300` (커밋 안 함. `adapter.json`에 원본 해시) |
+| v9 개발 구간 D1·D2·H와 기본 모델 (v8 선택 설정) | `hybrid_v9_dev.py prepare`, `bases --window d1/d2/h` | `audit_runs/v9dev/windows.json`, `mf_*`, `gnn_*` (커밋 안 함) |
+| v9 개발 사다리 시도 a01–a03 (D2) | `hybrid_v9_dev.py ladder` | `audit/v9dev/ladder_a0*_d2.json`, `attempts.csv` |
+| v9 개발 진단: 정답 위치, 후보 풀 상한, D2 안 CV 상한, a02 특징 재현 | `audit/v9dev/truth_location.py`, `pool_ceiling.py`, `in_window_cv.py`, `check_variant_a02.py` | `audit/v9dev/truth_location.json`, `pool_ceiling_a01_repeat.json`, `in_window_cv_a02_repeat.json`, `check_variant_a02_novel.json` |
+| v9 개발 holdout H 열람 (a02h, 열람마다 라벨을 읽기 전에 기록) | `hybrid_v9_dev.py ladder --eval-window h` | `audit/v9dev/h_looks.csv`, `ladder_a02h_h.json` |
+| v9 확인 시험 실행기와 테스트 | `rolling_protocol.py --protocol v9`, `test_v9_protocol.py` | 커밋 b6f848e. 커밋 후 검증 `audit/v9dev/postcommit_b6f848e_*` |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 
