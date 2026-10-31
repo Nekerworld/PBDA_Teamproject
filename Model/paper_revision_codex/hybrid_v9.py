@@ -1,13 +1,15 @@
-"""v9 Hybrid: MF module, graph module (LightGCN + item co-visit graph), behaviour/context module, learned re-ranker.
+"""v9 Hybrid: MF module, graph module (LightGCN + item graphs), behaviour/context module, learned re-ranker.
 
 Modules and what each one adds to the candidate pool and to the re-ranker features:
   mf       ALS and BPR: top items of each, scores, catalog ranks, similarity to the user's last items in ALS space.
-  graph    LightGCN (GNN) and an item co-visit graph built from the training events (two items are linked when one
-           user touches both within ``window_ms``; links weighted by behaviour and recency, cosine-normalised):
-           top items of each, scores, ranks, similarity to the last items, co-visit weight from the last item.
+  graph    LightGCN (GNN) and two item graphs built from the training events: a co-visit graph (two items are linked
+           when one user touches both within an hour; cosine-normalised) and a directed conversion graph (a -> b when
+           touching a is followed by an add-to-cart or purchase of b within a day). Top items of each, scores, ranks,
+           similarity to the last items, graph weight from the last item.
   context  the user's own history (repeat policy only), recently popular items and popular items of the user's recent
-           categories; history counts and recency, item popularity, trend and conversion rate, the user's affinity to
-           the item's category, user activity.
+           categories; history counts and recency, the last session, item popularity, trend and conversion rate, the
+           user's affinity to the item's category and the item's place among the user's items of that category, user
+           activity.
 The ladder of audit/v9_dev_plan.md drops whole modules: a ranker without a module neither pools its candidates nor
 reads its features.
 
@@ -27,51 +29,46 @@ HOUR_MS = 3_600_000
 MODULES = ('mf', 'graph', 'context')
 FEATURE_GROUPS = {
     'mf': ['als', 'bpr', 'als_rank', 'bpr_rank', 'sim_als_last'],
-    'graph': ['gnn', 'gnn_rank', 'sim_gnn_last', 'cv', 'cv_rank', 'cv_last'],
+    'graph': ['gnn', 'gnn_rank', 'sim_gnn_last', 'cv', 'cv_rank', 'cv_last', 'cg', 'cg_rank', 'cg_last'],
     'context': ['h_views', 'h_carts', 'h_purchases', 'h_weight', 'h_days', 'h_recent_pos', 'h_seen',
                 'i_pop', 'i_pop7', 'i_pos7', 'i_days_last', 'i_pop1', 'i_cvr', 'c_pop7',
-                'u_events', 'u_items', 'u_days_last', 'uc_share', 'uc_recent_pos', 'uc_last'],
+                'u_events', 'u_items', 'u_days_last', 'uc_share', 'uc_recent_pos', 'uc_last',
+                's_in_last', 's_events_last', 'uc_items', 'uc_carts', 'uc_item_share', 'uc_item_rank'],
 }
+SESSION_GAP_MS = 30 * 60_000
 FEATURES = [f for m in MODULES for f in FEATURE_GROUPS[m]]
-POOL = dict(per_model=100, history=100, popular=50, category=50)
+POOL = dict(per_model=100, conversion=50, history=100, popular=50, category=50)
 
 
-class CoVisitGraph:
-    """Item-item co-visit graph of the training events, in catalog positions.
+def event_pairs(context, window_ms, max_lag, half_life_days):
+    """Ordered pairs of one user's training events (earlier a, later b; different items) at most ``window_ms`` and
+    ``max_lag`` events apart: catalog positions of a and b, behaviour weights of a and b, and the recency decay of b."""
+    end = ltr.check_training_only(context)
+    train = context.train[['visitorid', 'itemid', 'event', 'timestamp']].sort_values(
+        ['visitorid', 'timestamp'], kind='stable')
+    idx = context.index.get_indexer(train.itemid)
+    if (idx < 0).any():
+        raise ValueError('Training item outside the catalog')
+    user = train.visitorid.to_numpy()
+    ts = train.timestamp.to_numpy(dtype=np.int64)
+    weight = train.event.map(BEHAVIOR_WEIGHTS).to_numpy(dtype=np.float64)
+    parts = []
+    for lag in range(1, max_lag + 1):
+        a, b = slice(0, len(idx) - lag), slice(lag, len(idx))
+        near = (user[a] == user[b]) & (ts[b] - ts[a] <= window_ms)
+        if not near.any():  # no pair this far apart, so none further apart either
+            break
+        keep = near & (idx[a] != idx[b])
+        parts.append((idx[a][keep], idx[b][keep], weight[a][keep], weight[b][keep],
+                      0.5 ** ((end - ts[b][keep]) / DAY_MS / half_life_days)))
+    if not parts:
+        return (np.empty(0, dtype=np.int64),) * 2 + (np.empty(0),) * 3
+    a, b, wa, wb, decay = (np.concatenate(x) for x in zip(*parts))
+    return a.astype(np.int64), b.astype(np.int64), wa, wb, decay
 
-    Each pair of events of one user at most ``window_ms`` apart (and at most ``max_lag`` events apart) links the two
-    items with weight mean(behaviour weights) * 0.5 ** (age of the later event / half-life). The matrix is symmetric,
-    has a zero diagonal and is normalised by sqrt(degree_i * degree_j)."""
 
-    def __init__(self, context, window_ms=HOUR_MS, max_lag=20, half_life_days=7.):
-        end = ltr.check_training_only(context)
-        train = context.train[['visitorid', 'itemid', 'event', 'timestamp']].sort_values(
-            ['visitorid', 'timestamp'], kind='stable')
-        idx = context.index.get_indexer(train.itemid)
-        if (idx < 0).any():
-            raise ValueError('Training item outside the catalog')
-        user = train.visitorid.to_numpy()
-        ts = train.timestamp.to_numpy(dtype=np.int64)
-        weight = train.event.map(BEHAVIOR_WEIGHTS).to_numpy(dtype=np.float64)
-        rows, cols, values = [], [], []
-        for lag in range(1, max_lag + 1):
-            a, b = slice(0, len(idx) - lag), slice(lag, len(idx))
-            keep = (user[a] == user[b]) & (ts[b] - ts[a] <= window_ms) & (idx[a] != idx[b])
-            if not keep.any():
-                break
-            decay = 0.5 ** ((end - ts[b][keep]) / DAY_MS / half_life_days)
-            rows.append(idx[a][keep])
-            cols.append(idx[b][keep])
-            values.append((weight[a][keep] + weight[b][keep]) / 2 * decay)
-        n = len(context.ids)
-        r, c, v = (np.concatenate(x) if x else np.empty(0) for x in (rows, cols, values))
-        matrix = sp.coo_matrix((np.r_[v, v], (np.r_[r, c].astype(np.int64), np.r_[c, r].astype(np.int64))),
-                               shape=(n, n)).tocsr()
-        matrix.sum_duplicates()
-        degree = np.asarray(matrix.sum(axis=1)).ravel()
-        scale = sp.diags(1 / np.sqrt(np.where(degree > 0, degree, 1)))
-        self.matrix = (scale @ matrix @ scale).tocsr()
-        self.end = end
+class ItemGraph:
+    matrix = None
 
     def scores(self, seeds, weights):
         """Sparse (positions, scores) of sum_s weight_s * row_s."""
@@ -83,12 +80,46 @@ class CoVisitGraph:
         return out.col.astype(np.int64), out.data
 
 
+class CoVisitGraph(ItemGraph):
+    """Item-item co-visit graph of the training events, in catalog positions.
+
+    Each pair of events of one user at most ``window_ms`` apart (and at most ``max_lag`` events apart) links the two
+    items with weight mean(behaviour weights) * 0.5 ** (age of the later event / half-life). The matrix is symmetric,
+    has a zero diagonal and is normalised by sqrt(degree_i * degree_j)."""
+
+    def __init__(self, context, window_ms=HOUR_MS, max_lag=20, half_life_days=7.):
+        r, c, wa, wb, decay = event_pairs(context, window_ms, max_lag, half_life_days)
+        v = (wa + wb) / 2 * decay
+        n = len(context.ids)
+        matrix = sp.coo_matrix((np.r_[v, v], (np.r_[r, c], np.r_[c, r])), shape=(n, n)).tocsr()
+        matrix.sum_duplicates()
+        degree = np.asarray(matrix.sum(axis=1)).ravel()
+        scale = sp.diags(1 / np.sqrt(np.where(degree > 0, degree, 1)))
+        self.matrix = (scale @ matrix @ scale).tocsr()
+
+
+class ConversionGraph(ItemGraph):
+    """Directed item graph: a -> b when one user touches a and then adds b to the cart or buys it within
+    ``window_ms`` (and ``max_lag`` events). Entry = decayed count of such pairs / (decayed count of all pairs leaving a
+    + ``prior``): how often touching a is followed by a positive event on b."""
+
+    def __init__(self, context, window_ms=24 * HOUR_MS, max_lag=50, half_life_days=7., prior=5.):
+        a, b, _, wb, decay = event_pairs(context, window_ms, max_lag, half_life_days)
+        n = len(context.ids)
+        positive = wb > BEHAVIOR_WEIGHTS['view']
+        counts = sp.coo_matrix((decay[positive], (a[positive], b[positive])), shape=(n, n)).tocsr()
+        counts.sum_duplicates()
+        out = np.bincount(a, weights=decay, minlength=n)
+        self.matrix = (sp.diags(1 / (out + prior)) @ counts).tocsr()
+
+
 class Signals:
     """Training-window signals of one context: History plus the co-visit graph, categories and conversion rates."""
 
     def __init__(self, context, history=None, graph=None, seeds=10, prior=20.):
         self.history = history or ltr.History(context)
         self.graph = graph or CoVisitGraph(context)
+        self.conversion_graph = ConversionGraph(context)
         end = self.history.end
         train = context.train[['visitorid', 'itemid', 'event', 'timestamp']].copy()
         train['idx'] = context.index.get_indexer(train.itemid)
@@ -115,6 +146,19 @@ class Signals:
         pairs['cat'] = cat_index[pairs.idx.to_numpy()]
         share = pairs.groupby(['visitorid', 'cat']).weight.sum()
         self.user_cat_share = (share / share.groupby(level=0).transform('sum')).to_dict()
+        by_cat = pairs.groupby(['visitorid', 'cat'])
+        self.user_cat = pd.DataFrame({'items': by_cat.size(), 'carts': by_cat.carts.sum() + by_cat.purchases.sum(),
+                                      'weight': by_cat.weight.sum()})
+        # within the user's category: the item's share of the category weight and its rank by weight (1 = top)
+        pairs['cat_share'] = pairs.weight / pairs.groupby(['visitorid', 'cat']).weight.transform('sum')
+        pairs['cat_rank'] = pairs.groupby(['visitorid', 'cat']).weight.rank(method='min', ascending=False)
+        self.pair_cat = pairs.set_index(['visitorid', 'idx'])[['cat_share', 'cat_rank']]
+        # events of the user's last session (gap of more than SESSION_GAP_MS between consecutive events)
+        ordered = train.sort_values(['visitorid', 'timestamp'], kind='stable')
+        gap = ordered.timestamp.diff().gt(SESSION_GAP_MS) | ordered.visitorid.ne(ordered.visitorid.shift())
+        ordered['session'] = gap.cumsum()
+        last = ordered.loc[ordered.session == ordered.groupby('visitorid').session.transform('max')]
+        self.last_session = last.groupby(['visitorid', 'idx']).size()
         self.seeds = seeds
 
     def user_categories(self, uid):
@@ -129,6 +173,14 @@ class Signals:
             return np.empty(0, dtype=np.int64), np.empty(0)
         weights = self.history.pairs.loc[uid].reindex(recent).weight.to_numpy()
         return self.graph.scores(recent, weights)
+
+    def conversion(self, uid):
+        """Conversion-graph scores from the same seeds."""
+        recent = self.history.recent.get(uid, np.empty(0, dtype=np.int64))[:self.seeds]
+        if not len(recent):
+            return np.empty(0, dtype=np.int64), np.empty(0)
+        weights = self.history.pairs.loc[uid].reindex(recent).weight.to_numpy()
+        return self.conversion_graph.scores(recent, weights)
 
 
 def _top_sparse(positions, values, n, exclude=None):
@@ -146,10 +198,12 @@ def candidates(context, scores, signals, pool=POOL):
     for uid in context.active:
         exclude = context.exclusion(uid)
         cv_pos, cv_val = signals.covisit(uid)
+        cg_pos, cg_val = signals.conversion(uid)
         parts = {'mf': [top_k(scores.als[uid], pool['per_model'], exclude),
                         top_k(scores.bpr[uid], pool['per_model'], exclude)],
                  'graph': [top_k(scores.gnn[uid], pool['per_model'], exclude),
-                           _top_sparse(cv_pos, cv_val, pool['per_model'], exclude)],
+                           _top_sparse(cv_pos, cv_val, pool['per_model'], exclude),
+                           _top_sparse(cg_pos, cg_val, pool['conversion'], exclude)],
                  'context': [top_k(history.recent_popular, pool['popular'], exclude)]}
         if context.policy == 'repeat':
             parts['context'].append(history.recent.get(uid, np.empty(0, dtype=np.int64))[:pool['history']])
@@ -169,6 +223,8 @@ def features(context, scores, signals, pool, als_items, gnn_items):
     frame = ltr.features(context, scores, signals.history, union, als_items, gnn_items)
     flags = {m: np.zeros(len(frame), dtype=bool) for m in MODULES}
     cv, cv_rank, cv_last, share, cat_pos, cat_last = (np.zeros(len(frame)) for _ in range(6))
+    s_events, uc_items, uc_carts, uc_item_share, uc_item_rank = (np.zeros(len(frame)) for _ in range(5))
+    cg, cg_rank, cg_last = (np.zeros(len(frame)) for _ in range(3))
     starts = np.r_[0, np.cumsum([len(union[u]) for u in union if len(union[u])])]
     users = [u for u in union if len(union[u])]
     if not np.array_equal(frame.uid.to_numpy(), np.repeat(users, np.diff(starts))):
@@ -178,23 +234,38 @@ def features(context, scores, signals, pool, als_items, gnn_items):
         idx = union[uid]
         for m in MODULES:
             flags[m][rows] = np.isin(idx, pool[uid][m])
-        positions, values = signals.covisit(uid)
-        lookup = pd.Series(values, index=positions)
-        cv[rows] = lookup.reindex(idx).fillna(0.).to_numpy()
-        order = np.lexsort((positions, -values))
-        rank = pd.Series(np.arange(1, len(order) + 1, dtype=np.float64), index=positions[order])
-        cv_rank[rows] = np.log1p(rank.reindex(idx).fillna(len(context.ids)).to_numpy())
         recent = signals.history.recent.get(uid, np.empty(0, dtype=np.int64))
-        if len(recent):
-            cv_last[rows] = signals.graph.matrix[recent[0]].toarray().ravel()[idx]
+        for (positions, values), graph, (score, rank_out, last_out) in (
+                (signals.covisit(uid), signals.graph, (cv, cv_rank, cv_last)),
+                (signals.conversion(uid), signals.conversion_graph, (cg, cg_rank, cg_last))):
+            score[rows] = pd.Series(values, index=positions).reindex(idx).fillna(0.).to_numpy()
+            order = np.lexsort((positions, -values))
+            rank = pd.Series(np.arange(1, len(order) + 1, dtype=np.float64), index=positions[order])
+            rank_out[rows] = np.log1p(rank.reindex(idx).fillna(len(context.ids)).to_numpy())
+            if len(recent):
+                last_out[rows] = graph.matrix[recent[0]].toarray().ravel()[idx]
         cats = signals.cat_index[idx]
         share[rows] = [signals.user_cat_share.get((uid, c), 0.) for c in cats]
         order_c = {c: i for i, c in enumerate(signals.user_categories(uid))}
         cat_pos[rows] = np.log1p([order_c.get(c, 1e4) for c in cats])
         cat_last[rows] = (cats == signals.cat_index[recent[0]]) if len(recent) else 0.
+        if len(recent):
+            s_events[rows] = signals.last_session.loc[uid].reindex(idx).fillna(0).to_numpy()
+            user_cat = signals.user_cat.loc[uid].reindex(cats)
+            uc_items[rows] = np.log1p(user_cat['items'].fillna(0).to_numpy())
+            uc_carts[rows] = np.log1p(user_cat.carts.fillna(0).to_numpy())
+            pair = signals.pair_cat.loc[uid].reindex(idx)
+            uc_item_share[rows] = pair.cat_share.fillna(0).to_numpy()
+            uc_item_rank[rows] = np.log1p(pair.cat_rank.fillna(1e4).to_numpy())
+        else:
+            uc_item_rank[rows] = np.log1p(1e4)
+    frame['s_in_last'], frame['s_events_last'] = (s_events > 0).astype(np.float64), np.log1p(s_events)
+    frame['uc_items'], frame['uc_carts'] = uc_items, uc_carts
+    frame['uc_item_share'], frame['uc_item_rank'] = uc_item_share, uc_item_rank
     for m in MODULES:
         frame[f'in_{m}'] = flags[m]
     frame['cv'], frame['cv_rank'], frame['cv_last'] = cv, cv_rank, cv_last
+    frame['cg'], frame['cg_rank'], frame['cg_last'] = cg, cg_rank, cg_last
     frame['uc_share'], frame['uc_recent_pos'], frame['uc_last'] = share, cat_pos, cat_last.astype(np.float64)
     for column in signals.item_extra.columns:
         frame[column] = signals.item_extra[column].to_numpy()[frame.idx.to_numpy()]

@@ -15,7 +15,7 @@ from policy_evaluation import EvaluationContext, FactorScores
 from test_hybrid_ltr import Sealed
 from test_v6_smoke import make_raw
 
-SMALL = dict(per_model=5, history=5, popular=3, category=3)
+SMALL = dict(per_model=5, conversion=3, history=5, popular=3, category=3)
 
 
 @pytest.fixture(scope='module')
@@ -75,6 +75,25 @@ def test_covisit_graph_links_items_touched_together_within_the_window(prepared):
     assert m[a, d] == pytest.approx(raw[(a, d)] / np.sqrt(degree[a] * degree[d]))
 
 
+def test_conversion_graph_counts_positive_events_that_follow_a_touch(prepared):
+    context = EvaluationContext(prepared, 'repeat')
+    end = 100 * v9.HOUR_MS
+    a, b, c = 0, 1, 2
+    context.train = pd.DataFrame({
+        'visitorid': [7, 7, 7, 8, 8, 9, 9], 'itemid': context.ids[[a, b, c, a, b, a, c]],
+        'event': ['view', 'addtocart', 'view', 'view', 'view', 'view', 'transaction'],
+        'timestamp': [end - 50, end - 40, end - 30, end - 20, end - 10, end - 30 * v9.HOUR_MS, end]})
+    context.manifest = {**context.manifest, 'cutoff_timestamp': end + 1}
+    graph = v9.ConversionGraph(context, prior=5.)
+    m = graph.matrix.toarray()
+    decay = lambda t: 0.5 ** ((end - t) / v9.DAY_MS / 7)
+    # pairs leaving a: (a,b) and (a,c) of user 7, (a,b) of user 8; user 9's purchase is more than a day later
+    out_a = decay(end - 40) + decay(end - 30) + decay(end - 10)
+    assert m[a, b] == pytest.approx(decay(end - 40) / (out_a + 5.))
+    assert m[a, c] == 0 and m[b, a] == 0 and m[c, a] == 0
+    assert m[b, c] == 0  # c is only viewed after b
+
+
 @pytest.mark.parametrize('policy', ['repeat', 'novel'])
 def test_module_pools_follow_the_policy_and_the_flags(prepared, policy):
     context, scores, signals, pool, (als, gnn) = setup(prepared, policy)
@@ -118,6 +137,37 @@ def test_negative_sampling_keeps_every_positive_and_caps_negatives_per_user():
     kept_negatives = pd.Series(mask & (y == 0)).groupby(frame.uid).sum().to_dict()
     assert kept_negatives == {1: 2, 2: 2, 3: 2}
     assert np.array_equal(mask, v9.sample_negatives(frame, y, 2, seed=3))
+
+
+@pytest.mark.parametrize('stretch', [1, 20_000])
+def test_session_and_category_features_recount_the_training_events(prepared, stretch):
+    context, scores, _, _, (als, gnn) = setup(prepared, 'repeat')
+    context.train = context.train.assign(timestamp=context.train.timestamp * stretch)  # many sessions when stretched
+    context.manifest = {**context.manifest, 'cutoff_timestamp': int(context.manifest['cutoff_timestamp']) * stretch}
+    signals = v9.Signals(context)
+    pool = v9.candidates(context, scores, signals, SMALL)
+    frame = v9.features(context, scores, signals, pool, als, gnn)
+    sessions = 0
+    train = context.train.assign(idx=context.index.get_indexer(context.train.itemid))
+    train['cat'] = signals.cat_index[train.idx]
+    checked = 0
+    for uid, rows in frame.groupby('uid'):
+        events = train.loc[train.visitorid == uid].sort_values('timestamp', kind='stable')
+        breaks = np.flatnonzero(np.diff(events.timestamp.to_numpy()) > v9.SESSION_GAP_MS)
+        last = events.iloc[breaks[-1] + 1:] if len(breaks) else events
+        sessions += len(breaks) + 1
+        expected = last.idx.value_counts().reindex(rows.idx).fillna(0).to_numpy()
+        assert np.allclose(rows.s_events_last, np.log1p(expected))
+        weight = signals.history.pairs.loc[uid].weight
+        for _, row in rows.loc[rows.h_seen == 1].iterrows():
+            cat = signals.cat_index[int(row.idx)]
+            same = weight[[i for i in weight.index if signals.cat_index[i] == cat]]
+            assert row.uc_item_share == pytest.approx(weight[int(row.idx)] / same.sum())
+            assert row.uc_items == pytest.approx(np.log1p(len(same)))
+            checked += 1
+        assert (rows.loc[rows.h_seen == 0].uc_item_share == 0).all()
+    assert checked
+    assert (sessions > frame.uid.nunique()) == (stretch > 1)
 
 
 def test_grades_follow_the_strongest_label_event():
