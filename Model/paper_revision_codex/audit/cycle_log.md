@@ -787,3 +787,20 @@
 - 기록: I-153(재시작 중단), I-154(학습 통계 필드 의미).
 - 커밋 후 검증(ea9b9a3): 테스트·v6·v7 해시 통과, `results_v8`의 모델 파일 16개가 `.gitignore`의 `*.pkl`에 걸려 빠짐(I-155) → 예외 추가 후 커밋, 다시 확인.
 - 상세: `validation_report.md` §35.
+
+## v9 개발 루프 (2026-10-31 KST): Taobao 개발 표본, 모듈 사다리
+
+- 요청: ablation에서 하위 모듈이 가장 낮고, 위로 갈수록 높고, Hybrid가 가장 높게. 각 단계는 바로 아래보다 NDCG@50 10% 이상, 그 폭을 최대화.
+- 계획(1112b8d, 데이터를 보기 전): `audit/v9_dev_plan.md`. 사다리 L0 ALS·BPR·GNN, L1 ALS+BPR, L2 MF+그래프 Hybrid, L3 최종 Hybrid. 하위 모듈은 v8 선택 설정 그대로.
+- 데이터: seed 42 해시 구간 [100,300) (19,783명, 194만 이벤트), v8 사용자와 겹침 0. D2는 전체 전처리의 내부 validation과 같음(검사). D1 라벨 11/29–11/30, D2 11/30–12/02, H 12/02–12/03.
+- 구현: `hybrid_v9.py`(그래프 모듈 = LightGCN + 함께 본 상품 그래프 + 전환 그래프, 문맥 모듈 = 이력·세션·카테고리·전환율), `hybrid_v9_dev.py`(사다리, 시도 기록), `test_hybrid_v9.py` 16개(라벨 봉인, 미래 이벤트 거부, 그래프 손계산, 모듈 제거, 특징 재계산). LightGBM 4.6.0을 `--no-deps`로 두 venv에 추가(다른 패키지 변화 없음).
+- 시도(D2, `audit/v9dev/attempts.csv`):
+  - a01 HGB: repeat L2/L1 1.080, L3/L2 1.045. novel 1.199, 1.125(L3−L2 Holm p 0.092).
+  - a02 + 전환 그래프·세션·카테고리 특징, LambdaRank: repeat 1.076, 1.037. novel 1.169, 1.224(모든 단계 Holm 유의).
+  - a03 + 넓은 그래프 후보·2-hop: repeat 1.075, 1.035. novel 1.254, 1.128.
+- 진단: repeat는 D2 라벨로 D2 안에서 학습해도 0.0724(`in_window_cv_a02_repeat.json`), 특징 하나(`h_weight`)로 0.0658 = ALS+BPR. 지금 정보로는 repeat 10%+10%는 어렵다고 판단. 후보 풀 완전 정렬 상한 0.180(`pool_ceiling_a01_repeat.json`).
+- 중단: D1 기본 모델 첫 시도 GNN 복사 중 `WinError 5`(I-151과 같은 종류, 재실행으로 해결). 22:48 KST 시작 메뉴 전원 끄기(이벤트 1074)로 a03과 H 기본 모델이 종료 → 같은 명령으로 재실행.
+- 기록 정정: 시도 기록의 git 해시가 실행 끝의 HEAD였음 → 시작 시점으로 고치고 a01·a02 행 정정(노트에 표시).
+- 설계 선택: D2 최소 단계가 가장 큰 a02(novel). `--variant a02`가 a02 특징 표를 오차 0으로 재현(`check_variant_a02_novel.json`). H 열람 1회 시작(`h_looks.csv`).
+- 계획 변경(02:30 KST, H 결과를 보기 전, 확인 표본 변환 전, `v9_dev_plan.md` §5): 주 판단 정책 repeat → novel(D2 안 CV 상한 0.0724 < 기준 0.0797), "유의미" 판정에 Holm 유의 조건 추가, CoVisit baseline 추가, 확인 표본 [300,400) → [300,500)(검정력). D2를 본 뒤의 변경이므로 보고에 함께 적고, repeat 결과도 그대로 보고.
+- 확인 시험 실행기: `rolling_protocol.py --protocol v9`(fold TB2_full, Hybrid 융합 grid 대신 사다리 순위 모델을 내부 validation에서 학습·봉인, 단계·ablation 검정 family), `test_v9_protocol.py` 9개(v6·v7·v8 plan 해시 유지, 끝까지 실행, 시험 구간을 섞어도 선택·모델 바이트 같음, 재개 시 재학습 없음, 바뀐 모델 거부).
