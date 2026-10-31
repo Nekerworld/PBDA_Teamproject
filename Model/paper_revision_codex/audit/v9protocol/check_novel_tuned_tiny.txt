@@ -1,0 +1,98 @@
+{"utc": "2026-10-31T21:43:05.694180+00:00", "stage": "run_started", "git": "test", "native_threads": [["openblas", 1], ["openblas", 16], ["openmp", 1]]}
+{"utc": "2026-10-31T21:43:06.117190+00:00", "stage": "prepared", "fold": "TB2_full"}
+C:\Users\chris\venvs\pbda_v7\Lib\site-packages\implicit\cpu\als.py:96: RuntimeWarning: OpenBLAS is configured to use 16 threads. It is highly recommended to disable its internal threadpool by setting the environment variable 'OPENBLAS_NUM_THREADS=1' or by calling 'threadpoolctl.threadpool_limits(1, "blas")'. Having OpenBLAS use a threadpool can lead to severe performance issues here.
+  check_blas_config()
+partition                                  check  pass  manifest  recomputed  max_train  min_test  expected  actual  saved  max_property_timestamp  items  available_items  catalog  max_val_label  outer_cutoff  edges  train_pairs  non_train_edges  future_only_pairs_in_graph
+    outer   cutoff_matches_independent_recompute  True  752622.0    752622.0        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer           train_strictly_before_cutoff  True       NaN         NaN   752532.0       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer       test_original_at_or_after_cutoff  True       NaN         NaN        NaN  752622.0       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer train_equals_independent_core_fixpoint  True       NaN         NaN        NaN       NaN    6750.0  6750.0    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer                   core_thresholds_hold  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer      evaluation_users_match_definition  True       NaN         NaN        NaN       NaN      60.0     NaN   60.0                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer        truth_equals_raw_test_positives  True       NaN         NaN        NaN       NaN     872.0     NaN  872.0                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer            no_test_event_in_train_file  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer      properties_strictly_before_cutoff  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     1.0    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer  available_is_last_value_before_cutoff  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN   30.0             15.0      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer             catalog_equals_train_items  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN     30.0            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner   cutoff_matches_independent_recompute  True  597748.0    597748.0        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner           train_strictly_before_cutoff  True       NaN         NaN   597683.0       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner       test_original_at_or_after_cutoff  True       NaN         NaN        NaN  597748.0       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner   validation_window_inside_outer_train  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN       752532.0      752622.0    NaN          NaN              NaN                         NaN
+    inner train_equals_independent_core_fixpoint  True       NaN         NaN        NaN       NaN    5400.0  5400.0    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner                   core_thresholds_hold  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner      evaluation_users_match_definition  True       NaN         NaN        NaN       NaN      60.0     NaN   60.0                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner        truth_equals_raw_test_positives  True       NaN         NaN        NaN       NaN     565.0     NaN  565.0                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner            no_test_event_in_train_file  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner      properties_strictly_before_cutoff  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     1.0    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner  available_is_last_value_before_cutoff  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN   25.0             13.0      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner             catalog_equals_train_items  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN     25.0            NaN           NaN    NaN          NaN              NaN                         NaN
+    inner validation_labels_never_in_inner_train  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         NaN
+    outer            gnn_edges_equal_train_pairs  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN 1628.0       1628.0              0.0                         NaN
+    outer       no_future_only_pair_in_gnn_graph  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         0.0
+    inner            gnn_edges_equal_train_pairs  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN 1354.0       1354.0              0.0                         NaN
+    inner       no_future_only_pair_in_gnn_graph  True       NaN         NaN        NaN       NaN       NaN     NaN    NaN                     NaN    NaN              NaN      NaN            NaN           NaN    NaN          NaN              NaN                         0.0
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 1093.03it/s]
+ALS {'factors': 4, 'regularization': 0.02, 'alpha': 2.0, 'iterations': 3} {'ndcg': 0.369730190043913, 'recall': 0.6317195767195768, 'precision': 0.07266666666666664, 'hit_rate': 1.0, 'hit_users': 60, 'users': 60}
+Weighted BPR epoch 1/2: 0.695881
+BPR {'factors': 4, 'learning_rate': 0.01, 'regularization': 0.03} 1 {'ndcg': 0.35790526222867475, 'recall': 0.6317195767195768, 'precision': 0.07266666666666664, 'hit_rate': 1.0, 'hit_users': 60, 'users': 60}
+BPR {'factors': 4, 'learning_rate': 0.01, 'regularization': 0.03} 2 {'ndcg': 0.3431722004066179, 'recall': 0.6317195767195768, 'precision': 0.07266666666666664, 'hit_rate': 1.0, 'hit_users': 60, 'users': 60}
+{"utc": "2026-10-31T21:43:16.540681+00:00", "stage": "gnn_job_done", "job": "TB2_full/gnn_val/gnn_layers1_embedding_dim8_learning_rate0p01"}
+{"utc": "2026-10-31T21:43:16.542686+00:00", "stage": "gnn_job_done", "job": "TB2_full/gnn_val/gnn_layers2_embedding_dim8_learning_rate0p01"}
+{"utc": "2026-10-31T21:43:16.548651+00:00", "stage": "mf_selected", "fold": "TB2_full", "als": {"factors": 4, "regularization": 0.02, "alpha": 2.0, "iterations": 3}, "bpr": {"factors": 4, "learning_rate": 0.01, "regularization": 0.03}, "bpr_epochs": 1}
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695881
+repeat Hybrid_MF_Graph {'learning_rate': 0.1, 'max_iter': 10, 'max_leaf_nodes': 4} 0s
+repeat Hybrid {'learning_rate': 0.1, 'max_iter': 10, 'max_leaf_nodes': 4} 0s
+repeat LTR_MF {'learning_rate': 0.1, 'max_iter': 10, 'max_leaf_nodes': 4} 0s
+repeat Hybrid_no_graph {'learning_rate': 0.1, 'max_iter': 5, 'max_leaf_nodes': 4} 0s
+repeat Hybrid_no_mf {'learning_rate': 0.1, 'max_iter': 10, 'max_leaf_nodes': 4} 1s
+novel Hybrid_MF_Graph {'learning_rate': 0.1, 'max_iter': 5, 'max_leaf_nodes': 4} 0s
+novel Hybrid {'learning_rate': 0.1, 'max_iter': 5, 'max_leaf_nodes': 4} 0s
+novel LTR_MF {'learning_rate': 0.1, 'max_iter': 5, 'max_leaf_nodes': 4} 0s
+novel Hybrid_no_graph {'learning_rate': 0.1, 'max_iter': 5, 'max_leaf_nodes': 4} 0s
+novel Hybrid_no_mf {'learning_rate': 0.1, 'max_iter': 5, 'max_leaf_nodes': 4} 0s
+{"utc": "2026-10-31T21:43:20.981750+00:00", "stage": "ladder_trained", "fold": "TB2_full"}
+{"utc": "2026-10-31T21:43:20.992919+00:00", "stage": "selection_sealed", "fold": "TB2_full", "selection": "69d42aa8fa383793247bd2aa3263cf687947903b932b9e87fdd0c6b4b51d4c20"}
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 604.83it/s]
+Weighted BPR epoch 1/1: 0.695624
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695795
+{"utc": "2026-10-31T21:43:31.211540+00:00", "stage": "gnn_job_done", "job": "TB2_full/runs/gnn_seed_42"}
+{"utc": "2026-10-31T21:43:31.213545+00:00", "stage": "gnn_job_done", "job": "TB2_full/runs/gnn_seed_43"}
+{"utc": "2026-10-31T21:43:36.846528+00:00", "stage": "test_evaluated", "fold": "TB2_full"}
+{"utc": "2026-10-31T21:43:36.872882+00:00", "stage": "completed"}
+refuses before the sealed test: The sealed test evaluation must be complete before this analysis
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695881
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 2766.69it/s]
+Weighted BPR epoch 1/1: 0.695624
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695795
+repeat-picked choices {'factors': 4, 'regularization': 0.02, 'alpha': 2.0, 'iterations': 3} {'factors': 4, 'learning_rate': 0.01, 'regularization': 0.03} 1 gnn_layers1_embedding_dim8_learning_rate0p01 alpha 0.0 gnn reused True
+max |rebuilt - protocol| over ALS, BPR, ALS+BPR, GNN (novel, 3 seeds, 5 K): 0.0
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695881
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 1495.30it/s]
+Weighted BPR epoch 1/1: 0.695624
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695795
+novel-picked choices {'factors': 4, 'regularization': 0.02, 'alpha': 2.0, 'iterations': 3} {'factors': 4, 'learning_rate': 0.01, 'regularization': 0.03} 1 gnn_layers1_embedding_dim8_learning_rate0p01 gnn reused True
+ladder with tuned baselines {'L0_max': 0.8960907581384762, 'L1': 0.8960907581384762, 'L2': 0.9243760550661921, 'L3': 0.9251581061521837, 'L1/L0': 1.0, 'L2/L1': 1.0315652144281404, 'L3/L2': 1.0008460313112888, 'min_step': 1.0008460313112888, 'best_baseline': 0.8960907581384762, 'pass': False}
+access log purposes ['sealed_test', 'sensitivity_repeat_tuned_baselines', 'sensitivity_novel_tuned_baselines']
+rerun reads the stored result and logs nothing: ok
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695881
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<?, ?it/s]
+Weighted BPR epoch 1/1: 0.695624
+[INFO] GNN device=cpu cuda_available=True nodes=90 pairs=1628 dim=8 layers=2 mode=bipartite loss=infonce n_neg=2
+C:\YS\TUK\S4E2\PBDA\teamproject\PBDA_Teamproject2\Model\paper_revision_codex\model.py:455: UserWarning: Sparse invariant checks are implicitly disabled. Memory errors (e.g. SEGFAULT) will occur when operating on a sparse tensor which violates the invariants, but checks incur performance overhead. To silence this warning, explicitly opt in or out. See `torch.sparse.check_sparse_tensor_invariants.__doc__` for guidance.  (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\pytorch\aten\src\ATen\Context.cpp:767.)
+  adjacency_tensor = torch.sparse_coo_tensor(indices_tensor, values_tensor, torch.Size(normalized.shape))
+[INFO] GNN tensors on embedding=cpu adjacency=cpu
+[INFO] GNN epoch 1/1 {'epoch': 1, 'train_loss': 0.9237021110495742, 'pairs': 1568, 'saturated_pairs_skipped': 60}
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 1496.72it/s]
+Weighted BPR epoch 1/1: 0.695795
+[INFO] GNN device=cpu cuda_available=True nodes=90 pairs=1628 dim=8 layers=2 mode=bipartite loss=infonce n_neg=2
+[INFO] GNN tensors on embedding=cpu adjacency=cpu
+[INFO] GNN epoch 1/1 {'epoch': 1, 'train_loss': 0.958478649051822, 'pairs': 1568, 'saturated_pairs_skipped': 60}
+GNN refit path: gnn_layers2_embedding_dim8_learning_rate0p01 epochs 1 GNN_n ndcg 0.8709735097261125 protocol GNN 0.8769813730638454
+ALL CHECKS PASSED
