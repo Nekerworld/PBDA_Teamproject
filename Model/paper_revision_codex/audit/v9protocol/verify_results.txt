@@ -1,0 +1,24 @@
+repeat Hybrid_MF_Graph: modules ['mf', 'graph'], features 14, used in splits 14, by module {'mf': 5, 'graph': 9, 'context': 0}, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+repeat Hybrid: modules ['mf', 'graph', 'context'], features 40, used in splits 38, by module {'mf': 5, 'graph': 9, 'context': 24}, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 15}
+repeat LTR_MF: modules ['mf'], features 5, used in splits 5, by module {'mf': 5, 'graph': 0, 'context': 0}, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+repeat Hybrid_no_graph: modules ['mf', 'context'], features 31, used in splits 29, by module {'mf': 5, 'graph': 0, 'context': 24}, params {'learning_rate': 0.1, 'max_iter': 300, 'max_leaf_nodes': 15}
+repeat Hybrid_no_mf: modules ['graph', 'context'], features 35, used in splits 32, by module {'mf': 0, 'graph': 9, 'context': 23}, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 15}
+novel Hybrid_MF_Graph: modules ['mf', 'graph'], features 14, used in splits 14, by module {'mf': 5, 'graph': 9, 'context': 0}, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+novel Hybrid: modules ['mf', 'graph', 'context'], features 40, used in splits 27, by module {'mf': 5, 'graph': 9, 'context': 13}, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 15}
+novel LTR_MF: modules ['mf'], features 5, used in splits 5, by module {'mf': 5, 'graph': 0, 'context': 0}, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+novel Hybrid_no_graph: modules ['mf', 'context'], features 31, used in splits 18, by module {'mf': 5, 'graph': 0, 'context': 13}, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+novel Hybrid_no_mf: modules ['graph', 'context'], features 35, used in splits 23, by module {'mf': 0, 'graph': 9, 'context': 14}, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 31}
+sealed model files 10, sha256 mismatches 0
+novel ablation: comparisons 6, significant 6, max |Holm recomputed - reported| 1.08e-19
+novel confirmatory: comparisons 16, significant 16, max |Holm recomputed - reported| 2.17e-19
+novel ladder: comparisons 10, significant 8, max |Holm recomputed - reported| 0.00e+00
+repeat ablation: comparisons 6, significant 3, max |Holm recomputed - reported| 1.39e-17
+repeat confirmatory: comparisons 16, significant 16, max |Holm recomputed - reported| 2.17e-19
+repeat ladder: comparisons 10, significant 8, max |Holm recomputed - reported| 0.00e+00
+repeat ladder recomputed from test_summary matches ladder.csv: True; L2/L1 1.0706, L3/L2 1.0266, pass False
+novel ladder recomputed from test_summary matches ladder.csv: True; L2/L1 1.1595, L3/L2 1.1882, pass True
+stages (first) {'ladder_trained': '2026-11-01T16:11:52.904262+00:00', 'selection_sealed': '2026-11-01T16:11:52.922142+00:00', 'test_evaluated': '2026-11-01T21:40:49.952723+00:00', 'completed': '2026-11-01T21:41:08.261547+00:00'} log entries 48
+test openings 1 ['2026-11-01T18:02:11.936212+00:00'] selection sha matches access log True
+order ladder_trained <= selection_sealed < test opened < test_evaluated <= completed: True
+users shared by audit_runs\v9_raw\taobao_b300_500 and audit_runs\v8_raw\taobao_p1: 0 (of 19665 and 9920)
+users shared by audit_runs\v9_raw\taobao_b300_500 and audit_runs\v9dev\raw_b100_300: 0 (of 19665 and 19783)

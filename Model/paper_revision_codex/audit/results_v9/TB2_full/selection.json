@@ -1,0 +1,685 @@
+{
+  "plan_sha256": "d2da47633054f37834917ab8fb2cf2366e6b24d40f5f6c7e9f98504142f1c747",
+  "fold": "TB2_full",
+  "mf": {
+    "als": {
+      "factors": 512,
+      "regularization": 0.002,
+      "alpha": 40.0,
+      "iterations": 32
+    },
+    "bpr": {
+      "factors": 256,
+      "learning_rate": 0.0025,
+      "regularization": 0.0003
+    },
+    "bpr_epochs": 1024,
+    "validation": {
+      "ALS": {
+        "family": "ALS",
+        "factors": 512,
+        "regularization": 0.002,
+        "alpha": 40.0,
+        "iterations": 32.0,
+        "repeat_ndcg": 0.0670991835412866,
+        "repeat_recall": 0.1251658544494109,
+        "repeat_precision": 0.005563150074294205,
+        "repeat_hit_rate": 0.2312035661218425,
+        "repeat_hit_users": 1556,
+        "repeat_users": 6730,
+        "novel_ndcg": 0.006510486845150009,
+        "novel_recall": 0.016604455053627325,
+        "novel_precision": 0.0007702479338842975,
+        "novel_hit_rate": 0.03603305785123967,
+        "novel_hit_users": 218,
+        "novel_users": 6050,
+        "repeat_score": 0.09613251899534875
+      },
+      "BPR": {
+        "family": "BPR",
+        "factors": 256,
+        "regularization": 0.0003,
+        "repeat_ndcg": 0.06851474230990168,
+        "repeat_recall": 0.12144029661855196,
+        "repeat_precision": 0.005399702823179792,
+        "repeat_hit_rate": 0.22585438335809807,
+        "repeat_hit_users": 1520,
+        "repeat_users": 6730,
+        "novel_ndcg": 0.00516247354718142,
+        "novel_recall": 0.013223114563511924,
+        "novel_precision": 0.0006380165289256199,
+        "novel_hit_rate": 0.029917355371900826,
+        "novel_hit_users": 181,
+        "novel_users": 6050,
+        "learning_rate": 0.0025,
+        "epochs": 1024.0,
+        "repeat_score": 0.09497751946422682
+      }
+    },
+    "fits": {
+      "ALS": 192,
+      "BPR": 24
+    },
+    "evaluated_configs": {
+      "ALS": 192,
+      "BPR": 168
+    },
+    "train_seconds": {
+      "ALS": 8996.201049899988,
+      "BPR": 15459.950271000002
+    }
+  },
+  "gnn": {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p0005",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p0005",
+    "epochs": 380,
+    "at_cap": false,
+    "seconds": 6009.365797100007,
+    "repeat": {
+      "ndcg": 0.06899087279021623,
+      "recall": 0.12397011600135623,
+      "precision": 0.005479940564635959,
+      "hit_rate": 0.22808320950965824,
+      "hit_users": 1535,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004507524845477095,
+      "recall": 0.012244000371293568,
+      "precision": 0.0005619834710743802,
+      "hit_rate": 0.025454545454545455,
+      "hit_users": 154,
+      "users": 6050
+    },
+    "score": 0.09648049439578624
+  },
+  "hybrid_backbone": {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p0005",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p0005",
+    "epochs": 380,
+    "at_cap": false,
+    "seconds": 6009.365797100007,
+    "repeat": {
+      "ndcg": 0.06899087279021623,
+      "recall": 0.12397011600135623,
+      "precision": 0.005479940564635959,
+      "hit_rate": 0.22808320950965824,
+      "hit_users": 1535,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004507524845477095,
+      "recall": 0.012244000371293568,
+      "precision": 0.0005619834710743802,
+      "hit_rate": 0.025454545454545455,
+      "hit_users": 154,
+      "users": 6050
+    },
+    "score": 0.09648049439578624
+  },
+  "policies": {
+    "repeat": {
+      "mf_alpha": 0.6
+    },
+    "novel": {
+      "mf_alpha": 0.7
+    }
+  },
+  "locked_utc": "2026-11-01T13:44:28.548613+00:00",
+  "outer_test_used_for_selection": false,
+  "grid_edges": {
+    "ALS": {
+      "regularization": "min",
+      "iterations": "max"
+    },
+    "BPR": {
+      "factors": "max",
+      "learning_rate": "min",
+      "regularization": "min",
+      "epochs": "max"
+    },
+    "GNN": {
+      "layers": "min",
+      "embedding_dim": "max",
+      "learning_rate": "min"
+    },
+    "Hybrid_backbone": {
+      "layers": "min",
+      "embedding_dim": "max",
+      "learning_rate": "min"
+    }
+  },
+  "budget": {
+    "fits": {
+      "ALS": 192,
+      "BPR": 24,
+      "GNN": 36,
+      "Hybrid": 0,
+      "Ladder": 410
+    },
+    "evaluated_configs": {
+      "ALS": 192,
+      "BPR": 168,
+      "ALS+BPR": 11,
+      "GNN": 1018,
+      "Hybrid": 0
+    },
+    "train_seconds": {
+      "ALS": 8996.201049899988,
+      "BPR": 15459.950271000002,
+      "GNN": 173068.38768340004,
+      "Ladder": 4457.201757900017
+    },
+    "note": "The ladder rankers are fitted on the inner validation window; ALS, BPR and GNN are the fits above."
+  },
+  "ladder": {
+    "repeat": {
+      "models": {
+        "Hybrid_MF_Graph": {
+          "modules": [
+            "mf",
+            "graph"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_Hybrid_MF_Graph.pkl",
+          "sha256": "1806bbecf38248694a38e03c98a394ebdf4fc37b286d3617bef799714e39a269"
+        },
+        "Hybrid": {
+          "modules": [
+            "mf",
+            "graph",
+            "context"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.1,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid.pkl",
+          "sha256": "9777e2cd5610b2c15e6fe9a28448f89a2659faad564ecb5adb888e3221eb1b3d"
+        },
+        "LTR_MF": {
+          "modules": [
+            "mf"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_LTR_MF.pkl",
+          "sha256": "2d3fa3244868d9defb1c44064070ec09c1f374c1ffe422bb6140c699aa039856"
+        },
+        "Hybrid_no_graph": {
+          "modules": [
+            "mf",
+            "context"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.1,
+            "max_iter": 300,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_no_graph.pkl",
+          "sha256": "7e1c2acc8850df2e8544eadce4fdc0d6b63ea465e3cef31fc9498dddb4c97608"
+        },
+        "Hybrid_no_mf": {
+          "modules": [
+            "graph",
+            "context"
+          ],
+          "features": [
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.1,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_no_mf.pkl",
+          "sha256": "26ca0fb9a0253e6654711d68b051af4847093f8f73f79d30f8d763958903ef93"
+        }
+      },
+      "training": {
+        "users": 15269,
+        "rows": 5659674,
+        "positive_rows": 27225,
+        "Hybrid_MF_Graph": {
+          "rows": 4420912,
+          "rows_sampled": 1552193,
+          "truth_in_pool": 0.15756490616846108,
+          "cv_score": 0.10803525496246362,
+          "fits": 41,
+          "seconds": 503.868893400002
+        },
+        "Hybrid": {
+          "rows": 5659674,
+          "rows_sampled": 1554125,
+          "truth_in_pool": 0.1650993697935391,
+          "cv_score": 0.10902504585855259,
+          "fits": 41,
+          "seconds": 627.0424388000029
+        },
+        "LTR_MF": {
+          "rows": 2268089,
+          "rows_sampled": 1549810,
+          "truth_in_pool": 0.1481024670987004,
+          "cv_score": 0.10699179042297574,
+          "fits": 41,
+          "seconds": 294.28061130000424
+        },
+        "Hybrid_no_graph": {
+          "rows": 3551922,
+          "rows_sampled": 1552398,
+          "truth_in_pool": 0.15663079458137813,
+          "cv_score": 0.1097346395582194,
+          "fits": 41,
+          "seconds": 486.2548551
+        },
+        "Hybrid_no_mf": {
+          "rows": 4446124,
+          "rows_sampled": 1552195,
+          "truth_in_pool": 0.15649580443808261,
+          "cv_score": 0.10923522815912226,
+          "fits": 41,
+          "seconds": 508.91954899999837
+        }
+      }
+    },
+    "novel": {
+      "models": {
+        "Hybrid_MF_Graph": {
+          "modules": [
+            "mf",
+            "graph"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "novel_Hybrid_MF_Graph.pkl",
+          "sha256": "457b2fb63f59a50519a13b5d2cc76ec58e30fe799c395b825e83febe069b61e1"
+        },
+        "Hybrid": {
+          "modules": [
+            "mf",
+            "graph",
+            "context"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 300,
+            "max_leaf_nodes": 15
+          },
+          "model": "novel_Hybrid.pkl",
+          "sha256": "04f015793ad6c5db788239a0d007b51c4d197861865e291913e86a66a3bcb032"
+        },
+        "LTR_MF": {
+          "modules": [
+            "mf"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "novel_LTR_MF.pkl",
+          "sha256": "c2e48a59e88e61519e9e58624a5c96ecf3aa766ba6270df199149d4f2da70b04"
+        },
+        "Hybrid_no_graph": {
+          "modules": [
+            "mf",
+            "context"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "novel_Hybrid_no_graph.pkl",
+          "sha256": "5f6a3a9e16690fb2707ceb9551f7593b1d07080184760c6bb307520490ef6c39"
+        },
+        "Hybrid_no_mf": {
+          "modules": [
+            "graph",
+            "context"
+          ],
+          "features": [
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.1,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "novel_Hybrid_no_mf.pkl",
+          "sha256": "06445bd09cdebbe390850a04829a1aa8d1325c97d9857537a10d9d9f51aac477"
+        }
+      },
+      "training": {
+        "users": 14831,
+        "rows": 6193126,
+        "positive_rows": 10270,
+        "Hybrid_MF_Graph": {
+          "rows": 4992174,
+          "rows_sampled": 1491581,
+          "truth_in_pool": 0.04698098742241383,
+          "cv_score": 0.014414048633860447,
+          "fits": 41,
+          "seconds": 417.25134490000346
+        },
+        "Hybrid": {
+          "rows": 6193126,
+          "rows_sampled": 1493370,
+          "truth_in_pool": 0.05525757366854101,
+          "cv_score": 0.01827087861776453,
+          "fits": 41,
+          "seconds": 597.4359111000012
+        },
+        "LTR_MF": {
+          "rows": 2488875,
+          "rows_sampled": 1489248,
+          "truth_in_pool": 0.03363443341408363,
+          "cv_score": 0.012577681734821516,
+          "fits": 41,
+          "seconds": 235.95893539999815
+        },
+        "Hybrid_no_graph": {
+          "rows": 3741195,
+          "rows_sampled": 1491324,
+          "truth_in_pool": 0.04352436529520071,
+          "cv_score": 0.01698821895324715,
+          "fits": 41,
+          "seconds": 381.1422911000045
+        },
+        "Hybrid_no_mf": {
+          "rows": 4479281,
+          "rows_sampled": 1490467,
+          "truth_in_pool": 0.04078055550827694,
+          "cv_score": 0.016488340349338847,
+          "fits": 41,
+          "seconds": 405.04692780000187
+        }
+      }
+    }
+  }
+}

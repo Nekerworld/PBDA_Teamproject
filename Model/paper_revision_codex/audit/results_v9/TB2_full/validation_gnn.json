@@ -1,0 +1,1046 @@
+[
+  {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p0005",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p0005",
+    "epochs": 380,
+    "at_cap": false,
+    "seconds": 6009.365797100007,
+    "repeat": {
+      "ndcg": 0.06899087279021623,
+      "recall": 0.12397011600135623,
+      "precision": 0.005479940564635959,
+      "hit_rate": 0.22808320950965824,
+      "hit_users": 1535,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004507524845477095,
+      "recall": 0.012244000371293568,
+      "precision": 0.0005619834710743802,
+      "hit_rate": 0.025454545454545455,
+      "hit_users": 154,
+      "users": 6050
+    },
+    "score": 0.09648049439578624
+  },
+  {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p001",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p001",
+    "epochs": 370,
+    "at_cap": false,
+    "seconds": 6040.947392000002,
+    "repeat": {
+      "ndcg": 0.06908032584992321,
+      "recall": 0.12358008214549769,
+      "precision": 0.005479940564635959,
+      "hit_rate": 0.22838038632986626,
+      "hit_users": 1537,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004285991277151802,
+      "recall": 0.011831904202999052,
+      "precision": 0.0005619834710743802,
+      "hit_rate": 0.026115702479338844,
+      "hit_users": 158,
+      "users": 6050
+    },
+    "score": 0.09633020399771045
+  },
+  {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p003",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p003",
+    "epochs": 330,
+    "at_cap": false,
+    "seconds": 5917.411452100001,
+    "repeat": {
+      "ndcg": 0.06545084580421,
+      "recall": 0.12174558512526518,
+      "precision": 0.00538187221396731,
+      "hit_rate": 0.22540861812778604,
+      "hit_users": 1517,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0038924230775203407,
+      "recall": 0.010372099858679701,
+      "precision": 0.0004727272727272727,
+      "hit_rate": 0.022479338842975205,
+      "hit_users": 136,
+      "users": 6050
+    },
+    "score": 0.0935982154647376
+  },
+  {
+    "name": "gnn_layers2_embedding_dim256_learning_rate0p001",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 256,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim256_learning_rate0p001",
+    "epochs": 400,
+    "at_cap": true,
+    "seconds": 8147.946893599999,
+    "repeat": {
+      "ndcg": 0.06445029139333523,
+      "recall": 0.12274453128394384,
+      "precision": 0.005399702823179793,
+      "hit_rate": 0.2263001485884101,
+      "hit_users": 1523,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.003870574788883824,
+      "recall": 0.011370848763628233,
+      "precision": 0.0005388429752066116,
+      "hit_rate": 0.024793388429752067,
+      "hit_users": 150,
+      "users": 6050
+    },
+    "score": 0.09359741133863954
+  },
+  {
+    "name": "gnn_layers1_embedding_dim128_learning_rate0p001",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 128,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim128_learning_rate0p001",
+    "epochs": 400,
+    "at_cap": true,
+    "seconds": 5025.885473400005,
+    "repeat": {
+      "ndcg": 0.0645493747089021,
+      "recall": 0.12071005634828022,
+      "precision": 0.005340267459138187,
+      "hit_rate": 0.22392273402674592,
+      "hit_users": 1507,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.002996589126323065,
+      "recall": 0.00868754301119396,
+      "precision": 0.00041322314049586776,
+      "hit_rate": 0.020165289256198347,
+      "hit_users": 122,
+      "users": 6050
+    },
+    "score": 0.09262971552859116
+  },
+  {
+    "name": "gnn_layers1_embedding_dim128_learning_rate0p0005",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 128,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim128_learning_rate0p0005",
+    "epochs": 380,
+    "at_cap": false,
+    "seconds": 4919.738253999996,
+    "repeat": {
+      "ndcg": 0.06367155157922547,
+      "recall": 0.12002749143094563,
+      "precision": 0.005295690936106984,
+      "hit_rate": 0.2225854383358098,
+      "hit_users": 1498,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0032159584431309123,
+      "recall": 0.008834906268496319,
+      "precision": 0.00046280991735537185,
+      "hit_rate": 0.02181818181818182,
+      "hit_users": 132,
+      "users": 6050
+    },
+    "score": 0.09184952150508555
+  },
+  {
+    "name": "gnn_layers3_embedding_dim256_learning_rate0p001",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 256,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim256_learning_rate0p001",
+    "epochs": 230,
+    "at_cap": false,
+    "seconds": 7810.857452500002,
+    "repeat": {
+      "ndcg": 0.05975294249996092,
+      "recall": 0.12212499109159534,
+      "precision": 0.00538187221396731,
+      "hit_rate": 0.22481426448737,
+      "hit_users": 1513,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004386758975084905,
+      "recall": 0.012868648798400866,
+      "precision": 0.0005884297520661157,
+      "hit_rate": 0.027107438016528925,
+      "hit_users": 164,
+      "users": 6050
+    },
+    "score": 0.09093896679577813
+  },
+  {
+    "name": "gnn_layers2_embedding_dim256_learning_rate0p0005",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 256,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim256_learning_rate0p0005",
+    "epochs": 90,
+    "at_cap": false,
+    "seconds": 3404.9425951000003,
+    "repeat": {
+      "ndcg": 0.05739918408406462,
+      "recall": 0.12280497067945012,
+      "precision": 0.005408618127786032,
+      "hit_rate": 0.2261515601783061,
+      "hit_users": 1522,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.00601092078118988,
+      "recall": 0.01719953686742316,
+      "precision": 0.0008297520661157024,
+      "hit_rate": 0.03834710743801653,
+      "hit_users": 232,
+      "users": 6050
+    },
+    "score": 0.09010207738175738
+  },
+  {
+    "name": "gnn_layers2_embedding_dim256_learning_rate0p003",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 256,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim256_learning_rate0p003",
+    "epochs": 20,
+    "at_cap": false,
+    "seconds": 1927.3213997000003,
+    "repeat": {
+      "ndcg": 0.05777946889552349,
+      "recall": 0.12199325927709978,
+      "precision": 0.0053878157503714705,
+      "hit_rate": 0.22600297176820208,
+      "hit_users": 1521,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.005495006791603833,
+      "recall": 0.014959448315645385,
+      "precision": 0.0007504132231404959,
+      "hit_rate": 0.03487603305785124,
+      "hit_users": 211,
+      "users": 6050
+    },
+    "score": 0.08988636408631163
+  },
+  {
+    "name": "gnn_layers4_embedding_dim256_learning_rate0p001",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 256,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim256_learning_rate0p001",
+    "epochs": 230,
+    "at_cap": false,
+    "seconds": 6707.271722699999,
+    "repeat": {
+      "ndcg": 0.05856571115316768,
+      "recall": 0.12094525357808135,
+      "precision": 0.005334323922734027,
+      "hit_rate": 0.22317979197622587,
+      "hit_users": 1502,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.00453064184335999,
+      "recall": 0.013747629322009488,
+      "precision": 0.0006280991735537189,
+      "hit_rate": 0.029256198347107437,
+      "hit_users": 177,
+      "users": 6050
+    },
+    "score": 0.08975548236562451
+  },
+  {
+    "name": "gnn_layers3_embedding_dim256_learning_rate0p0005",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 256,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim256_learning_rate0p0005",
+    "epochs": 120,
+    "at_cap": false,
+    "seconds": 4621.534295000001,
+    "repeat": {
+      "ndcg": 0.05660707107654667,
+      "recall": 0.12281153736858505,
+      "precision": 0.0054145616641901925,
+      "hit_rate": 0.22540861812778604,
+      "hit_users": 1517,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.005851666805805125,
+      "recall": 0.01569112396188107,
+      "precision": 0.0007768595041322315,
+      "hit_rate": 0.03603305785123967,
+      "hit_users": 218,
+      "users": 6050
+    },
+    "score": 0.08970930422256586
+  },
+  {
+    "name": "gnn_layers4_embedding_dim256_learning_rate0p0005",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 256,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim256_learning_rate0p0005",
+    "epochs": 140,
+    "at_cap": false,
+    "seconds": 5964.759383300003,
+    "repeat": {
+      "ndcg": 0.056810958831539804,
+      "recall": 0.12257614373794624,
+      "precision": 0.005408618127786034,
+      "hit_rate": 0.22540861812778604,
+      "hit_users": 1517,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.005997392509879378,
+      "recall": 0.0164732868646079,
+      "precision": 0.0008033057851239669,
+      "hit_rate": 0.0371900826446281,
+      "hit_users": 225,
+      "users": 6050
+    },
+    "score": 0.08969355128474302
+  },
+  {
+    "name": "gnn_layers3_embedding_dim128_learning_rate0p001",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 128,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p001",
+    "epochs": 400,
+    "at_cap": true,
+    "seconds": 8270.153932300002,
+    "repeat": {
+      "ndcg": 0.05968196812628756,
+      "recall": 0.11947222533333182,
+      "precision": 0.005268945022288261,
+      "hit_rate": 0.22169390787518573,
+      "hit_users": 1492,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0033017955687306725,
+      "recall": 0.00887787720670304,
+      "precision": 0.00046942148760330574,
+      "hit_rate": 0.02231404958677686,
+      "hit_users": 135,
+      "users": 6050
+    },
+    "score": 0.0895770967298097
+  },
+  {
+    "name": "gnn_layers2_embedding_dim128_learning_rate0p0005",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 128,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p0005",
+    "epochs": 380,
+    "at_cap": false,
+    "seconds": 6225.117986300001,
+    "repeat": {
+      "ndcg": 0.05915310712175289,
+      "recall": 0.1197993503298476,
+      "precision": 0.005286775631500743,
+      "hit_rate": 0.22169390787518573,
+      "hit_users": 1492,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0033898667648790456,
+      "recall": 0.009370814345726711,
+      "precision": 0.00047933884297520667,
+      "hit_rate": 0.0228099173553719,
+      "hit_users": 138,
+      "users": 6050
+    },
+    "score": 0.08947622872580024
+  },
+  {
+    "name": "gnn_layers3_embedding_dim256_learning_rate0p003",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 256,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim256_learning_rate0p003",
+    "epochs": 40,
+    "at_cap": false,
+    "seconds": 3130.6505154000006,
+    "repeat": {
+      "ndcg": 0.05720086919453134,
+      "recall": 0.12171750935424736,
+      "precision": 0.005402674591381872,
+      "hit_rate": 0.2263001485884101,
+      "hit_users": 1523,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.005458317132533945,
+      "recall": 0.01511394487510062,
+      "precision": 0.0007371900826446282,
+      "hit_rate": 0.034545454545454546,
+      "hit_users": 209,
+      "users": 6050
+    },
+    "score": 0.08945918927438934
+  },
+  {
+    "name": "gnn_layers3_embedding_dim128_learning_rate0p0005",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 128,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p0005",
+    "epochs": 380,
+    "at_cap": false,
+    "seconds": 8190.212504699999,
+    "repeat": {
+      "ndcg": 0.058036412223361054,
+      "recall": 0.12010993898347996,
+      "precision": 0.005301634472511144,
+      "hit_rate": 0.22199108469539375,
+      "hit_users": 1494,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.003875914503448558,
+      "recall": 0.01064846659053859,
+      "precision": 0.0005719008264462811,
+      "hit_rate": 0.02727272727272727,
+      "hit_users": 165,
+      "users": 6050
+    },
+    "score": 0.08907317560342051
+  },
+  {
+    "name": "gnn_layers4_embedding_dim256_learning_rate0p003",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 256,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim256_learning_rate0p003",
+    "epochs": 30,
+    "at_cap": false,
+    "seconds": 2663.6625724999976,
+    "repeat": {
+      "ndcg": 0.05647013056039997,
+      "recall": 0.1215874623334128,
+      "precision": 0.005393759286775631,
+      "hit_rate": 0.22600297176820208,
+      "hit_users": 1521,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.005824410962735756,
+      "recall": 0.01660092658750643,
+      "precision": 0.0008165289256198348,
+      "hit_rate": 0.037355371900826446,
+      "hit_users": 226,
+      "users": 6050
+    },
+    "score": 0.0890287964469064
+  },
+  {
+    "name": "gnn_layers4_embedding_dim128_learning_rate0p0005",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 128,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim128_learning_rate0p0005",
+    "epochs": 360,
+    "at_cap": false,
+    "seconds": 8251.920573899999,
+    "repeat": {
+      "ndcg": 0.05776618832684875,
+      "recall": 0.11989222880682712,
+      "precision": 0.0053075780089153046,
+      "hit_rate": 0.22184249628528974,
+      "hit_users": 1493,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004134162468677012,
+      "recall": 0.011193585076859134,
+      "precision": 0.0005950413223140496,
+      "hit_rate": 0.02743801652892562,
+      "hit_users": 166,
+      "users": 6050
+    },
+    "score": 0.08882920856683793
+  },
+  {
+    "name": "gnn_layers4_embedding_dim128_learning_rate0p003",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 128,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim128_learning_rate0p003",
+    "epochs": 140,
+    "at_cap": false,
+    "seconds": 4392.939333399998,
+    "repeat": {
+      "ndcg": 0.05749891644763902,
+      "recall": 0.12008102506917466,
+      "precision": 0.005274888558692422,
+      "hit_rate": 0.22273402674591383,
+      "hit_users": 1499,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0035492544012357178,
+      "recall": 0.009821060194656131,
+      "precision": 0.0004892561983471074,
+      "hit_rate": 0.021983471074380166,
+      "hit_users": 133,
+      "users": 6050
+    },
+    "score": 0.08878997075840683
+  },
+  {
+    "name": "gnn_layers2_embedding_dim128_learning_rate0p001",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 128,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p001",
+    "epochs": 130,
+    "at_cap": false,
+    "seconds": 3053.7745164999997,
+    "repeat": {
+      "ndcg": 0.05745797695068026,
+      "recall": 0.12000566415800393,
+      "precision": 0.005304606240713224,
+      "hit_rate": 0.22273402674591383,
+      "hit_users": 1499,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004031988564306794,
+      "recall": 0.010780810880732841,
+      "precision": 0.0005785123966942149,
+      "hit_rate": 0.027107438016528925,
+      "hit_users": 164,
+      "users": 6050
+    },
+    "score": 0.08873182055434209
+  },
+  {
+    "name": "gnn_layers3_embedding_dim128_learning_rate0p003",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 128,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim128_learning_rate0p003",
+    "epochs": 80,
+    "at_cap": false,
+    "seconds": 2999.0784045,
+    "repeat": {
+      "ndcg": 0.056604884476853266,
+      "recall": 0.12050173074619533,
+      "precision": 0.005295690936106984,
+      "hit_rate": 0.22273402674591383,
+      "hit_users": 1499,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.003943910601163748,
+      "recall": 0.010548002714846353,
+      "precision": 0.0005355371900826447,
+      "hit_rate": 0.02512396694214876,
+      "hit_users": 152,
+      "users": 6050
+    },
+    "score": 0.0885533076115243
+  },
+  {
+    "name": "gnn_layers2_embedding_dim64_learning_rate0p0005",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 64,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p0005",
+    "epochs": 390,
+    "at_cap": true,
+    "seconds": 5714.4914045000005,
+    "repeat": {
+      "ndcg": 0.059193695381489365,
+      "recall": 0.11790595205372607,
+      "precision": 0.0051976225854383365,
+      "hit_rate": 0.21797919762258544,
+      "hit_users": 1467,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0035907979597455245,
+      "recall": 0.009329564637729312,
+      "precision": 0.0005190082644628099,
+      "hit_rate": 0.024958677685950413,
+      "hit_users": 151,
+      "users": 6050
+    },
+    "score": 0.08854982371760772
+  },
+  {
+    "name": "gnn_layers3_embedding_dim64_learning_rate0p001",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 64,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p001",
+    "epochs": 220,
+    "at_cap": false,
+    "seconds": 4300.783508800001,
+    "repeat": {
+      "ndcg": 0.05917493457987111,
+      "recall": 0.11782892999741898,
+      "precision": 0.005188707280832095,
+      "hit_rate": 0.2187221396731055,
+      "hit_users": 1472,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.003888739616796262,
+      "recall": 0.010124879218897076,
+      "precision": 0.0004991735537190084,
+      "hit_rate": 0.02347107438016529,
+      "hit_users": 142,
+      "users": 6050
+    },
+    "score": 0.08850193228864504
+  },
+  {
+    "name": "gnn_layers1_embedding_dim64_learning_rate0p0005",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 64,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim64_learning_rate0p0005",
+    "epochs": 290,
+    "at_cap": false,
+    "seconds": 4135.081258500009,
+    "repeat": {
+      "ndcg": 0.059002796704918876,
+      "recall": 0.11797352735803651,
+      "precision": 0.005200594353640416,
+      "hit_rate": 0.21827637444279346,
+      "hit_users": 1469,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0030333456931061543,
+      "recall": 0.008933454974777289,
+      "precision": 0.00043966942148760335,
+      "hit_rate": 0.02115702479338843,
+      "hit_users": 128,
+      "users": 6050
+    },
+    "score": 0.08848816203147769
+  },
+  {
+    "name": "gnn_layers4_embedding_dim128_learning_rate0p001",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 128,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim128_learning_rate0p001",
+    "epochs": 140,
+    "at_cap": false,
+    "seconds": 3962.8894664,
+    "repeat": {
+      "ndcg": 0.05664563621077106,
+      "recall": 0.12002912963094935,
+      "precision": 0.005316493313521546,
+      "hit_rate": 0.2234769687964339,
+      "hit_users": 1504,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004534854413471584,
+      "recall": 0.012213417095744448,
+      "precision": 0.0006280991735537189,
+      "hit_rate": 0.029256198347107437,
+      "hit_users": 177,
+      "users": 6050
+    },
+    "score": 0.0883373829208602
+  },
+  {
+    "name": "gnn_layers1_embedding_dim64_learning_rate0p001",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 64,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim64_learning_rate0p001",
+    "epochs": 220,
+    "at_cap": false,
+    "seconds": 3368.823579799995,
+    "repeat": {
+      "ndcg": 0.05885428947568408,
+      "recall": 0.11769572916976286,
+      "precision": 0.005179791976225854,
+      "hit_rate": 0.21812778603268945,
+      "hit_users": 1468,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0028590787479635844,
+      "recall": 0.007504030863534995,
+      "precision": 0.00038016528925619833,
+      "hit_rate": 0.01785123966942149,
+      "hit_users": 108,
+      "users": 6050
+    },
+    "score": 0.08827500932272347
+  },
+  {
+    "name": "gnn_layers2_embedding_dim128_learning_rate0p003",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 128,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim128_learning_rate0p003",
+    "epochs": 100,
+    "at_cap": false,
+    "seconds": 2750.2708164000005,
+    "repeat": {
+      "ndcg": 0.057199512227296516,
+      "recall": 0.11913189082880712,
+      "precision": 0.005233283803863299,
+      "hit_rate": 0.21976225854383358,
+      "hit_users": 1479,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.003435189009496307,
+      "recall": 0.008909321276283895,
+      "precision": 0.00047603305785123964,
+      "hit_rate": 0.022644628099173555,
+      "hit_users": 137,
+      "users": 6050
+    },
+    "score": 0.08816570152805182
+  },
+  {
+    "name": "gnn_layers1_embedding_dim128_learning_rate0p003",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 128,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim128_learning_rate0p003",
+    "epochs": 60,
+    "at_cap": false,
+    "seconds": 1552.9670385000063,
+    "repeat": {
+      "ndcg": 0.05698437115948246,
+      "recall": 0.11899904571453555,
+      "precision": 0.005233283803863299,
+      "hit_rate": 0.21961367013372957,
+      "hit_users": 1478,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.003113586685542171,
+      "recall": 0.007666364916799888,
+      "precision": 0.000403305785123967,
+      "hit_rate": 0.019669421487603304,
+      "hit_users": 119,
+      "users": 6050
+    },
+    "score": 0.08799170843700901
+  },
+  {
+    "name": "gnn_layers4_embedding_dim64_learning_rate0p003",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 64,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim64_learning_rate0p003",
+    "epochs": 210,
+    "at_cap": false,
+    "seconds": 4596.186148599998,
+    "repeat": {
+      "ndcg": 0.05853339555941586,
+      "recall": 0.11733403361099212,
+      "precision": 0.005135215453194651,
+      "hit_rate": 0.21679049034175335,
+      "hit_users": 1459,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0028846269333131676,
+      "recall": 0.008044365923290263,
+      "precision": 0.00038347107438016525,
+      "hit_rate": 0.018512396694214877,
+      "hit_users": 112,
+      "users": 6050
+    },
+    "score": 0.08793371458520399
+  },
+  {
+    "name": "gnn_layers4_embedding_dim64_learning_rate0p0005",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 64,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim64_learning_rate0p0005",
+    "epochs": 400,
+    "at_cap": true,
+    "seconds": 6927.190130899999,
+    "repeat": {
+      "ndcg": 0.05858303117926589,
+      "recall": 0.11728084481357093,
+      "precision": 0.005144130757800893,
+      "hit_rate": 0.21530460624071324,
+      "hit_users": 1449,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0038598530454649576,
+      "recall": 0.010493777181064493,
+      "precision": 0.0004991735537190084,
+      "hit_rate": 0.02446280991735537,
+      "hit_users": 148,
+      "users": 6050
+    },
+    "score": 0.08793193799641841
+  },
+  {
+    "name": "gnn_layers2_embedding_dim64_learning_rate0p001",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 64,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p001",
+    "epochs": 220,
+    "at_cap": false,
+    "seconds": 3992.8440263999996,
+    "repeat": {
+      "ndcg": 0.05879974675219272,
+      "recall": 0.11706410274113556,
+      "precision": 0.005173848439821695,
+      "hit_rate": 0.21797919762258544,
+      "hit_users": 1467,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0033854189198559885,
+      "recall": 0.009002859280978924,
+      "precision": 0.00046942148760330574,
+      "hit_rate": 0.021983471074380166,
+      "hit_users": 133,
+      "users": 6050
+    },
+    "score": 0.08793192474666414
+  },
+  {
+    "name": "gnn_layers3_embedding_dim64_learning_rate0p0005",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 64,
+      "learning_rate": 0.0005
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p0005",
+    "epochs": 300,
+    "at_cap": false,
+    "seconds": 5602.392833700001,
+    "repeat": {
+      "ndcg": 0.0580708754363587,
+      "recall": 0.11776717497672129,
+      "precision": 0.0051976225854383365,
+      "hit_rate": 0.2175334323922734,
+      "hit_users": 1464,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0039746851108402375,
+      "recall": 0.010452221908929428,
+      "precision": 0.0005123966942148762,
+      "hit_rate": 0.024793388429752067,
+      "hit_users": 150,
+      "users": 6050
+    },
+    "score": 0.08791902520653999
+  },
+  {
+    "name": "gnn_layers3_embedding_dim64_learning_rate0p003",
+    "config": {
+      "layers": 3,
+      "embedding_dim": 64,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers3_embedding_dim64_learning_rate0p003",
+    "epochs": 120,
+    "at_cap": false,
+    "seconds": 2695.363299499999,
+    "repeat": {
+      "ndcg": 0.05809105770847781,
+      "recall": 0.11774282133795456,
+      "precision": 0.0051946508172362555,
+      "hit_rate": 0.21768202080237742,
+      "hit_users": 1465,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0033281483259736643,
+      "recall": 0.009072805472096724,
+      "precision": 0.00045619834710743806,
+      "hit_rate": 0.020826446280991735,
+      "hit_users": 126,
+      "users": 6050
+    },
+    "score": 0.08791693952321619
+  },
+  {
+    "name": "gnn_layers2_embedding_dim64_learning_rate0p003",
+    "config": {
+      "layers": 2,
+      "embedding_dim": 64,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers2_embedding_dim64_learning_rate0p003",
+    "epochs": 170,
+    "at_cap": false,
+    "seconds": 3204.3114165,
+    "repeat": {
+      "ndcg": 0.05767288191746003,
+      "recall": 0.11757432960185511,
+      "precision": 0.005173848439821695,
+      "hit_rate": 0.2173848439821694,
+      "hit_users": 1463,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.002901022270796542,
+      "recall": 0.007272985933119495,
+      "precision": 0.00037685950413223146,
+      "hit_rate": 0.018016528925619835,
+      "hit_users": 109,
+      "users": 6050
+    },
+    "score": 0.08762360575965757
+  },
+  {
+    "name": "gnn_layers4_embedding_dim64_learning_rate0p001",
+    "config": {
+      "layers": 4,
+      "embedding_dim": 64,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers4_embedding_dim64_learning_rate0p001",
+    "epochs": 220,
+    "at_cap": false,
+    "seconds": 4973.247344800002,
+    "repeat": {
+      "ndcg": 0.05866833461142393,
+      "recall": 0.11639540562184408,
+      "precision": 0.005153046062407133,
+      "hit_rate": 0.21589895988112928,
+      "hit_users": 1453,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.004099327855484301,
+      "recall": 0.010831429333373912,
+      "precision": 0.0005388429752066116,
+      "hit_rate": 0.025785123966942148,
+      "hit_users": 156,
+      "users": 6050
+    },
+    "score": 0.087531870116634
+  },
+  {
+    "name": "gnn_layers1_embedding_dim64_learning_rate0p003",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 64,
+      "learning_rate": 0.003
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v9_taobao\\TB2_full\\gnn_val\\gnn_layers1_embedding_dim64_learning_rate0p003",
+    "epochs": 70,
+    "at_cap": false,
+    "seconds": 1616.0529601000017,
+    "repeat": {
+      "ndcg": 0.05590752495456991,
+      "recall": 0.11442388956805698,
+      "precision": 0.005019316493313521,
+      "hit_rate": 0.21188707280832095,
+      "hit_users": 1426,
+      "users": 6730
+    },
+    "novel": {
+      "ndcg": 0.0024923534656601403,
+      "recall": 0.006697346875250311,
+      "precision": 0.00034049586776859506,
+      "hit_rate": 0.01652892561983471,
+      "hit_users": 100,
+      "users": 6050
+    },
+    "score": 0.08516570726131345
+  }
+]

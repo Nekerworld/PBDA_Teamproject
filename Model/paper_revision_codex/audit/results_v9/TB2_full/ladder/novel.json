@@ -1,0 +1,249 @@
+{
+  "models": {
+    "Hybrid_MF_Graph": {
+      "modules": [
+        "mf",
+        "graph"
+      ],
+      "features": [
+        "als",
+        "bpr",
+        "als_rank",
+        "bpr_rank",
+        "sim_als_last",
+        "gnn",
+        "gnn_rank",
+        "sim_gnn_last",
+        "cv",
+        "cv_rank",
+        "cv_last",
+        "cg",
+        "cg_rank",
+        "cg_last"
+      ],
+      "params": {
+        "learning_rate": 0.05,
+        "max_iter": 100,
+        "max_leaf_nodes": 15
+      },
+      "model": "novel_Hybrid_MF_Graph.pkl",
+      "sha256": "457b2fb63f59a50519a13b5d2cc76ec58e30fe799c395b825e83febe069b61e1"
+    },
+    "Hybrid": {
+      "modules": [
+        "mf",
+        "graph",
+        "context"
+      ],
+      "features": [
+        "als",
+        "bpr",
+        "als_rank",
+        "bpr_rank",
+        "sim_als_last",
+        "gnn",
+        "gnn_rank",
+        "sim_gnn_last",
+        "cv",
+        "cv_rank",
+        "cv_last",
+        "cg",
+        "cg_rank",
+        "cg_last",
+        "h_views",
+        "h_carts",
+        "h_purchases",
+        "h_weight",
+        "h_days",
+        "h_recent_pos",
+        "h_seen",
+        "i_pop",
+        "i_pop7",
+        "i_pos7",
+        "i_days_last",
+        "i_pop1",
+        "i_cvr",
+        "c_pop7",
+        "u_events",
+        "u_items",
+        "u_days_last",
+        "uc_share",
+        "uc_recent_pos",
+        "uc_last",
+        "s_in_last",
+        "s_events_last",
+        "uc_items",
+        "uc_carts",
+        "uc_item_share",
+        "uc_item_rank"
+      ],
+      "params": {
+        "learning_rate": 0.05,
+        "max_iter": 300,
+        "max_leaf_nodes": 15
+      },
+      "model": "novel_Hybrid.pkl",
+      "sha256": "04f015793ad6c5db788239a0d007b51c4d197861865e291913e86a66a3bcb032"
+    },
+    "LTR_MF": {
+      "modules": [
+        "mf"
+      ],
+      "features": [
+        "als",
+        "bpr",
+        "als_rank",
+        "bpr_rank",
+        "sim_als_last"
+      ],
+      "params": {
+        "learning_rate": 0.05,
+        "max_iter": 100,
+        "max_leaf_nodes": 15
+      },
+      "model": "novel_LTR_MF.pkl",
+      "sha256": "c2e48a59e88e61519e9e58624a5c96ecf3aa766ba6270df199149d4f2da70b04"
+    },
+    "Hybrid_no_graph": {
+      "modules": [
+        "mf",
+        "context"
+      ],
+      "features": [
+        "als",
+        "bpr",
+        "als_rank",
+        "bpr_rank",
+        "sim_als_last",
+        "h_views",
+        "h_carts",
+        "h_purchases",
+        "h_weight",
+        "h_days",
+        "h_recent_pos",
+        "h_seen",
+        "i_pop",
+        "i_pop7",
+        "i_pos7",
+        "i_days_last",
+        "i_pop1",
+        "i_cvr",
+        "c_pop7",
+        "u_events",
+        "u_items",
+        "u_days_last",
+        "uc_share",
+        "uc_recent_pos",
+        "uc_last",
+        "s_in_last",
+        "s_events_last",
+        "uc_items",
+        "uc_carts",
+        "uc_item_share",
+        "uc_item_rank"
+      ],
+      "params": {
+        "learning_rate": 0.05,
+        "max_iter": 100,
+        "max_leaf_nodes": 31
+      },
+      "model": "novel_Hybrid_no_graph.pkl",
+      "sha256": "5f6a3a9e16690fb2707ceb9551f7593b1d07080184760c6bb307520490ef6c39"
+    },
+    "Hybrid_no_mf": {
+      "modules": [
+        "graph",
+        "context"
+      ],
+      "features": [
+        "gnn",
+        "gnn_rank",
+        "sim_gnn_last",
+        "cv",
+        "cv_rank",
+        "cv_last",
+        "cg",
+        "cg_rank",
+        "cg_last",
+        "h_views",
+        "h_carts",
+        "h_purchases",
+        "h_weight",
+        "h_days",
+        "h_recent_pos",
+        "h_seen",
+        "i_pop",
+        "i_pop7",
+        "i_pos7",
+        "i_days_last",
+        "i_pop1",
+        "i_cvr",
+        "c_pop7",
+        "u_events",
+        "u_items",
+        "u_days_last",
+        "uc_share",
+        "uc_recent_pos",
+        "uc_last",
+        "s_in_last",
+        "s_events_last",
+        "uc_items",
+        "uc_carts",
+        "uc_item_share",
+        "uc_item_rank"
+      ],
+      "params": {
+        "learning_rate": 0.1,
+        "max_iter": 100,
+        "max_leaf_nodes": 31
+      },
+      "model": "novel_Hybrid_no_mf.pkl",
+      "sha256": "06445bd09cdebbe390850a04829a1aa8d1325c97d9857537a10d9d9f51aac477"
+    }
+  },
+  "training": {
+    "users": 14831,
+    "rows": 6193126,
+    "positive_rows": 10270,
+    "Hybrid_MF_Graph": {
+      "rows": 4992174,
+      "rows_sampled": 1491581,
+      "truth_in_pool": 0.04698098742241383,
+      "cv_score": 0.014414048633860447,
+      "fits": 41,
+      "seconds": 417.25134490000346
+    },
+    "Hybrid": {
+      "rows": 6193126,
+      "rows_sampled": 1493370,
+      "truth_in_pool": 0.05525757366854101,
+      "cv_score": 0.01827087861776453,
+      "fits": 41,
+      "seconds": 597.4359111000012
+    },
+    "LTR_MF": {
+      "rows": 2488875,
+      "rows_sampled": 1489248,
+      "truth_in_pool": 0.03363443341408363,
+      "cv_score": 0.012577681734821516,
+      "fits": 41,
+      "seconds": 235.95893539999815
+    },
+    "Hybrid_no_graph": {
+      "rows": 3741195,
+      "rows_sampled": 1491324,
+      "truth_in_pool": 0.04352436529520071,
+      "cv_score": 0.01698821895324715,
+      "fits": 41,
+      "seconds": 381.1422911000045
+    },
+    "Hybrid_no_mf": {
+      "rows": 4479281,
+      "rows_sampled": 1490467,
+      "truth_in_pool": 0.04078055550827694,
+      "cv_score": 0.016488340349338847,
+      "fits": 41,
+      "seconds": 405.04692780000187
+    }
+  }
+}
