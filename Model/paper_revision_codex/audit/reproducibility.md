@@ -97,6 +97,13 @@ python audit/v9protocol/novel_tuned_baselines.py audit_runs/v9_taobao   # 민감
 python audit/v9protocol/package_results.py audit_runs/v9_taobao audit_runs/repro/results_v9   # 비교: audit/results_v9 (CUDA GNN이라 끝자리·모델 파일 바이트는 다를 수 있음)
 python report_tools/recompute_test_metrics.py --root audit_runs/v9_taobao --fold TB2_full --raw audit_runs/v9_raw/taobao_b300_500 --output audit_runs/repro/v9_recompute.json
 python audit/v9protocol/verify_results.py audit/results_v9 audit_runs/v9_raw/taobao_b300_500 audit_runs/v8_raw/taobao_p1 audit_runs/v9dev/raw_b100_300   # 비교: audit/v9protocol/verify_results.txt
+# 16) v10 RetailRocket 메인 실험 (audit/v10_rr_plan.md. repeat만, v8 변종 + v9 사다리, F1–F4. v6·v7 plan 기록을 plan에 명시해 같은 구간을 다시 씀, I-161)
+python audit/v10protocol/check_tools_synthetic.py audit_runs/repro/v10_synthetic   # 실행 전 도구 확인, 비교: audit/v10protocol/check_tools_synthetic.log
+python report_tools/launch_detached.py --log audit_runs/v10_rr_run.log -- python -u rolling_protocol.py run --root audit_runs/v10_rr --raw ../../data --protocol v10
+python audit/v10protocol/package_results.py audit_runs/v10_rr audit_runs/repro/results_v10
+python audit/v10protocol/verify_results.py audit/results_v10
+python audit/v10protocol/primary_family.py audit/results_v10 audit_runs/repro/v10_primary   # 주 가설 묶음(116개 비교)
+python report_tools/recompute_test_metrics.py --root audit_runs/v10_rr --fold F1_hist --raw ../../data --output audit_runs/repro/v10_recompute_F1.json   # F2_mid, F3_early, F4_unseen도
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.

@@ -815,3 +815,10 @@
 - 확인 시험 끝(2026-11-02 06:41 KST, 시험 열람 1회): novel ALS+BPR 0.00769 → Hybrid_MF_Graph 0.00891(×1.159) → Hybrid 0.01059(×1.188), 두 단계 Holm 0.0010, Hybrid가 baseline 8개 모두보다 유의하게 높음 → 기준 통과. repeat ×1.071, ×1.027 → 미달. novel ALS+BPR − ALS는 유의하지 않음.
 - 미리 정한 민감도 분석(§6, 열람 1회): novel 튜닝 baseline에서도 ×1.253, ×1.188, Hybrid_MF_Graph − ALS+BPR_n Holm 0.0016 → 통과. novel로 고른 baseline이 시험에서는 더 낮았음.
 - 독립 확인: 원본에서 지표 390행 재계산(차이 1e-16), 모델 해시·분기 특징·Holm·단계 순서·표본 겹침 확인. 상세 `validation_report.md` §36.5.
+
+## v10 준비 (2026-11-02 KST): RetailRocket 메인 실험
+
+- 회의 결정(사용자): RetailRocket이 논문의 메인, repeat만(재구매 수요), Taobao에서 만든 Hybrid 변종(v8 17개 모델, v9 사다리)을 RetailRocket F1–F4에 적용. 재고 신호는 v8 설계 그대로, 통계는 fold별 + 네 fold를 합친 Holm 한 묶음, 주 가설은 v8 재정렬과 v9 사다리 둘 다, 유의하지 않으면 "유의한 차이 없음", grid는 줄이지 않음.
+- 계획(92c8561, 코드 작성 전): `audit/v10_rr_plan.md`. 시험 구간 재사용(I-161), 정책·설계 선택 시점(I-162)을 기록.
+- 실행 전 확인에서 찾은 것: 기존 보호 장치가 v6·v7 기록 때문에 네 fold를 모두 거부함 → v6·v7 plan만 v10 plan에 명시해 예외(I-161). 합성 4-fold 확인 중 `WinError 5` 재발 → `replace_with_retry`로 근본 수정(I-164). 가드 변이 H59 문자열이 v9 때부터 맞지 않던 것도 고침.
+- 구현: `rolling_protocol.py` `V10`(FUSION·LADDER_NAMES·ACKNOWLEDGED_TEST_RECORDS·POLICIES 전역, v6–v9 plan 해시 유지), `test_v10_protocol.py` 11개, 변이 Q1–Q14 모두 검출, 결과 도구 4개를 합성 4-fold 출력에서 확인, 전체 테스트 250/250.

@@ -876,3 +876,19 @@ K=50, seed 42/43/44 평균 ± 표준편차(`report/test_summary.csv`). 평가 �
 - L1 > max(L0)는 평균으로만 성립하고 ALS+BPR − ALS 차이는 유의하지 않음(novel). 사다리의 하위 단계(L0 → L1)는 "유의한 개선"이 아님.
 - 데이터 하나(Taobao 2% 표본), 봉인 fold 하나. RetailRocket·Diginetica 결과가 아님. novel NDCG의 절대값은 0.01 수준이라 비율 차이가 작은 절대 차이(+0.0012, +0.0017)에서 나옴.
 - 최종 Hybrid의 이득은 GNN 결합만의 효과가 아님: 문맥 모듈(이력·세션·카테고리·전환율)과 함께 본 상품·전환 그래프가 포함되고, baseline은 이 신호를 함께 쓰지 않음.
+
+## 37. v10: RetailRocket 메인 실험 준비 (repeat만, v8 변종 + v9 사다리, F1–F4, 시험 열기 전)
+
+2026-11-02 회의 결정(RetailRocket이 논문의 메인, repeat만, Taobao의 Hybrid 변종을 RetailRocket에 적용)에 따른 준비 기록이다. 결과는 실행과 검증이 끝난 뒤 따로 적는다.
+
+| 항목 | 내용 |
+|---|---|
+| 계획 | `audit/v10_rr_plan.md`(92c8561, 코드 작성 전·v10 시험 열람 전). 주 가설은 v8 재정렬(Hybrid_LTR, Hybrid_LTR_W)과 v9 사다리(Hybrid_v9) 둘 다, 네 fold를 합친 Holm 한 묶음(NDCG@50, 116개 비교). 점수 결합 Hybrid(v1)는 RetailRocket 시험 결과를 보며 만든 모델이라 서술용 |
+| 시험 구간 재사용 (I-161) | F1–F4는 v6·v7이 이미 연 구간. 보호 장치는 그대로 두고 v6·v7 plan 두 개만 v10 plan의 `acknowledged_test_records`에 적음. 다른 plan의 기록은 계속 거부됨. 원고에는 "봉인 시험"이라 쓰지 않음 |
+| 정책·설계 선택 시점 (I-162) | repeat 결정은 Taobao v9에서 repeat가 10% 기준에 미달한 것을 본 뒤. a02는 Taobao 확인 시험과 같은 모델로 유지 |
+| protocol (`rolling_protocol.py` `V10`) | v8 grid·seed·Hybrid(v1) grid·재정렬 그대로, v9 사다리 a02 그대로, baseline 8개(CoVisit 포함), `POLICIES=('repeat',)`. 사다리 이름은 `Hybrid_v9*`(v1 `Hybrid`와 겹치지 않게). 사다리의 그래프 GNN은 단독 GNN으로 선택된 모델, 재정렬은 Hybrid backbone GNN(각 설계의 원래 규칙). 새 전역 `FUSION`·`LADDER_NAMES`·`ACKNOWLEDGED_TEST_RECORDS`는 v6–v9에서 기본값이라 v6–v9 plan 해시가 그대로임(테스트) |
+| 테스트 (`test_v10_protocol.py` 11개) | v6–v9 plan 해시 유지, v10 plan 내용(v6·v7과 같은 구간, v8 grid, v9 사다리 기록), 보호 장치 예외는 명시된 plan에만(합성 기록과 커밋된 실제 기록 모두), v10 순위에서 사다리는 단독 GNN 위, 사다리 학습은 선택된 GNN·재정렬은 backbone(둘이 다르게 강제한 실행), 끝-끝 실행(repeat만, 두 묶음 모두 봉인 뒤 시험, 묶음별 Holm, 사다리 표, 주 가설 도구, 재개 때 재열람 없음, 시험 구간을 섞어도 선택·모델 바이트 같음), 복제 이름 바꾸기 재시도 |
+| 변이 (`audit/v10protocol/quick_mutants.txt`) | Q1–Q14 모두 검출, 수정 안 한 사본 10개 통과 |
+| 복제 재시도 (I-164) | 합성 4-fold 확인 중 `WinError 5`가 다시 나서 `experiments.replace_with_retry`로 근본 수정(PermissionError만 최대 6번 재시도). 가드 변이 H45·H59 문자열을 현재 코드에 맞추고 둘 다 검출(`guard_H45_H59.txt`) |
+| 결과 도구 (시험 전에 작성) | `package_results.py`, `verify_results.py`, `primary_family.py`, `report_tools/recompute_test_metrics.py`(plan의 정책만 계산하도록 고침). 합성 4-fold 실행에서 모두 확인: 166개 파일 묶음, 모든 검사 통과, 116개 비교, 네 fold 재계산 최대 차이 1e-16(`audit/v10protocol/check_tools_synthetic.log`) |
+| 회귀 테스트 | 커밋 전 작업 폴더 250/250 (v7 venv, `audit/v10protocol/precommit_pytest.txt`) |

@@ -172,6 +172,8 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | v9 봉인 확인 시험 (plan `d2da4763…`, 시작 git 8329cda, 재부팅 뒤 재개 I-160, 시험 열람 1회 2026-11-01 18:02 UTC) | `rolling_protocol.py run --protocol v9` | `audit_runs/v9_taobao`(커밋 안 함), 결과 `audit/results_v9/` |
 | v9 결과 묶음·검증·독립 재계산 | `audit/v9protocol/package_results.py`, `verify_results.py`, `report_tools/recompute_test_metrics.py` | `audit/results_v9/SHA256SUMS.txt`, `audit/v9protocol/verify_results.txt`, `recompute_test_metrics.json` |
 | v9 민감도 분석: novel 튜닝 baseline (시험 열람 전 §6에 정함, 같은 plan·selection으로 1회 열람) | `audit/v9protocol/novel_tuned_baselines.py` | `audit/v9protocol/sensitivity_novel/` |
+| v10 계획 (RetailRocket 메인, repeat만, v8 변종 + v9 사다리, F1–F4, 코드 작성 전) | - | `audit/v10_rr_plan.md` (92c8561) |
+| v10 실행기·테스트·변이·도구 확인 (실행 전) | `rolling_protocol.py --protocol v10`, `test_v10_protocol.py`, `audit/v10protocol/quick_mutants.py`, `check_tools_synthetic.py` | `audit/v10protocol/quick_mutants.txt`, `guard_H45_H59.txt`, `check_tools_synthetic.log`, `precommit_pytest.txt` |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 
