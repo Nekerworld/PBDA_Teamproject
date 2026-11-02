@@ -812,3 +812,6 @@
 - 확인 시험 시작(2026-11-01 06:37 KST, git 8329cda, plan `d2da4763…`): 표본 [300,500) 19,665명·193만 이벤트, v8·개발 표본과 사용자 겹침 0. 누수 검사 통과.
 - 실행 중 계획 추가(`v9_dev_plan.md` §6, 시험 열람 전): novel 주 판단에서 생기는 튜닝 비대칭(ALS·BPR·GNN은 repeat로 튜닝, 사다리는 정책별 학습)을 보정하는 민감도 분석과 판정 규칙. 스크립트는 코드 해시 대상이 아닌 `audit/v9protocol/`에 둠(실행 중인 root의 코드 해시를 바꾸지 않기 위해).
 - 확인 시험 중단(I-160): 09:50 KST 재부팅으로 MF grid와 GNN 작업 4개가 끊김(GNN 9개는 끝나 있었음, 시험 열람 전). 10:01 KST 같은 plan·root로 재개.
+- 확인 시험 끝(2026-11-02 06:41 KST, 시험 열람 1회): novel ALS+BPR 0.00769 → Hybrid_MF_Graph 0.00891(×1.159) → Hybrid 0.01059(×1.188), 두 단계 Holm 0.0010, Hybrid가 baseline 8개 모두보다 유의하게 높음 → 기준 통과. repeat ×1.071, ×1.027 → 미달. novel ALS+BPR − ALS는 유의하지 않음.
+- 미리 정한 민감도 분석(§6, 열람 1회): novel 튜닝 baseline에서도 ×1.253, ×1.188, Hybrid_MF_Graph − ALS+BPR_n Holm 0.0016 → 통과. novel로 고른 baseline이 시험에서는 더 낮았음.
+- 독립 확인: 원본에서 지표 390행 재계산(차이 1e-16), 모델 해시·분기 특징·Holm·단계 순서·표본 겹침 확인. 상세 `validation_report.md` §36.5.

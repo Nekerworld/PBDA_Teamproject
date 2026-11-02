@@ -827,4 +827,52 @@ K=50, seed 42/43/44 평균 ± 표준편차 (`report/test_summary.csv`). 평가 �
 
 ### 36.5 봉인 확인 시험 (Taobao [300,500), protocol v9)
 
-실행 중(2026-11-01 06:37 KST 시작, git 8329cda, plan `d2da4763…`). 결과는 시험이 끝난 뒤 이 자리에 적는다.
+§5·§6 계획대로 한 번 실행한 결과다. 모든 표는 `audit/results_v9/`(SHA256SUMS 47개 파일)와 `audit/v9protocol/sensitivity_novel/`에서 나왔다.
+
+| 항목 | 내용 |
+|---|---|
+| 실행 | plan `d2da4763…`, 시작 git 8329cda. 2026-11-01 09:50 KST 재부팅으로 MF grid·GNN 작업 4개가 끊겨(I-160, 시험 열람 전) 같은 plan·root로 재개. 끝 2026-11-02 06:41 KST |
+| 시험 열람 | 봉인 시험 1회(2026-11-01 18:02:11 UTC, selection `3618008f…`, 봉인 16:11:52 UTC). 미리 정한 민감도 분석 1회(23:42:57 UTC, 같은 plan·selection). 접근 로그 `audit/v9protocol/sensitivity_novel/test_access_log_after.jsonl` |
+| 선택 (validation) | ALS(512, reg 0.002, α 40, 32회), BPR(256, lr 0.0025, reg 0.0003, 1024 epoch), ALS+BPR α repeat 0.6·novel 0.7, GNN `layers1_dim256_lr0.0005`(380 epoch, 그래프 모듈의 GNN도 같음). 순위 모델 설정은 `selection.json`의 `ladder` |
+| grid 끝 | BPR은 네 축 모두, GNN은 세 축 모두, ALS는 reg·반복 수가 grid 끝에서 선택됨(`selection.json` `grid_edges`). v7부터의 규칙대로 grid를 넓히지 않고 보고함. baseline이 더 넓은 grid에서 더 강해질 수 있음(사다리의 MF·그래프 모듈도 같은 fit을 씀) |
+| 독립 확인 | (1) 원본 `events.csv`에서 시험 지표 390행(정책 2 × seed 3 × 모델 13 × K 5)을 다시 계산: 최대 차이 1e-16, 모집단 일치, novel 목록의 본 상품 0, 중복 0(`audit/v9protocol/recompute_test_metrics.json`). (2) 봉인 모델 10개 해시 일치, 각 순위 모델은 자기 모듈의 특징으로만 분기, Holm 재계산 일치, 사다리 표 재계산 일치, 단계 순서(학습 → 봉인 → 열람 → 평가), 세 표본 사용자 겹침 0(`audit/v9protocol/verify_results.txt`) |
+
+K=50, seed 42/43/44 평균 ± 표준편차(`report/test_summary.csv`). 평가 사용자 repeat 10,135명, novel 9,284명, 카탈로그 137,670개.
+
+| 모델 | repeat NDCG@50 | repeat Recall@50 | novel NDCG@50 | novel Recall@50 |
+|---|---|---|---|---|
+| Popularity | 0.00232 ± 0.00000 | 0.0063 | 0.00230 ± 0.00000 | 0.0062 |
+| Recent | 0.06201 ± 0.00000 | 0.1114 | 0.00000 ± 0.00000 | 0.0000 |
+| RecentPop | 0.06260 ± 0.00000 | 0.1136 | 0.00230 ± 0.00000 | 0.0062 |
+| CoVisit | 0.03602 ± 0.00000 | 0.0719 | 0.00387 ± 0.00000 | 0.0096 |
+| ALS | 0.06524 ± 0.00017 | 0.1197 | 0.00758 ± 0.00011 | 0.0183 |
+| BPR | 0.06616 ± 0.00052 | 0.1169 | 0.00536 ± 0.00017 | 0.0132 |
+| GNN | 0.06725 ± 0.00032 | 0.1178 | 0.00485 ± 0.00020 | 0.0116 |
+| ALS+BPR | 0.06895 ± 0.00015 | 0.1204 | 0.00769 ± 0.00010 | 0.0185 |
+| LTR_MF | 0.07240 ± 0.00018 | 0.1203 | 0.00741 ± 0.00027 | 0.0181 |
+| Hybrid_MF_Graph | 0.07381 ± 0.00017 | 0.1214 | 0.00891 ± 0.00019 | 0.0213 |
+| Hybrid_no_graph | 0.07566 ± 0.00009 | 0.1242 | 0.00971 ± 0.00008 | 0.0236 |
+| Hybrid_no_mf | 0.07621 ± 0.00012 | 0.1243 | 0.00917 ± 0.00024 | 0.0226 |
+| Hybrid | 0.07578 ± 0.00018 | 0.1252 | 0.01059 ± 0.00029 | 0.0248 |
+
+사다리 기준(`report/ladder.csv`, NDCG@50 seed 평균):
+
+| 정책 | L0 max | L1 ALS+BPR | L2 Hybrid_MF_Graph | L3 Hybrid | L1/L0 | L2/L1 | L3/L2 | 기준 |
+|---|---|---|---|---|---|---|---|---|
+| repeat | 0.06725 (GNN) | 0.06895 | 0.07381 | 0.07578 | 1.025 | 1.071 | 1.027 | 미달 |
+| novel | 0.00758 (ALS) | 0.00769 | 0.00891 | 0.01059 | 1.014 | 1.159 | 1.188 | 통과 |
+| novel, novel 튜닝 baseline(§6) | 0.00674 (ALS_n) | 0.00711 | 0.00891 | 0.01059 | 1.056 | 1.253 | 1.188 | 통과 |
+
+| 검정 (사용자 단위 쌍대, Holm) | 결과 |
+|---|---|
+| novel 사다리 family | Hybrid − Hybrid_MF_Graph NDCG +0.00168 [0.00106, 0.00230], Recall +0.00355, Hybrid_MF_Graph − ALS+BPR NDCG +0.00123 [0.00065, 0.00183], Recall +0.00278: 모두 Holm 0.0010. ALS+BPR − BPR·GNN 유의. **ALS+BPR − ALS는 유의하지 않음**(NDCG +0.00011, Holm 0.62) |
+| novel 확정 family | Hybrid가 baseline 8개 모두보다 NDCG·Recall에서 유의하게 높음(Holm 0.0016) |
+| novel 민감도(§6) | Hybrid − ALS_n·BPR_n·ALS+BPR_n·GNN_n, Hybrid_MF_Graph − ALS+BPR_n(NDCG +0.00180, Recall +0.00450) 모두 Holm 0.0016. ALS+BPR_n − ALS_n NDCG 유의(0.0072), ALS+BPR_n − GNN_n 유의하지 않음. novel validation으로 고른 baseline이 시험에서는 repeat로 고른 것보다 낮았음(ALS+BPR_n 0.00711 대 0.00769) |
+| repeat 사다리 family | Hybrid − Hybrid_MF_Graph NDCG +0.00196, Hybrid_MF_Graph − ALS+BPR NDCG +0.00487 모두 유의. 하지만 비율이 1.071, 1.027로 10% 기준 미달 |
+| ablation | novel: Hybrid가 LTR_MF·Hybrid_no_graph(+0.00088)·Hybrid_no_mf(+0.00142)보다 NDCG·Recall 모두 유의하게 높음. 즉 novel에서는 세 모듈이 모두 최종 Hybrid에 기여함(개발 H에서는 그래프 제거 차이가 유의하지 않았음, §36.4). repeat: Hybrid − Hybrid_no_graph NDCG 유의하지 않음, Hybrid_no_mf가 평균으로 Hybrid보다 높음(−0.00043, 유의하지 않음) |
+
+판정(§5-2, §6-3): **novel에서 "유의미한 성과"의 미리 정한 조건을 모두 만족**한다. 비율 L2/L1 1.159(튜닝 보정 1.253), L3/L2 1.188이고, 두 단계의 NDCG 차이가 Holm 뒤 유의하며, Hybrid가 두 튜닝의 모든 baseline보다 높다. **repeat에서는 기준 미달**이다. 한계:
+- 주 판단 정책을 novel로 바꾼 것은 개발 결과(D2)를 본 뒤였음(§5, I-159). 확인 표본은 그 뒤에 처음 열었음.
+- L1 > max(L0)는 평균으로만 성립하고 ALS+BPR − ALS 차이는 유의하지 않음(novel). 사다리의 하위 단계(L0 → L1)는 "유의한 개선"이 아님.
+- 데이터 하나(Taobao 2% 표본), 봉인 fold 하나. RetailRocket·Diginetica 결과가 아님. novel NDCG의 절대값은 0.01 수준이라 비율 차이가 작은 절대 차이(+0.0012, +0.0017)에서 나옴.
+- 최종 Hybrid의 이득은 GNN 결합만의 효과가 아님: 문맥 모듈(이력·세션·카테고리·전환율)과 함께 본 상품·전환 그래프가 포함되고, baseline은 이 신호를 함께 쓰지 않음.

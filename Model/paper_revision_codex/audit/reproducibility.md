@@ -90,7 +90,13 @@ python -c "import dataset_adapters as da, pathlib; da.taobao_to_raw(pathlib.Path
 python hybrid_v9_dev.py prepare
 python hybrid_v9_dev.py bases --window d1   # d2, h도 같은 방식 (GNN 640 epoch, v8 선택 설정)
 python hybrid_v9_dev.py ladder --attempt a02 --variant a02 --objective lambdarank --note "..."   # 비교: audit/v9dev/ladder_a02_d2.json (CUDA GNN이라 끝자리가 다를 수 있음)
-# 15) v9 봉인 확인 시험 (Taobao 해시 구간 [300,500), audit/v9_dev_plan.md §5. 명령과 결과는 실행 후 이 자리에 적음)
+# 15) v9 봉인 확인 시험 (Taobao 해시 구간 [300,500), audit/v9_dev_plan.md §5·§6. 이 PC에서 실제 약 24시간(재부팅 재개 포함), 대부분 MF grid와 GNN validation)
+python -c "import dataset_adapters as da, pathlib; da.taobao_to_raw(pathlib.Path('../../data/taobao/UserBehavior.csv'), pathlib.Path('audit_runs/v9_raw/taobao_b300_500').resolve(), seed=42, user_band=(300, 500))"
+python report_tools/launch_detached.py --log audit_runs/v9_taobao_run.log -- python -u rolling_protocol.py run --root audit_runs/v9_taobao --raw audit_runs/v9_raw/taobao_b300_500 --protocol v9
+python audit/v9protocol/novel_tuned_baselines.py audit_runs/v9_taobao   # 민감도 분석, 비교: audit/v9protocol/sensitivity_novel/
+python audit/v9protocol/package_results.py audit_runs/v9_taobao audit_runs/repro/results_v9   # 비교: audit/results_v9 (CUDA GNN이라 끝자리·모델 파일 바이트는 다를 수 있음)
+python report_tools/recompute_test_metrics.py --root audit_runs/v9_taobao --fold TB2_full --raw audit_runs/v9_raw/taobao_b300_500 --output audit_runs/repro/v9_recompute.json
+python audit/v9protocol/verify_results.py audit/results_v9 audit_runs/v9_raw/taobao_b300_500 audit_runs/v8_raw/taobao_p1 audit_runs/v9dev/raw_b100_300   # 비교: audit/v9protocol/verify_results.txt
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.

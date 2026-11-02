@@ -50,6 +50,7 @@
 8. 학습 설정(ALS, BPR, GNN, Hybrid의 GNN backbone)은 repeat validation으로 고르고, novel에서는 추론 설정(Hybrid 결합, ALS+BPR α)만 다시 골랐다. 그래서 novel의 ALS·GNN 단독은 novel로 튜닝되지 않았다. 같은 grid에서 novel로 골랐다면 GNN의 validation 점수가 F2·F3·F4에서 높아지고, F4에서는 Hybrid보다 높았다 (`validation_report.md` §8 항목 5). novel의 Hybrid − GNN, Hybrid − ALS 유의 결과는 이 조건과 함께 보고한다. 자동 생성 표(`audit/figures_v*/table_paired_tests.*`)의 `claim` 열은 이 조건을 표시하지 않으므로, 표를 원고에 옮길 때 주석을 단다.
 9. 재고 신호(학습 종료 시점 이전의 `available`과 가중 γ)는 Hybrid(와 ablation `Hybrid_ALS_only`)에만 들어가고 baseline 7종에는 없다. validation에서 고른 γ는 8개 설정 모두 1보다 크다. 따라서 Hybrid − baseline 차이는 GNN 결합의 효과만이 아니다. 사후 분석이 있는 F1 repeat·seed 42에서는 Hybrid − ALS+BPR(NDCG +0.0031, Recall +0.0123)의 NDCG 약 79%, Recall 약 53%가 γ 1 대비 재고 가중 효과였다 (`validation_report.md` §6.2). 다른 fold·정책에서는 측정하지 않았다. 자동 생성 표와 그림에도 이 조건을 주석으로 단다.
 10. v8 봉인 시험(Taobao 1% 표본, fold 하나, `validation_report.md` §35): repeat에서 재정렬 Hybrid 두 설계가 NDCG@50으로 baseline 7개 모두보다 Holm 뒤 유의하게 높다(ALS+BPR 대비 +0.0049, +0.0060). Recall@50은 ALS·ALS+BPR과 유의한 차이가 없고, novel에서는 어느 Hybrid도 ALS·ALS+BPR보다 유의하게 높지 않다. 재정렬 모델은 MF·GNN 점수 외에 이력·인기·사용자 활동 특징을 쓰고(Taobao에는 재고 정보가 없어 재고 특징은 쓰이지 않음) baseline은 쓰지 않으므로, 차이는 GNN 결합만의 효과가 아니다(ablation은 서술용). novel 비교에는 공개 사항 8과 같은 튜닝 비대칭이 있다.
+11. v9 봉인 확인 시험(Taobao 2% 표본 [300,500), fold 하나, `validation_report.md` §36.5): novel 정책에서 모듈 사다리가 ALS+BPR 0.00769 → MF+그래프 Hybrid 0.00891(+15.9%) → 최종 Hybrid 0.01059(+18.8%)이고 두 단계 차이가 Holm 뒤 유의하다. ALS·BPR·GNN을 novel validation으로 다시 고른 민감도 분석에서도 같다(+25.3%, +18.8%). repeat에서는 단계 차이는 유의하지만 +7.1%, +2.7%로 10% 기준에 못 미친다. 원고에는 (1) 주 판단 정책을 개발 결과를 본 뒤 novel로 바꿨다는 사실(확인 표본은 그 뒤 처음 열음), (2) ALS+BPR − ALS가 유의하지 않다는 것, (3) 최종 Hybrid가 이력·세션·카테고리·전환율과 함께 본 상품·전환 그래프를 쓰고 baseline은 쓰지 않는다는 것, (4) BPR·GNN이 grid 끝에서 선택됐다는 것을 함께 쓴다.
 
 ## 4. 원고에 쓰면 안 되는 표현
 
@@ -62,3 +63,4 @@
 - "cold-start 해결".
 - v8 개발 비교(`validation_report.md` §33)의 수치나 "구조 개선으로 Hybrid가 우수" (시험이 아닌 개발 구간이고, 어느 설계도 기본 모델과 유의한 차이가 없음).
 - v8 봉인 시험(Taobao 1%, `validation_report.md` §35)에서 Holm 뒤 유의하지 않은 차이를 "우수"로 쓰는 것: repeat Recall@50의 재정렬 − ALS·ALS+BPR, 결합만 하는 Hybrid − ALS·ALS+BPR, novel의 모든 Hybrid − ALS·ALS+BPR, novel 재정렬 − Hybrid. 데이터 하나·fold 하나의 결과를 일반적인 우월성으로 쓰는 것. 재정렬의 차이를 "GNN 결합 구조의 효과"로 쓰는 것(아래 공개 사항 10).
+- v9(`validation_report.md` §36): repeat에서 "단계마다 10% 이상 개선", novel의 ALS+BPR이 ALS보다 "우수", novel 결과를 정책 구분 없이 "Hybrid가 10% 이상 개선"으로 쓰는 것, 개발 구간(D2·H)의 수치를 시험 결과처럼 쓰는 것, 최종 Hybrid의 이득을 GNN 결합만의 효과로 쓰는 것, Taobao 표본 하나의 결과를 일반적인 우월성으로 쓰는 것.

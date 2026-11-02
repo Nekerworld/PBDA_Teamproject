@@ -168,6 +168,10 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | v9 개발 진단: 정답 위치, 후보 풀 상한, D2 안 CV 상한, a02 특징 재현 | `audit/v9dev/truth_location.py`, `pool_ceiling.py`, `in_window_cv.py`, `check_variant_a02.py` | `audit/v9dev/truth_location.json`, `pool_ceiling_a01_repeat.json`, `in_window_cv_a02_repeat.json`, `check_variant_a02_novel.json` |
 | v9 개발 holdout H 열람 (a02h, 열람마다 라벨을 읽기 전에 기록) | `hybrid_v9_dev.py ladder --eval-window h` | `audit/v9dev/h_looks.csv`, `ladder_a02h_h.json` |
 | v9 확인 시험 실행기와 테스트 | `rolling_protocol.py --protocol v9`, `test_v9_protocol.py` | 커밋 b6f848e. 커밋 후 검증 `audit/v9dev/postcommit_b6f848e_*` |
+| v9 확인 원본: Taobao 해시 구간 [300,500) (seed 42), 다른 표본과 사용자 겹침 0 | `dataset_adapters.taobao_to_raw(user_band=(300, 500))` | `audit_runs/v9_raw/taobao_b300_500` (커밋 안 함. `adapter.json`에 원본 해시, `user_overlap.txt`) |
+| v9 봉인 확인 시험 (plan `d2da4763…`, 시작 git 8329cda, 재부팅 뒤 재개 I-160, 시험 열람 1회 2026-11-01 18:02 UTC) | `rolling_protocol.py run --protocol v9` | `audit_runs/v9_taobao`(커밋 안 함), 결과 `audit/results_v9/` |
+| v9 결과 묶음·검증·독립 재계산 | `audit/v9protocol/package_results.py`, `verify_results.py`, `report_tools/recompute_test_metrics.py` | `audit/results_v9/SHA256SUMS.txt`, `audit/v9protocol/verify_results.txt`, `recompute_test_metrics.json` |
+| v9 민감도 분석: novel 튜닝 baseline (시험 열람 전 §6에 정함, 같은 plan·selection으로 1회 열람) | `audit/v9protocol/novel_tuned_baselines.py` | `audit/v9protocol/sensitivity_novel/` |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 
