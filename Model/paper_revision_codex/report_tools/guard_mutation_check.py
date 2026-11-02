@@ -76,7 +76,7 @@ M = {
      "        try:\n            os.link(source / name, partial / name)\n"
      "        except OSError as error:\n            raise OSError(f'Could not hard-link {name} from {source} to {destination}') from error\n"
      "    if (source / 'validation').exists():\n        clone_protocol(source / 'validation', partial / 'validation')\n"
-     "    if destination.exists():\n        destination.rmdir()\n    os.replace(partial, destination)\n",
+     "    if destination.exists():\n        destination.rmdir()\n    replace_with_retry(partial, destination)\n",
      "    destination.mkdir(parents=True, exist_ok=True)\n"
      "    for name in {'manifest.json', *manifest['hashes'], *manifest['audit_hashes']}:\n"
      "        try:\n            os.link(source / name, destination / name)\n"
@@ -115,8 +115,8 @@ M = {
  'H58 precision check reads an outer-test folder': ('report_tools/check_score_precision.py',
                                                     "    if role != 'validation':", "    if False:"),
  'H59 use_protocol v6 keeps v7 values': ('rolling_protocol.py',
-                                         "PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7, 'v8': V8}",
-                                         "PROTOCOLS = {'v6': {}, 'v7': V7, 'v8': V8}"),
+                                         "PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7, 'v8': V8, 'v9': V9, 'v10': V10}",
+                                         "PROTOCOLS = {'v6': {}, 'v7': V7, 'v8': V8, 'v9': V9, 'v10': V10}"),
  'H60 Hybrid grid-end flags without alpha, candidate ends of blend only': (
      'rolling_protocol.py', "    grid = [c for c in HYBRID_GRID if c['strategy'] == best['strategy']]\n",
      "    return {'candidate_k': str(best['candidate_k']) in (str(CANDIDATE_KS[0]), str(CANDIDATE_KS[-1])),\n"

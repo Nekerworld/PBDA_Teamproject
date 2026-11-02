@@ -1,0 +1,6 @@
+started_utc 2026-11-02T12:19:58.005333+00:00
+mutants ['H45', 'H59']
+unmutated rc=0 102 passed, 2 deselected in 93.24s (0:01:33)
+H45 clone links straight into the destination: rc=1 killed | 1 failed, 101 passed, 2 deselected in 108.38s (0:01:48)
+H59 use_protocol v6 keeps v7 values: rc=1 killed | 1 failed, 101 passed, 2 deselected in 99.35s (0:01:39)
+finished_utc 2026-11-02T12:25:04.114128+00:00

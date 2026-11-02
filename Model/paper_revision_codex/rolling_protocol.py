@@ -93,6 +93,10 @@ RERANKER_CV_FOLDS = 5
 LADDER = False  # v9: module ladder of hybrid_v9 (no Hybrid fusion grid), trained on the inner validation window
 LADDER_VARIANT = 'a02'  # hybrid_v9.DESIGNS entry chosen in development (audit/v9dev)
 LADDER_NEGATIVES = 100
+FUSION = True  # the v1 Hybrid fusion grid (v9 runs its ladder without it)
+LADDER_NAMES = {}  # ladder ranker -> reported model name, when the run also has the v1 'Hybrid' (v10)
+ACKNOWLEDGED_TEST_RECORDS = {}  # plan_sha256 -> reason: earlier openings of the same windows the plan declares
+ALL_POLICIES = tuple(POLICIES)
 
 # v7: one fold on the only window never evaluated or used for selection in v1-v6
 # (v6 opened 0.45-1.0 as tests and 0.36-0.45 as F3 inner validation), and every
@@ -124,6 +128,10 @@ V7 = dict(
     LADDER=False,
     BASELINES=BASELINES,
     HYBRID_BACKBONES=HYBRID_BACKBONES,
+    FUSION=True,
+    LADDER_NAMES={},
+    ACKNOWLEDGED_TEST_RECORDS={},
+    POLICIES=POLICIES,
 )
 # v8: the v7 design on a larger population (Taobao UserBehavior, 1% of users), plus the stacked Hybrid
 # re-rankers of the v8 development record (audit/v8_feasibility.md section 5).
@@ -166,6 +174,7 @@ V9 = dict(
                             '[300, 500) (2%); never evaluated or used for selection.')}],
     RERANKER=False,
     LADDER=True,
+    FUSION=False,
     HYBRIDS=['Hybrid'],
     BASELINES=BASELINES + ['CoVisit'],
     HYBRID_BACKBONES=1,
@@ -188,7 +197,57 @@ V9 = dict(
                        'as not significant. Both policies are reported; neither is dropped.'),
         'posthoc_test_analyses': 'none'},
 )
-PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7, 'v8': V8, 'v9': V9}
+# v10: RetailRocket as the main data (audit/v10_rr_plan.md): the v8 Hybrid family and the v9 ladder in one run per
+# fold on the v6/v7 windows, repeat policy only. Those windows were opened before by the v6/v7 plans, which the plan
+# names; the v8 re-rankers were developed on RetailRocket's first 27% and the v9 ladder on Taobao only.
+V10_LADDER_NAMES = {'Hybrid': 'Hybrid_v9', 'Hybrid_MF_Graph': 'Hybrid_v9_MF_Graph', 'LTR_MF': 'Hybrid_v9_MF',
+                    'Hybrid_no_graph': 'Hybrid_v9_no_graph', 'Hybrid_no_mf': 'Hybrid_v9_no_mf'}
+V10 = dict(
+    V8,
+    PROTOCOL='rolling-origin-v10',
+    FOLDS=[dict(FOLDS[0], test_window='Opened by v1-v5 and the v6 plan; not used to design the v8 re-rankers or the v9 ladder.'),
+           dict(FOLDS[1], test_window='Opened by the v6 plan (v1-v5 inner validation); not used to design the v8 re-rankers or the v9 ladder.'),
+           dict(FOLDS[2], test_window='Opened by the v6 plan; not used to design the v8 re-rankers or the v9 ladder.'),
+           dict(V7['FOLDS'][0], test_window=('Opened by the v7 plan; the v8 re-rankers were developed on the inner '
+                                             'validation before it (first 27% of events), never on this window.'))],
+    POLICIES=('repeat',),
+    RERANKER=True,
+    LADDER=True,
+    FUSION=True,
+    LADDER_NAMES=V10_LADDER_NAMES,
+    HYBRIDS=['Hybrid', 'Hybrid_LTR', 'Hybrid_LTR_W', 'Hybrid_v9'],
+    BASELINES=BASELINES + ['CoVisit'],
+    ACKNOWLEDGED_TEST_RECORDS={
+        'c56ada95ecce29320a4e903e2ae5c23b72296d13e8be0fc2030efe9cc25a700d':
+            'v6 plan (F1_hist, F2_mid, F3_early): baselines and the v1 Hybrid; named in audit/v10_rr_plan.md section 3',
+        '784d0fa97912d79b50665c32c3ebf181daff38ae2e559d79e5e6c961b472dfef':
+            'v7 plan (F4_unseen): baselines and the v1 Hybrid; named in audit/v10_rr_plan.md section 3'},
+    PLAN_EXTRA={
+        'purpose': ('RetailRocket main experiment (audit/v10_rr_plan.md): the v8 Hybrid family (v1 fusion, Hybrid_LTR, '
+                    'Hybrid_LTR_W and their feature-group ablations) and the v9 module ladder (design a02, reported as '
+                    'Hybrid_v9*) on the four v6/v7 windows, repeat policy only.'),
+        'dataset': ('RetailRocket events.csv, item_properties part1/part2 and category_tree.csv (as v6/v7); item '
+                    'category and stock flag are the last values before each cutoff.'),
+        'design_origin': ('v1 Hybrid: v1-v7 on RetailRocket. Hybrid_LTR/Hybrid_LTR_W: audit/v8dev (RetailRocket first '
+                          '27% of events, the F4_unseen inner validation), sealed test on Taobao (v8). Ladder a02: '
+                          'audit/v9dev on Taobao only (chosen by the novel development step, kept as the Taobao v9 '
+                          'model), sealed test on Taobao (v9).'),
+        'policy_choice': ('repeat only (meeting of 2026-11-02: repurchase demand), decided after the Taobao v9 result in '
+                          'which repeat missed the 10% steps; novel is not computed.'),
+        'grid_edge_rule': V7['PLAN_EXTRA']['grid_edge_rule'],
+        'statistics': ('Per fold: user-level paired bootstrap 95% CI (10,000) and two-sided sign-flip test (10,000) on '
+                       'seed-averaged per-user metrics. Fold families (own Holm each): confirmatory = Hybrid, '
+                       'Hybrid_LTR, Hybrid_LTR_W, Hybrid_v9 vs every baseline on NDCG@50 and Recall@50; ladder = '
+                       'Hybrid_v9 - Hybrid_v9_MF_Graph, Hybrid_v9_MF_Graph - ALS+BPR, ALS+BPR - ALS/BPR/GNN; ablation '
+                       '= Hybrid_v9 vs Hybrid_v9_MF/no_graph/no_mf; secondary = Hybrid_LTR, Hybrid_LTR_W vs Hybrid.'),
+        'primary_family': ('One Holm correction over the four folds, NDCG@50 only, on the fold p-values: Hybrid_LTR, '
+                           'Hybrid_LTR_W and Hybrid_v9 each vs the 8 baselines, plus the 5 ladder steps (29 per fold, '
+                           '116 in all; audit/v10protocol/primary_family.py). The v1 Hybrid is descriptive only. A '
+                           'ladder result is called significant only if its ratios pass and L3 - L2 and L2 - L1 are '
+                           'significant in this family. No pooling across folds.'),
+        'posthoc_test_analyses': 'none'},
+)
+PROTOCOLS = {'v6': {name: globals()[name] for name in V7}, 'v7': V7, 'v8': V8, 'v9': V9, 'v10': V10}
 
 
 def use_protocol(name):
@@ -255,15 +314,18 @@ def plan_payload():
         'preprocessing': dict(use_if=False, core_mode='events', min_user_events=3, min_item_events=3,
                               random_state=42),
         **({'reranker': reranker_plan()} if RERANKER else {}),
+        **({'policies': list(POLICIES)} if tuple(POLICIES) != ALL_POLICIES else {}),
+        **({'acknowledged_test_records': ACKNOWLEDGED_TEST_RECORDS} if ACKNOWLEDGED_TEST_RECORDS else {}),
         **PLAN_EXTRA,
     }
-    if LADDER:
+    if LADDER and not FUSION:
         for key in ('hybrid_grid_size', 'candidate_ks', 'hybrid_grid_axes', 'hybrid_grid_sha256', 'hybrid_backbones'):
             payload.pop(key, None)
-        payload['ladder'] = ladder_plan()
         payload['gnn_cap_rule'] = (f'If the selected GNN configuration selects an epoch within one validation interval '
                                    f'of {GNN_MAX_EPOCHS}, it is retrained on validation with cap '
                                    f'{GNN_CAP_EXTENSION_EPOCHS} and the extended run replaces it.')
+    if LADDER:
+        payload['ladder'] = ladder_plan()
     return payload
 
 
@@ -289,7 +351,10 @@ def ladder_plan():
         'param_grid': ltr.PARAM_GRID,
         'application': ('fixed rankers applied on the test to the features of every refit seed (full training period, '
                         'ALS/BPR of the seed and its GNN); top 50 of each ranker pool'),
-        'baseline_added': 'CoVisit: the co-visit graph of hybrid_v9 alone (top co-visit scores of the last 10 items)'}
+        'baseline_added': 'CoVisit: the co-visit graph of hybrid_v9 alone (top co-visit scores of the last 10 items)',
+        **({'reported_names': LADDER_NAMES,
+            'graph_gnn': ('the GNN selected for the stand-alone baseline (its refit of each seed on the test), not the '
+                          'v1 Hybrid backbone')} if LADDER_NAMES else {})}
 
 
 def reranker_plan():
@@ -809,13 +874,15 @@ def best_row(rows, keys):
 
 # ----------------------------------------------------------------------------- test evaluation
 def model_rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection, rerankers=None, item_tables=None,
-                   ladder=None):
+                   ladder=None, ladder_tables=None):
     """rerankers: name -> (model, selection entry) of the policy, scored on the Hybrid backbone's features;
-    item_tables: hybrid_ltr.item_tables of the same fits; ladder: name -> (model, entry) of the v9 ladder."""
+    item_tables: hybrid_ltr.item_tables of the same fits; ladder: name -> (model, entry) of the v9 ladder.
+    Without a v1 Hybrid selection (v9) the ladder runs alone on the Hybrid backbone (the selected GNN there); with
+    one (v10) the ladder runs beside the v8 family on the stand-alone GNN and its ``ladder_tables``."""
     std = FactorScores(context, als, bpr, gnn_std)
     hyb = FactorScores(context, als, bpr, gnn_hybrid)
     alpha = policy_selection['mf_alpha']
-    if ladder is not None:
+    if ladder is not None and 'hybrid' not in policy_selection:
         return ladder_rankings(context, std, hyb, alpha, ladder, item_tables)
     config = policy_selection['hybrid']
     rankings = {
@@ -832,6 +899,9 @@ def model_rankings(context, als, bpr, gnn_std, gnn_hybrid, policy_selection, rer
         frame = ltr.features(context, hyb, history, ltr.candidates(context, hyb, history, ltr.POOL), *item_tables)
         for name, (model, entry) in rerankers.items():
             rankings[name] = ltr.rank(model, frame, entry['features'], max(KS))
+    if ladder is not None:
+        extra = ladder_rankings(context, std, std, alpha, ladder, ladder_tables)
+        rankings.update({name: ranked for name, ranked in extra.items() if name not in rankings})
     return rankings
 
 
@@ -848,7 +918,7 @@ def ladder_rankings(context, std, hyb, alpha, ladder, item_tables):
     pool = v9.candidates(context, hyb, signals, v9.DESIGNS[LADDER_VARIANT]['pool'])
     frame = v9.features(context, hyb, signals, pool, *item_tables)
     for name, (model, entry) in ladder.items():
-        rankings[name] = v9.rank(model, frame.loc[v9.module_rows(frame, entry['modules'])], entry['features'], k)
+        rankings[LADDER_NAMES.get(name, name)] = v9.rank(model, frame.loc[v9.module_rows(frame, entry['modules'])], entry['features'], k)
     return rankings
 
 
@@ -1148,6 +1218,8 @@ def committed_test_conflicts(raw_hashes, plan_hash, folds, records=None, event_f
                                'out of the result folders before running.') from error
         if (stored.get('raw_input_sha256') or {}).get('events.csv') not in forms:
             continue
+        if stored['plan_sha256'] in ACKNOWLEDGED_TEST_RECORDS:  # named in the running plan, so in its hash
+            continue
         exact_reproduction = (stored['plan_sha256'] == plan_hash and stored.get('raw_input_sha256') == raw_hashes
                               and code_matches(stored.get('code_sha256', {}), stored.get('code_hash_scheme', 'sha256-raw')))
         if exact_reproduction and selections is None:
@@ -1189,19 +1261,20 @@ def fold_statistics(policy, details):
     per_user = {m: pd.concat(frames).groupby('visitorid')[['ndcg', 'recall', 'precision', 'hit_rate']].mean()
                 for m, frames in details.items()}
     frame = pd.DataFrame(compare_families(per_user, HYBRIDS, BASELINES))
+    families = [frame.assign(family='confirmatory')]
     if LADDER:
         import hybrid_v9 as v9
-        lad = v9.LADDER
+        lad = {k: tuple(LADDER_NAMES.get(m, m) for m in v) if isinstance(v, tuple) else LADDER_NAMES.get(v, v)
+               for k, v in v9.LADDER.items()}
         steps = [(lad['L3'], lad['L2']), (lad['L2'], lad['L1'])] + [(lad['L1'], m) for m in lad['L0']]
-        ablations = [m for m in v9.RANKERS if m not in (lad['L2'], lad['L3'])]
-        frame = pd.concat([frame.assign(family='confirmatory'),
-                           pd.DataFrame(compare_pairs(per_user, steps)).assign(family='ladder'),
-                           pd.DataFrame(compare_families(per_user, [lad['L3']], ablations)).assign(family='ablation')],
-                          ignore_index=True)
-    elif len(HYBRIDS) > 1:
-        secondary = pd.DataFrame(compare_families(per_user, HYBRIDS[1:], HYBRIDS[:1]))
-        frame = pd.concat([frame.assign(family='confirmatory'), secondary.assign(family='secondary')],
-                          ignore_index=True)
+        ablations = [LADDER_NAMES.get(m, m) for m in v9.RANKERS if m not in (v9.LADDER['L2'], v9.LADDER['L3'])]
+        families += [pd.DataFrame(compare_pairs(per_user, steps)).assign(family='ladder'),
+                     pd.DataFrame(compare_families(per_user, [lad['L3']], ablations)).assign(family='ablation')]
+    if RERANKER:
+        secondary = pd.DataFrame(compare_families(per_user, list(RERANKER_NAMES.values()), ['Hybrid']))
+        families.append(secondary.assign(family='secondary'))
+    if len(families) > 1:
+        frame = pd.concat(families, ignore_index=True)
     frame.insert(0, 'policy', policy)
     distribution = []
     for model, frames in details.items():
@@ -1235,8 +1308,12 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
             gnn_std = load_gnn(refits[seed]['gnn'], context)
             gnn_hyb = load_gnn(refits[seed]['hybrid_gnn'], context)
             tables = ltr.item_tables(context, seed_dir, refits[seed]['hybrid_gnn']) if RERANKER or LADDER else None
+            extra = {'ladder': ladder} if LADDER else {}
+            if LADDER and FUSION:
+                extra['ladder_tables'] = (tables if refits[seed]['gnn'] == refits[seed]['hybrid_gnn']
+                                          else ltr.item_tables(context, seed_dir, refits[seed]['gnn']))
             rankings = model_rankings(context, als, bpr, gnn_std, gnn_hyb, selection['policies'][policy],
-                                      rerankers, tables, **({'ladder': ladder} if LADDER else {}))
+                                      rerankers, tables, **extra)
             del als, bpr, gnn_std, gnn_hyb
             for model, ranked in rankings.items():
                 records = [(u, int(context.ids[i]), r) for u, items in ranked.items() for r, i in enumerate(items, 1)]
@@ -1267,9 +1344,13 @@ def evaluate_fold_test(root, fold, prepared, selection, refits, plan_hash):
     if LADDER:
         import hybrid_v9 as v9
         primary = summary.loc[summary.k == PRIMARY_K]
-        pd.DataFrame([{'policy': policy, **v9.ladder_summary(
-            primary.loc[primary.policy == policy].set_index('model').ndcg_mean.to_dict(), BASELINES)}
-            for policy in POLICIES]).to_csv(report / 'ladder.csv', index=False)
+        original = {reported: name for name, reported in LADDER_NAMES.items()}
+
+        def ladder_ndcg(policy):  # under the hybrid_v9 names (the v1 'Hybrid' of a v10 run is not on the ladder)
+            ndcg = primary.loc[primary.policy == policy].set_index('model').ndcg_mean.to_dict()
+            return {original.get(m, m): v for m, v in ndcg.items() if m not in LADDER_NAMES}
+        pd.DataFrame([{'policy': policy, **v9.ladder_summary(ladder_ndcg(policy), BASELINES)}
+                      for policy in POLICIES]).to_csv(report / 'ladder.csv', index=False)
     # Written last: its presence marks the fold's test as complete when a run resumes.
     write_csv_atomic(metrics, fold_dir / 'test_metrics.csv')
 
@@ -1494,8 +1575,7 @@ def run_fold(root, fold, raw, plan_hash):
         scores = evaluate_vectors(contexts, vectors)
         gnn_rows.append({'name': Path(spec['job_dir']).name, 'config': spec['config'], 'job_dir': spec['job_dir'],
                          'epochs': result['chosen_epochs'], 'at_cap': result['at_cap'], 'seconds': result['seconds'],
-                         'repeat': scores['repeat'], 'novel': scores['novel'],
-                         'score': selection_score(scores['repeat'])})
+                         **{p: scores[p] for p in POLICIES}, 'score': selection_score(scores['repeat'])})
     gnn_rows.sort(key=lambda r: r['score'], reverse=True)
 
     def extend(rows):
@@ -1505,8 +1585,8 @@ def run_fold(root, fold, raw, plan_hash):
         for row, spec, result in zip(rows, extensions, run_gnn_jobs(root, extensions)):
             scores = evaluate_vectors(contexts, load_gnn(spec['job_dir'], contexts['repeat']))
             updates.append(dict(job_dir=spec['job_dir'], epochs=result['chosen_epochs'], at_cap=result['at_cap'],
-                                seconds=row['seconds'] + result['seconds'], repeat=scores['repeat'],
-                                novel=scores['novel'], score=selection_score(scores['repeat']), result=result))
+                                seconds=row['seconds'] + result['seconds'], **{p: scores[p] for p in POLICIES},
+                                score=selection_score(scores['repeat']), result=result))
         return updates
     extension_results = extend_capped_backbones(gnn_rows, extend)
     dump_json(fold_dir / 'validation_gnn.json', gnn_rows)
@@ -1521,7 +1601,7 @@ def run_fold(root, fold, raw, plan_hash):
             alpha_rows.append({'alpha': alpha, **m, 'score': selection_score(m)})
         pd.DataFrame(alpha_rows).to_csv(fold_dir / f'validation_mf_alpha_{policy}.csv', index=False)
         policies[policy] = {'mf_alpha': best_row(alpha_rows, ['alpha'])['alpha']}
-        if LADDER:
+        if not FUSION:
             continue
         rows = []
         for backbone in gnn_rows[:HYBRID_BACKBONES]:
@@ -1533,8 +1613,8 @@ def run_fold(root, fold, raw, plan_hash):
             rows.extend(part)
         grid_rows[policy] = rows
     keys = ['backbone', 'alpha', 'strategy', 'candidate_k', 'fusion', 'omega', 'gamma', 'ndcg', 'recall', 'score']
-    repeat_backbone = gnn_rows[0]['name'] if LADDER else best_row(grid_rows['repeat'], keys)['backbone']
-    for policy in () if LADDER else POLICIES:
+    repeat_backbone = best_row(grid_rows['repeat'], keys)['backbone'] if FUSION else gnn_rows[0]['name']
+    for policy in POLICIES if FUSION else ():
         # Trained configurations follow the repeat policy (preregistered), so every
         # policy re-selects inference-time parameters on the repeat-selected backbone.
         best = best_row([r for r in grid_rows[policy] if r['backbone'] == repeat_backbone], keys)
@@ -1560,12 +1640,12 @@ def run_fold(root, fold, raw, plan_hash):
                                                   'BPR': mf['evaluated_configs']['BPR'],
                                                   'ALS+BPR': len(MF_ALPHAS),
                                                   'GNN': sum(r['evaluated_checkpoints'] for r in gnn_results),
-                                                  'Hybrid': 0 if LADDER else len(HYBRID_GRID) * HYBRID_BACKBONES},
+                                                  'Hybrid': len(HYBRID_GRID) * HYBRID_BACKBONES if FUSION else 0},
                             'train_seconds': {'ALS': mf['train_seconds']['ALS'], 'BPR': mf['train_seconds']['BPR'],
                                               'GNN': sum(r['seconds'] for r in gnn_results)},
                             'note': 'Hybrid adds no training fits; it reuses the MF and GNN fits above.'}}
     if LADDER and not (fold_dir / 'selection.json').exists():
-        ladder = train_ladder(fold_dir, val_mf, selection['hybrid_backbone']['job_dir'])
+        ladder = train_ladder(fold_dir, val_mf, selection['gnn']['job_dir'])
         log(root, 'ladder_trained', fold=fold['name'])
         selection['ladder'] = ladder
         trained = [t for r in ladder.values() for name, t in r['training'].items() if name in r['models']]

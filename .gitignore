@@ -97,6 +97,8 @@ htmlcov/
 # Sealed v8 re-ranker and v9 ladder models are part of the test record (sha256 in selection.json)
 !/Model/paper_revision_codex/audit/results_v8/TB1_full/rerankers/*.pkl
 !/Model/paper_revision_codex/audit/results_v9/TB2_full/ladder/*.pkl
+!/Model/paper_revision_codex/audit/results_v10/*/rerankers/*.pkl
+!/Model/paper_revision_codex/audit/results_v10/*/ladder/*.pkl
 
 # Packaged datasets and delivery bundles
 *.zip

@@ -1,0 +1,18 @@
+started_utc 2026-11-02T11:44:02.886960+00:00
+tests ['test_v10_protocol.py']
+unmutated rc=0 10 passed, 1 warning in 80.98s (0:01:20)
+Q1 named earlier openings not skipped: rc=1 killed | 2 failed, 8 passed, 1 warning in 92.18s (0:01:32)
+Q2 every earlier opening skipped: rc=1 killed | 2 failed, 8 passed, 1 warning in 94.43s (0:01:34)
+Q3 v10 ladder scored on the Hybrid backbone: rc=1 killed | 1 failed, 9 passed, 1 warning in 94.07s (0:01:34)
+Q4 ladder trained on the Hybrid backbone: rc=1 killed | 1 failed, 9 passed, 1 warning in 100.12s (0:01:40)
+Q5 secondary family over every other Hybrid: rc=1 killed | 1 failed, 9 passed, 1 warning in 55.74s
+Q6 ladder.csv reads the v1 Hybrid as L3: rc=1 killed | 1 failed, 9 passed, 1 warning in 56.70s
+Q7 v10 computes both policies: rc=1 killed | 2 failed, 8 passed, 1 warning in 68.49s (0:01:08)
+Q8 v10 drops the ladder rankings: rc=1 killed | 2 failed, 8 passed, 1 warning in 56.26s
+Q9 ladder rankings keep the hybrid_v9 names: rc=1 killed | 1 failed, 9 passed, 1 warning in 61.56s (0:01:01)
+Q10 ladder family on the hybrid_v9 names: rc=1 killed | 1 failed, 9 passed, 1 warning in 51.72s
+Q11 plan omits the named openings: rc=1 killed | 1 failed, 9 passed, 1 warning in 82.94s (0:01:22)
+Q12 v10 without the v1 fusion grid: rc=1 killed | 3 failed, 7 passed, 1 warning in 60.40s (0:01:00)
+Q13 ladder trained after the selection is sealed: rc=1 killed | 2 failed, 8 passed, 1 warning in 44.12s
+Q14 earlier plans get the policies record: rc=1 killed | 4 failed, 6 passed, 1 warning in 98.41s (0:01:38)
+finished_utc 2026-11-02T12:02:47.994899+00:00

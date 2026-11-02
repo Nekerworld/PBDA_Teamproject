@@ -51,6 +51,7 @@ def main(root, fold, raw, output):
     seen = {u: set(g.itemid) for u, g in train.loc[train.visitorid.isin(users)].groupby('visitorid')}
     truths = {'repeat': original,
               'novel': {u: t - seen.get(u, set()) for u, t in original.items() if t - seen.get(u, set())}}
+    truths = {p: t for p, t in truths.items() if p in plan.get('policies', truths)}  # v10 evaluates repeat only
     rows, violations = [], {'novel_seen_items': 0, 'duplicates': 0, 'listed_items': 0}
     for seed, dirs in refits.items():
         seed_dir = Path(root) / dirs['mf']

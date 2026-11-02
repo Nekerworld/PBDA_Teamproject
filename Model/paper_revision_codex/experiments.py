@@ -319,7 +319,19 @@ def clone_protocol(source, destination):
         clone_protocol(source / 'validation', partial / 'validation')
     if destination.exists():
         destination.rmdir()
-    os.replace(partial, destination)
+    replace_with_retry(partial, destination)
+
+
+def replace_with_retry(source, destination, attempts=6, wait=.5):
+    """os.replace that retries a refused rename. On Windows a file that was just linked can stay open for a moment
+    in another process (virus scan, indexing), which refuses the folder rename with WinError 5 (I-151)."""
+    for attempt in range(attempts):
+        try:
+            return os.replace(source, destination)
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(wait * 2 ** attempt)
 
 
 def available_share(records, available_ids, k):
