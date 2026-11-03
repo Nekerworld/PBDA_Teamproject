@@ -1,0 +1,13 @@
+fold,model,significantly_above,above_all_baselines
+F1_hist,Hybrid_LTR,BPR GNN Popularity Recent RecentPop CoVisit,False
+F1_hist,Hybrid_LTR_W,ALS BPR GNN Popularity Recent RecentPop CoVisit,False
+F1_hist,Hybrid_v9,BPR GNN Popularity Recent RecentPop CoVisit,False
+F2_mid,Hybrid_LTR,ALS BPR GNN Popularity Recent RecentPop CoVisit,False
+F2_mid,Hybrid_LTR_W,ALS BPR GNN Popularity Recent RecentPop CoVisit,False
+F2_mid,Hybrid_v9,ALS BPR ALS+BPR GNN Popularity Recent RecentPop CoVisit,True
+F3_early,Hybrid_LTR,Popularity Recent RecentPop CoVisit,False
+F3_early,Hybrid_LTR_W,Popularity Recent RecentPop CoVisit,False
+F3_early,Hybrid_v9,ALS GNN Popularity Recent RecentPop CoVisit,False
+F4_unseen,Hybrid_LTR,ALS Popularity Recent RecentPop CoVisit,False
+F4_unseen,Hybrid_LTR_W,ALS Popularity Recent RecentPop CoVisit,False
+F4_unseen,Hybrid_v9,ALS Popularity Recent RecentPop CoVisit,False

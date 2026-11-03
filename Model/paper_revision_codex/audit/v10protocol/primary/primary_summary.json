@@ -1,0 +1,18 @@
+{
+ "comparisons": 116,
+ "folds": [
+  "F1_hist",
+  "F2_mid",
+  "F3_early",
+  "F4_unseen"
+ ],
+ "alpha": 0.05,
+ "ladder_significant_folds": [],
+ "ladder_ratio_pass_folds": [],
+ "above_all_baselines": [
+  {
+   "fold": "F2_mid",
+   "model": "Hybrid_v9"
+  }
+ ]
+}

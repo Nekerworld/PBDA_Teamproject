@@ -1,0 +1,56 @@
+{
+  "als": {
+    "factors": 1024,
+    "regularization": 0.2,
+    "alpha": 80.0,
+    "iterations": 8
+  },
+  "bpr": {
+    "factors": 256,
+    "learning_rate": 0.0025,
+    "regularization": 0.0003
+  },
+  "bpr_epochs": 1024,
+  "validation": {
+    "ALS": {
+      "family": "ALS",
+      "factors": 1024,
+      "regularization": 0.2,
+      "alpha": 80.0,
+      "iterations": 8.0,
+      "repeat_ndcg": 0.17282707001049818,
+      "repeat_recall": 0.2555873686633475,
+      "repeat_precision": 0.007682119205298014,
+      "repeat_hit_rate": 0.31567328918322296,
+      "repeat_hit_users": 143,
+      "repeat_users": 453,
+      "repeat_score": 0.21420721933692285
+    },
+    "BPR": {
+      "family": "BPR",
+      "factors": 256,
+      "regularization": 0.0003,
+      "repeat_ndcg": 0.1702644712679898,
+      "repeat_recall": 0.24184564680904286,
+      "repeat_precision": 0.007328918322295807,
+      "repeat_hit_rate": 0.30022075055187636,
+      "repeat_hit_users": 136,
+      "repeat_users": 453,
+      "learning_rate": 0.0025,
+      "epochs": 1024.0,
+      "repeat_score": 0.20605505903851634
+    }
+  },
+  "fits": {
+    "ALS": 192,
+    "BPR": 24
+  },
+  "evaluated_configs": {
+    "ALS": 192,
+    "BPR": 168
+  },
+  "train_seconds": {
+    "ALS": 5810.516158700222,
+    "BPR": 3776.0687498998886
+  }
+}

@@ -1,0 +1,661 @@
+{
+  "plan_sha256": "7750924897b1b9f1442065202c86e1da1462dcb671696cd9264791a1b9d61530",
+  "fold": "F2_mid",
+  "mf": {
+    "als": {
+      "factors": 1024,
+      "regularization": 0.002,
+      "alpha": 80.0,
+      "iterations": 16
+    },
+    "bpr": {
+      "factors": 256,
+      "learning_rate": 0.0025,
+      "regularization": 0.0003
+    },
+    "bpr_epochs": 1024,
+    "validation": {
+      "ALS": {
+        "family": "ALS",
+        "factors": 1024,
+        "regularization": 0.002,
+        "alpha": 80.0,
+        "iterations": 16.0,
+        "repeat_ndcg": 0.1510884343820436,
+        "repeat_recall": 0.22383040076410604,
+        "repeat_precision": 0.007842465753424658,
+        "repeat_hit_rate": 0.2842465753424658,
+        "repeat_hit_users": 166,
+        "repeat_users": 584,
+        "repeat_score": 0.18745941757307483
+      },
+      "BPR": {
+        "family": "BPR",
+        "factors": 256,
+        "regularization": 0.0003,
+        "repeat_ndcg": 0.15714244279947787,
+        "repeat_recall": 0.2187236533149395,
+        "repeat_precision": 0.007773972602739726,
+        "repeat_hit_rate": 0.2791095890410959,
+        "repeat_hit_users": 163,
+        "repeat_users": 584,
+        "learning_rate": 0.0025,
+        "epochs": 1024.0,
+        "repeat_score": 0.18793304805720867
+      }
+    },
+    "fits": {
+      "ALS": 192,
+      "BPR": 24
+    },
+    "evaluated_configs": {
+      "ALS": 192,
+      "BPR": 168
+    },
+    "train_seconds": {
+      "ALS": 7320.6607551997295,
+      "BPR": 8178.316933999973
+    }
+  },
+  "gnn": {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p001",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v10_rr\\F2_mid\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p001",
+    "epochs": 230,
+    "at_cap": false,
+    "seconds": 1965.469297100004,
+    "repeat": {
+      "ndcg": 0.16047207015024362,
+      "recall": 0.22552488499656959,
+      "precision": 0.008013698630136986,
+      "hit_rate": 0.285958904109589,
+      "hit_users": 167,
+      "users": 584
+    },
+    "score": 0.1929984775734066
+  },
+  "hybrid_backbone": {
+    "name": "gnn_layers1_embedding_dim256_learning_rate0p001",
+    "config": {
+      "layers": 1,
+      "embedding_dim": 256,
+      "learning_rate": 0.001
+    },
+    "job_dir": "C:\\YS\\TUK\\S4E2\\PBDA\\teamproject\\PBDA_Teamproject2\\Model\\paper_revision_codex\\audit_runs\\v10_rr\\F2_mid\\gnn_val\\gnn_layers1_embedding_dim256_learning_rate0p001",
+    "epochs": 230,
+    "at_cap": false,
+    "seconds": 1965.469297100004,
+    "repeat": {
+      "ndcg": 0.16047207015024362,
+      "recall": 0.22552488499656959,
+      "precision": 0.008013698630136986,
+      "hit_rate": 0.285958904109589,
+      "hit_users": 167,
+      "users": 584
+    },
+    "score": 0.1929984775734066
+  },
+  "policies": {
+    "repeat": {
+      "mf_alpha": 0.7,
+      "hybrid": {
+        "backbone": "gnn_layers1_embedding_dim256_learning_rate0p001",
+        "alpha": 0.75,
+        "strategy": "blend",
+        "candidate_k": 2000,
+        "fusion": "minmax",
+        "omega": 0.4,
+        "gamma": 1.25,
+        "ndcg": 0.16524220142086418,
+        "recall": 0.22926482846254043,
+        "score": 0.1972535149417023
+      },
+      "unrestricted_best_backbone": "gnn_layers1_embedding_dim256_learning_rate0p001",
+      "hybrid_at_grid_boundary": {
+        "alpha": true,
+        "candidate_k": false,
+        "omega": false,
+        "gamma": false
+      }
+    }
+  },
+  "locked_utc": "2026-11-03T08:11:10.767834+00:00",
+  "outer_test_used_for_selection": false,
+  "grid_edges": {
+    "ALS": {
+      "factors": "max",
+      "regularization": "min",
+      "alpha": "max"
+    },
+    "BPR": {
+      "factors": "max",
+      "learning_rate": "min",
+      "regularization": "min",
+      "epochs": "max"
+    },
+    "GNN": {
+      "layers": "min",
+      "embedding_dim": "max"
+    },
+    "Hybrid_backbone": {
+      "layers": "min",
+      "embedding_dim": "max"
+    }
+  },
+  "budget": {
+    "fits": {
+      "ALS": 192,
+      "BPR": 24,
+      "GNN": 36,
+      "Hybrid": 0,
+      "Ladder": 205,
+      "Reranker": 88
+    },
+    "evaluated_configs": {
+      "ALS": 192,
+      "BPR": 168,
+      "ALS+BPR": 11,
+      "GNN": 999,
+      "Hybrid": 8424
+    },
+    "train_seconds": {
+      "ALS": 7320.6607551997295,
+      "BPR": 8178.316933999973,
+      "GNN": 76861.1239721,
+      "Ladder": 503.68260190004366,
+      "Reranker": 828.062165499985
+    },
+    "note": "The ladder rankers are fitted on the inner validation window; ALS, BPR and GNN are the fits above."
+  },
+  "ladder": {
+    "repeat": {
+      "models": {
+        "Hybrid_MF_Graph": {
+          "modules": [
+            "mf",
+            "graph"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_Hybrid_MF_Graph.pkl",
+          "sha256": "3b7d86aac153a3b696456fe61de803eb5c9b6a1779b1e4465c9efa6f8b593fa4"
+        },
+        "Hybrid": {
+          "modules": [
+            "mf",
+            "graph",
+            "context"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.1,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid.pkl",
+          "sha256": "9f4d0340a782525c91ad1960770a0b28caafc6b688dae73084313c260ca4eb6c"
+        },
+        "LTR_MF": {
+          "modules": [
+            "mf"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_LTR_MF.pkl",
+          "sha256": "12528a14220aea1152f29a5b840d8e1b264853ebade7ba982b40520ab531e003"
+        },
+        "Hybrid_no_graph": {
+          "modules": [
+            "mf",
+            "context"
+          ],
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 300,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_no_graph.pkl",
+          "sha256": "f7593bca71e7a9c27a7052bab4c4b0e725447e0f6145960b6be14de4bb532c3c"
+        },
+        "Hybrid_no_mf": {
+          "modules": [
+            "graph",
+            "context"
+          ],
+          "features": [
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "cv",
+            "cv_rank",
+            "cv_last",
+            "cg",
+            "cg_rank",
+            "cg_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_pop1",
+            "i_cvr",
+            "c_pop7",
+            "u_events",
+            "u_items",
+            "u_days_last",
+            "uc_share",
+            "uc_recent_pos",
+            "uc_last",
+            "s_in_last",
+            "s_events_last",
+            "uc_items",
+            "uc_carts",
+            "uc_item_share",
+            "uc_item_rank"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_no_mf.pkl",
+          "sha256": "19ca73988c604342183d4f3faf8ad29efb94bca140567a00f9b4767ba106034d"
+        }
+      },
+      "training": {
+        "users": 4383,
+        "rows": 1449403,
+        "positive_rows": 4754,
+        "Hybrid_MF_Graph": {
+          "rows": 1137138,
+          "rows_sampled": 442774,
+          "truth_in_pool": 0.46051107031924826,
+          "cv_score": 0.3553772410270938,
+          "fits": 41,
+          "seconds": 97.82437930000015
+        },
+        "Hybrid": {
+          "rows": 1449403,
+          "rows_sampled": 443054,
+          "truth_in_pool": 0.47687447643831726,
+          "cv_score": 0.3588517783857026,
+          "fits": 41,
+          "seconds": 140.10574130000896
+        },
+        "LTR_MF": {
+          "rows": 705982,
+          "rows_sampled": 442405,
+          "truth_in_pool": 0.43779468477275557,
+          "cv_score": 0.3543973187478985,
+          "fits": 41,
+          "seconds": 66.96658490001573
+        },
+        "Hybrid_no_graph": {
+          "rows": 1035236,
+          "rows_sampled": 442787,
+          "truth_in_pool": 0.45525657970384786,
+          "cv_score": 0.35808090820315264,
+          "fits": 41,
+          "seconds": 98.06649389999802
+        },
+        "Hybrid_no_mf": {
+          "rows": 1056145,
+          "rows_sampled": 442752,
+          "truth_in_pool": 0.4629444235584211,
+          "cv_score": 0.3585281196678867,
+          "fits": 41,
+          "seconds": 100.7194025000208
+        }
+      }
+    }
+  },
+  "rerankers": {
+    "repeat": {
+      "models": {
+        "Hybrid_LTR": {
+          "design": "policy_truth",
+          "variant": "full",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_available",
+            "u_events",
+            "u_items",
+            "u_days_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_LTR.pkl",
+          "sha256": "58615c56ec91593a8a739359a5eba829ea0233828f47ab5a82a1b7a880919933"
+        },
+        "Hybrid_LTR_mf": {
+          "design": "policy_truth",
+          "variant": "mf",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_LTR_mf.pkl",
+          "sha256": "66014e8a2a8f4d685fbd24e702c014e33f83bba84fcc906c84c8bafddd215d9c"
+        },
+        "Hybrid_LTR_mf_gnn": {
+          "design": "policy_truth",
+          "variant": "mf_gnn",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_LTR_mf_gnn.pkl",
+          "sha256": "0f40fed7ab7fb555115363e1d25abb3ffd7b1d35a7997468679f9ff1f0348700"
+        },
+        "Hybrid_LTR_no_history": {
+          "design": "policy_truth",
+          "variant": "no_history",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_available",
+            "u_events",
+            "u_items",
+            "u_days_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 15
+          },
+          "model": "repeat_Hybrid_LTR_no_history.pkl",
+          "sha256": "faeb39d6c19d03cb33e5330957ee230d0759b2417a7065884e18637a0c9c0aad"
+        },
+        "Hybrid_LTR_W": {
+          "design": "weighted",
+          "variant": "full",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "h_views",
+            "h_carts",
+            "h_purchases",
+            "h_weight",
+            "h_days",
+            "h_recent_pos",
+            "h_seen",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_available",
+            "u_events",
+            "u_items",
+            "u_days_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_Hybrid_LTR_W.pkl",
+          "sha256": "555b671cf491774792e0df0d702bf11626e2f2039d2a56a8fb098de026e68867"
+        },
+        "Hybrid_LTR_W_mf": {
+          "design": "weighted",
+          "variant": "mf",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_Hybrid_LTR_W_mf.pkl",
+          "sha256": "b1b55563e5963a7de038b17bf604732ea5757d100294a805f3653f4ffb9c4721"
+        },
+        "Hybrid_LTR_W_mf_gnn": {
+          "design": "weighted",
+          "variant": "mf_gnn",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_Hybrid_LTR_W_mf_gnn.pkl",
+          "sha256": "3f4bf19492f47957833a5a581a2b11df23aa975493467ac1197fae29e25a0304"
+        },
+        "Hybrid_LTR_W_no_history": {
+          "design": "weighted",
+          "variant": "no_history",
+          "features": [
+            "als",
+            "bpr",
+            "als_rank",
+            "bpr_rank",
+            "sim_als_last",
+            "gnn",
+            "gnn_rank",
+            "sim_gnn_last",
+            "i_pop",
+            "i_pop7",
+            "i_pos7",
+            "i_days_last",
+            "i_available",
+            "u_events",
+            "u_items",
+            "u_days_last"
+          ],
+          "params": {
+            "learning_rate": 0.05,
+            "max_iter": 100,
+            "max_leaf_nodes": 31
+          },
+          "model": "repeat_Hybrid_LTR_W_no_history.pkl",
+          "sha256": "73be16ba551e492cfc584904370c8ccb9ffa037ec51fb1a2983834d7dce2318e"
+        }
+      },
+      "training": {
+        "Hybrid_LTR": {
+          "users": 319,
+          "users_with_policy_truth": 584,
+          "rows": 78740,
+          "positive_rows": 299,
+          "truth_in_pool": 0.24442891791954438,
+          "cv_score": 0.3548291655585104,
+          "fits": 44,
+          "seconds": 78.78271699999459
+        },
+        "Hybrid_LTR_W": {
+          "users": 4383,
+          "users_with_policy_truth": 319,
+          "rows": 1125462,
+          "positive_rows": 4437,
+          "truth_in_pool": 0.4474811538088211,
+          "cv_score": 0.36031514566897516,
+          "fits": 44,
+          "seconds": 749.2794484999904
+        }
+      }
+    }
+  }
+}

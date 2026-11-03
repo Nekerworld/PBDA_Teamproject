@@ -1,0 +1,11 @@
+[
+  {
+    "policy": "repeat",
+    "evaluation_users": 789,
+    "warm_users": 421,
+    "users_with_reachable_truth": 399,
+    "truth_items": 2090,
+    "reachable_truth_items": 1318,
+    "catalog_items": 50576
+  }
+]

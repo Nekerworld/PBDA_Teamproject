@@ -1,0 +1,17 @@
+{
+  "42": {
+    "mf": "F4_unseen/runs/seed_42",
+    "gnn": "F4_unseen/runs/gnn_seed_42",
+    "hybrid_gnn": "F4_unseen/runs/gnn_seed_42"
+  },
+  "43": {
+    "mf": "F4_unseen/runs/seed_43",
+    "gnn": "F4_unseen/runs/gnn_seed_43",
+    "hybrid_gnn": "F4_unseen/runs/gnn_seed_43"
+  },
+  "44": {
+    "mf": "F4_unseen/runs/seed_44",
+    "gnn": "F4_unseen/runs/gnn_seed_44",
+    "hybrid_gnn": "F4_unseen/runs/gnn_seed_44"
+  }
+}

@@ -1,0 +1,111 @@
+diff --git a/Model/paper_revision_codex/report_tools/guard_mutation_check.py b/Model/paper_revision_codex/report_tools/guard_mutation_check.py
+index 75ac4b3..fb756f5 100644
+--- a/Model/paper_revision_codex/report_tools/guard_mutation_check.py
++++ b/Model/paper_revision_codex/report_tools/guard_mutation_check.py
+@@ -250,19 +250,19 @@ def main():
+                 'started_utc': datetime.now(timezone.utc).isoformat()}
+     print('start', json.dumps(run_info), flush=True)
+     tmp = Path(tempfile.mkdtemp(prefix='h_mut_'))
+-    rows = []
++rows = []
+     d = fresh(tmp); r = run_tests(d); base = summary(r.stdout); print('unmutated', base, flush=True)
+     assert r.returncode == 0 and re.search(r'\b\d+ passed\b', base), (r.returncode, base, r.stderr[-2000:])
+-    for name, (f, old, new) in M.items():
++for name, (f, old, new) in M.items():
+         d = fresh(tmp); t = (d / f).read_text(encoding='utf-8'); assert t.count(old) == 1, (name, t.count(old))
+-        (d / f).write_text(t.replace(old, new, 1), encoding='utf-8')
++    (d / f).write_text(t.replace(old, new, 1), encoding='utf-8')
+         r = run_tests(d)
+         rows.append({'mutant': name, 'file': f, 'result': classify(r.returncode, r.stdout), 'returncode': r.returncode,
+                      'summary': summary(r.stdout)})
+-        print(json.dumps(rows[-1]), flush=True)
+-    shutil.rmtree(tmp)
++    print(json.dumps(rows[-1]), flush=True)
++shutil.rmtree(tmp)
+     out = Path(sys.argv[1]) if len(sys.argv) > 1 else src / 'audit_runs' / 'guard_mutants.json'
+-    out.parent.mkdir(parents=True, exist_ok=True)
++out.parent.mkdir(parents=True, exist_ok=True)
+     run_info['finished_utc'] = datetime.now(timezone.utc).isoformat()
+     out.write_text(json.dumps({**run_info, 'unmutated': base, 'tests': args[5:], 'mutants': rows}, indent=2), encoding='utf-8')
+     counts = {k: sum(row['result'] == k for row in rows) for k in ('killed', 'survived', 'aborted')}
+diff --git a/Model/paper_revision_codex/rolling_protocol.py b/Model/paper_revision_codex/rolling_protocol.py
+index de6bc0f..18fc266 100644
+--- a/Model/paper_revision_codex/rolling_protocol.py
++++ b/Model/paper_revision_codex/rolling_protocol.py
+@@ -768,37 +768,37 @@ def run_gnn_jobs(root, specs, stop=None):
+     spec_dir = Path(root).resolve() / 'job_specs'  # the jobs run in HERE, not in the caller's directory
+     spec_dir.mkdir(exist_ok=True)
+     try:
+-        while pending or running:
++    while pending or running:
+             if stop is not None and stop.is_set():
+                 raise RuntimeError('GNN jobs stopped because the step running beside them failed')
+-            while pending and len(running) < MAX_PARALLEL_GNN:
+-                spec = pending.pop(0)
++        while pending and len(running) < MAX_PARALLEL_GNN:
++            spec = pending.pop(0)
+                 require_frozen_code(root)
+-                path = spec_dir / (hashlib.sha1(spec['job_dir'].encode()).hexdigest()[:16] + '.json')
+-                dump_json(path, spec)
+-                Path(spec['job_dir']).parent.mkdir(parents=True, exist_ok=True)
+-                logfile = open(Path(spec['job_dir'] + '.log'), 'w', encoding='utf-8')
++            path = spec_dir / (hashlib.sha1(spec['job_dir'].encode()).hexdigest()[:16] + '.json')
++            dump_json(path, spec)
++            Path(spec['job_dir']).parent.mkdir(parents=True, exist_ok=True)
++            logfile = open(Path(spec['job_dir'] + '.log'), 'w', encoding='utf-8')
+                 try:
+-                    process = subprocess.Popen([sys.executable, str(HERE / 'rolling_protocol.py'), 'gnn-job', str(path)],
+-                                               cwd=HERE, stdout=logfile, stderr=subprocess.STDOUT)
++            process = subprocess.Popen([sys.executable, str(HERE / 'rolling_protocol.py'), 'gnn-job', str(path)],
++                                       cwd=HERE, stdout=logfile, stderr=subprocess.STDOUT)
+                 except BaseException:
+                     logfile.close()
+                     raise
+-                running.append((process, spec, logfile))
++            running.append((process, spec, logfile))
+                 try:
+                     kill_with_parent(process)
+                 except OSError:
+                     if process.poll() is None:  # a job that already ended cannot join; its exit code is read below
+                         raise
+-            time.sleep(5)
+-            for entry in list(running):
+-                process, spec, logfile = entry
+-                if process.poll() is not None:
+-                    logfile.close()
+-                    running.remove(entry)
+-                    if process.returncode != 0 or not (Path(spec['job_dir']) / 'job_result.json').exists():
+-                        raise RuntimeError(f'GNN job failed: {spec["job_dir"]} (see .log)')
+-                    log(root, 'gnn_job_done', job=rel(spec['job_dir'], root))
++        time.sleep(5)
++        for entry in list(running):
++            process, spec, logfile = entry
++            if process.poll() is not None:
++                logfile.close()
++                running.remove(entry)
++                if process.returncode != 0 or not (Path(spec['job_dir']) / 'job_result.json').exists():
++                    raise RuntimeError(f'GNN job failed: {spec["job_dir"]} (see .log)')
++                log(root, 'gnn_job_done', job=rel(spec['job_dir'], root))
+     except BaseException:
+         for process, _, logfile in running:
+             process.terminate()
+@@ -1068,7 +1068,7 @@ def access_log(root, entry, record=True):
+     record=False only checks, for runs that find the fold's outputs already written."""
+     path = Path(root) / 'test_access_log.jsonl'
+     try:
+-        previous = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []
++    previous = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()] if path.exists() else []
+         if not all(isinstance(item, dict) and 'fold' in item for item in previous):
+             raise ValueError('an entry is not an opening record')
+     except ValueError as error:
+@@ -1083,8 +1083,8 @@ def access_log(root, entry, record=True):
+             raise RuntimeError(f'Fold {entry["fold"]} test was already opened under selection '
+                                f'{item.get("selection_sha256")}; a re-made selection cannot reopen it.')
+     if record:
+-        with open(path, 'a', encoding='utf-8') as stream:
+-            stream.write(json.dumps(entry) + '\n')
++    with open(path, 'a', encoding='utf-8') as stream:
++        stream.write(json.dumps(entry) + '\n')
+ 
+ 
+ def open_test(root, fold_name, purpose, plan_hash, done):
