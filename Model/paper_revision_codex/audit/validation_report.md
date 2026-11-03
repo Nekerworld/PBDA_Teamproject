@@ -906,6 +906,7 @@ plan `7750924…`(`audit/results_v10/plan.json`), 코드 cc7d886(실행 중 hash
 | 독립 검증 (`audit/v10protocol/verify_results.txt`) | ALL CHECKS PASS: 모델 파일 해시, 사다리 분할 특징, 묶음별 Holm 재계산(차이 0), 사다리 표 재계산, 단계 순서(학습 ≤ 봉인 < 열람 < 평가), fold당 열람 1회 |
 | 원본 재계산 (`audit/v10protocol/recompute/`) | 네 fold 모두 원본 `events.csv`에서 정답·모집단을 다시 만들어 345행 비교, 모집단 일치, 최대 차이 1e-16, 중복 추천 0 |
 | 같은 구간 확인 | 네 fold의 원본 cutoff·fold 이벤트 해시·평가 모집단(854, 897, 628, 413명)이 v6(F1–F3)·v7(F4)와 같음. 결정적 baseline(Popularity, Recent, RecentPop)의 NDCG가 v6·v7과 정확히 같음(차이 0) |
+| 커밋 후 재검증 (bb0e451, 새 worktree, lock venv) | SHA256 v6–v10 모두 OK(60, 28, 50, 45, 170), 커밋된 사본에서 독립 검증 ALL CHECKS PASS. 테스트는 247 통과, 2 실패, 1 건너뜀: 실패 2개는 커밋된 기록 집합을 비교하는 테스트가 `results_v10` 추가를 반영하지 못한 것(I-168, 테스트 기대값 수정, 변이 확인) |
 | 선택 | 모든 fold에서 `outer_test_used_for_selection: false`. 선택된 단독 GNN과 Hybrid backbone은 F2–F4에서 같고 F1에서 다름(층 2 대 3). grid 끝 선택이 여러 개 있음(I-167) |
 
 ### 38.2 NDCG@50 (seed 평균)

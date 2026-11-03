@@ -1,0 +1,83 @@
+policies ['repeat'] acknowledged records ['784d0fa97912d79b50665c32c3ebf181daff38ae2e559d79e5e6c961b472dfef', 'c56ada95ecce29320a4e903e2ae5c23b72296d13e8be0fc2030efe9cc25a700d']
+F1_hist repeat reranker Hybrid_LTR: features 23, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F1_hist repeat reranker Hybrid_LTR_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F1_hist repeat reranker Hybrid_LTR_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F1_hist repeat reranker Hybrid_LTR_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F1_hist repeat reranker Hybrid_LTR_W: features 23, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist repeat reranker Hybrid_LTR_W_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist repeat reranker Hybrid_LTR_W_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist repeat reranker Hybrid_LTR_W_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist repeat ladder Hybrid_v9_MF_Graph: modules ['mf', 'graph'], used in splits 14 of 14, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F1_hist repeat ladder Hybrid_v9: modules ['mf', 'graph', 'context'], used in splits 36 of 40, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist repeat ladder Hybrid_v9_MF: modules ['mf'], used in splits 5 of 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F1_hist repeat ladder Hybrid_v9_no_graph: modules ['mf', 'context'], used in splits 26 of 31, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist repeat ladder Hybrid_v9_no_mf: modules ['graph', 'context'], used in splits 32 of 35, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F1_hist: sealed model files 13, sha256 mismatches 0
+F1_hist repeat ablation: comparisons 6, significant 3, max |Holm recomputed - reported| 0.00e+00
+F1_hist repeat confirmatory: comparisons 64, significant 52, max |Holm recomputed - reported| 1.11e-16
+F1_hist repeat ladder: comparisons 10, significant 2, max |Holm recomputed - reported| 1.11e-16
+F1_hist repeat secondary: comparisons 4, significant 0, max |Holm recomputed - reported| 1.11e-16
+F1_hist repeat ladder recomputed from test_summary matches ladder.csv: True; L1/L0 1.0585, L2/L1 1.0171, L3/L2 1.0089, pass False
+F1_hist: stages (first) {'ladder_trained': '2026-11-02T21:45:49.128682+00:00', 'rerankers_trained': '2026-11-02T22:04:43.898428+00:00', 'selection_sealed': '2026-11-02T22:04:43.906425+00:00', 'test_evaluated': '2026-11-03T01:57:51.032520+00:00'}; openings 1 ['2026-11-03T01:53:18.928097+00:00']; selection sha matches True; order trained <= sealed < opened < evaluated: True
+F2_mid repeat reranker Hybrid_LTR: features 23, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F2_mid repeat reranker Hybrid_LTR_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F2_mid repeat reranker Hybrid_LTR_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F2_mid repeat reranker Hybrid_LTR_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F2_mid repeat reranker Hybrid_LTR_W: features 23, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F2_mid repeat reranker Hybrid_LTR_W_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F2_mid repeat reranker Hybrid_LTR_W_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F2_mid repeat reranker Hybrid_LTR_W_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F2_mid repeat ladder Hybrid_v9_MF_Graph: modules ['mf', 'graph'], used in splits 14 of 14, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F2_mid repeat ladder Hybrid_v9: modules ['mf', 'graph', 'context'], used in splits 36 of 40, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 15}
+F2_mid repeat ladder Hybrid_v9_MF: modules ['mf'], used in splits 5 of 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F2_mid repeat ladder Hybrid_v9_no_graph: modules ['mf', 'context'], used in splits 28 of 31, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 15}
+F2_mid repeat ladder Hybrid_v9_no_mf: modules ['graph', 'context'], used in splits 30 of 35, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F2_mid: sealed model files 13, sha256 mismatches 0
+F2_mid repeat ablation: comparisons 6, significant 3, max |Holm recomputed - reported| 1.11e-16
+F2_mid repeat confirmatory: comparisons 64, significant 51, max |Holm recomputed - reported| 1.11e-16
+F2_mid repeat ladder: comparisons 10, significant 3, max |Holm recomputed - reported| 3.47e-18
+F2_mid repeat secondary: comparisons 4, significant 2, max |Holm recomputed - reported| 0.00e+00
+F2_mid repeat ladder recomputed from test_summary matches ladder.csv: True; L1/L0 1.0258, L2/L1 1.0294, L3/L2 1.0413, pass False
+F2_mid: stages (first) {'ladder_trained': '2026-11-03T08:22:59.837049+00:00', 'rerankers_trained': '2026-11-03T08:36:53.386833+00:00', 'selection_sealed': '2026-11-03T08:36:53.394833+00:00', 'test_evaluated': '2026-11-03T09:19:12.593186+00:00'}; openings 1 ['2026-11-03T09:15:00.099331+00:00']; selection sha matches True; order trained <= sealed < opened < evaluated: True
+F3_early repeat reranker Hybrid_LTR: features 23, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F3_early repeat reranker Hybrid_LTR_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F3_early repeat reranker Hybrid_LTR_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F3_early repeat reranker Hybrid_LTR_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F3_early repeat reranker Hybrid_LTR_W: features 23, params {'learning_rate': 0.1, 'max_iter': 300, 'max_leaf_nodes': 15}
+F3_early repeat reranker Hybrid_LTR_W_mf: features 5, params {'learning_rate': 0.1, 'max_iter': 300, 'max_leaf_nodes': 15}
+F3_early repeat reranker Hybrid_LTR_W_mf_gnn: features 8, params {'learning_rate': 0.1, 'max_iter': 300, 'max_leaf_nodes': 15}
+F3_early repeat reranker Hybrid_LTR_W_no_history: features 16, params {'learning_rate': 0.1, 'max_iter': 300, 'max_leaf_nodes': 15}
+F3_early repeat ladder Hybrid_v9_MF_Graph: modules ['mf', 'graph'], used in splits 14 of 14, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F3_early repeat ladder Hybrid_v9: modules ['mf', 'graph', 'context'], used in splits 36 of 40, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F3_early repeat ladder Hybrid_v9_MF: modules ['mf'], used in splits 5 of 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 31}
+F3_early repeat ladder Hybrid_v9_no_graph: modules ['mf', 'context'], used in splits 26 of 31, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F3_early repeat ladder Hybrid_v9_no_mf: modules ['graph', 'context'], used in splits 34 of 35, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 31}
+F3_early: sealed model files 13, sha256 mismatches 0
+F3_early repeat ablation: comparisons 6, significant 1, max |Holm recomputed - reported| 1.11e-16
+F3_early repeat confirmatory: comparisons 64, significant 39, max |Holm recomputed - reported| 5.55e-17
+F3_early repeat ladder: comparisons 10, significant 0, max |Holm recomputed - reported| 1.11e-16
+F3_early repeat secondary: comparisons 4, significant 0, max |Holm recomputed - reported| 0.00e+00
+F3_early repeat ladder recomputed from test_summary matches ladder.csv: True; L1/L0 1.0132, L2/L1 1.0244, L3/L2 1.0348, pass False
+F3_early: stages (first) {'ladder_trained': '2026-11-03T16:28:58.271983+00:00', 'rerankers_trained': '2026-11-03T16:40:57.501936+00:00', 'selection_sealed': '2026-11-03T16:40:57.510936+00:00', 'test_evaluated': '2026-11-03T17:02:05.110976+00:00'}; openings 1 ['2026-11-03T16:59:28.805780+00:00']; selection sha matches True; order trained <= sealed < opened < evaluated: True
+F4_unseen repeat reranker Hybrid_LTR: features 23, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_W: features 23, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_W_mf: features 5, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_W_mf_gnn: features 8, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 15}
+F4_unseen repeat reranker Hybrid_LTR_W_no_history: features 16, params {'learning_rate': 0.05, 'max_iter': 300, 'max_leaf_nodes': 15}
+F4_unseen repeat ladder Hybrid_v9_MF_Graph: modules ['mf', 'graph'], used in splits 14 of 14, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 31}
+F4_unseen repeat ladder Hybrid_v9: modules ['mf', 'graph', 'context'], used in splits 34 of 40, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat ladder Hybrid_v9_MF: modules ['mf'], used in splits 5 of 5, params {'learning_rate': 0.05, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat ladder Hybrid_v9_no_graph: modules ['mf', 'context'], used in splits 27 of 31, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen repeat ladder Hybrid_v9_no_mf: modules ['graph', 'context'], used in splits 33 of 35, params {'learning_rate': 0.1, 'max_iter': 100, 'max_leaf_nodes': 15}
+F4_unseen: sealed model files 13, sha256 mismatches 0
+F4_unseen repeat ablation: comparisons 6, significant 1, max |Holm recomputed - reported| 1.11e-16
+F4_unseen repeat confirmatory: comparisons 64, significant 41, max |Holm recomputed - reported| 1.11e-16
+F4_unseen repeat ladder: comparisons 10, significant 2, max |Holm recomputed - reported| 0.00e+00
+F4_unseen repeat secondary: comparisons 4, significant 0, max |Holm recomputed - reported| 0.00e+00
+F4_unseen repeat ladder recomputed from test_summary matches ladder.csv: True; L1/L0 0.9826, L2/L1 1.0306, L3/L2 1.0174, pass False
+F4_unseen: stages (first) {'ladder_trained': '2026-11-03T18:42:59.956082+00:00', 'rerankers_trained': '2026-11-03T18:51:02.944026+00:00', 'selection_sealed': '2026-11-03T18:51:02.952026+00:00', 'test_evaluated': '2026-11-03T18:58:00.187439+00:00'}; openings 1 ['2026-11-03T18:56:19.262687+00:00']; selection sha matches True; order trained <= sealed < opened < evaluated: True
+completed logged: True
+ALL CHECKS PASS

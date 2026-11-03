@@ -177,6 +177,7 @@ plan.json (plan_sha256, code_sha256, raw_input_sha256, git, environment)
 | v10 커밋 후 재검증 (새 worktree, lock venv) | `audit_runs/v10prep/postcommit.sh cc7d886` | `audit/v10protocol/postcommit_cc7d886_*.txt` |
 | v10 RetailRocket 실행 (plan 7750924…, 코드 cc7d886, F1–F4, 시험 fold당 1회 열람, F3에서 한 번 멈춘 뒤 같은 명령으로 재개, I-165) | `rolling_protocol.py run --protocol v10 --root audit_runs/v10_rr --raw ../../data` | `audit/results_v10/` (170개 파일, `SHA256SUMS.txt`) |
 | v10 검증·주 가설 묶음·원본 재계산 | `audit/v10protocol/verify_results.py`, `primary_family.py`, `report_tools/recompute_test_metrics.py` | `audit/v10protocol/verify_results.txt`, `primary/`, `recompute/recompute_F*.json` |
+| v10 결과 커밋 후 재검증 (bb0e451) | `audit_runs/v10post/postcommit.sh bb0e451` | `audit/v10protocol/postcommit_bb0e451_*.txt` (테스트 2개 실패 → I-168) |
 
 다음 실행은 이미 열린 시험 결과를 다시 계산만 하며, 새 시험 열람이 아니다 (모델을 학습하거나 선택하지 않음).
 

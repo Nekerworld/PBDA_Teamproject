@@ -100,10 +100,14 @@ def test_only_the_named_plans_may_have_opened_the_windows(tmp_path, monkeypatch)
 
 
 def test_the_committed_records_hold_only_the_named_openings(monkeypatch):
+    """Besides the named v6/v7 openings only v10's own record has opened the windows. It still blocks here because
+    an events-only raw record cannot be an exact reproduction."""
     use(monkeypatch, 'v10')
     stored = json.loads((RESULTS / 'results_v6' / 'plan.json').read_text(encoding='utf-8'))
     raw = {'events.csv': stored['raw_input_sha256']['events.csv']}
-    assert rp.committed_test_conflicts(raw, plan_hash(), rp.FOLDS, records=RESULTS) == []
+    found = rp.committed_test_conflicts(raw, plan_hash(), rp.FOLDS, records=RESULTS)
+    assert {Path(c['record']).name for c in found} == {'results_v10'}
+    assert sorted(c['fold'] for c in found) == sorted(f['name'] for f in rp.FOLDS)
     use(monkeypatch, 'v9')
     blocked = rp.committed_test_conflicts(raw, plan_hash(), rp.V10['FOLDS'], records=RESULTS)
     assert {c['fold'] for c in blocked} == {f['name'] for f in rp.V10['FOLDS']}

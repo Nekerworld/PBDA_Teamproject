@@ -1,0 +1,9 @@
+commit: bb0e4511964cb307c564e8834ec4e08cdf3aa34a
+worktree: /c/Users/chris/AppData/Local/Temp/pc_bb0e451
+status: 0 changed files
+venv: C:/Users/chris/venvs/pbda_lockcheck
+started_utc: 2026-11-03T19:16:09Z
+FAILED test_cycle4_guards.py::test_committed_v6_v7_records_guard_their_windows
+FAILED test_v10_protocol.py::test_the_committed_records_hold_only_the_named_openings
+2 failed, 247 passed, 1 skipped, 1 warning in 522.39s (0:08:42)
+finished_utc: 2026-11-03T19:24:52Z

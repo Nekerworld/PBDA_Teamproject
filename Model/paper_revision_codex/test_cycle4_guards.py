@@ -89,7 +89,7 @@ def test_committed_v6_v7_records_guard_their_windows():
     raw = plans['v6']['raw_input_sha256']
     assert plans['v7']['raw_input_sha256'] == raw
     v7_conflicts = rp.committed_test_conflicts(raw, 'new-plan', plans['v7']['plan']['folds'], audit)
-    assert {Path(c['record']).name for c in v7_conflicts} == {'results_v7'}
+    assert {Path(c['record']).name for c in v7_conflicts} == {'results_v7', 'results_v10'}  # v10 reopened F4 (I-161)
     every_fold = plans['v6']['plan']['folds'] + plans['v7']['plan']['folds']
     conflicts = rp.committed_test_conflicts(raw, 'new-plan', every_fold, audit)
     assert sorted({c['fold'] for c in conflicts}) == ['F1_hist', 'F2_mid', 'F3_early', 'F4_unseen']
