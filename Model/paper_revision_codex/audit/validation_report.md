@@ -892,3 +892,61 @@ K=50, seed 42/43/44 평균 ± 표준편차(`report/test_summary.csv`). 평가 �
 | 복제 재시도 (I-164) | 합성 4-fold 확인 중 `WinError 5`가 다시 나서 `experiments.replace_with_retry`로 근본 수정(PermissionError만 최대 6번 재시도). 가드 변이 H45·H59 문자열을 현재 코드에 맞추고 둘 다 검출(`guard_H45_H59.txt`) |
 | 결과 도구 (시험 전에 작성) | `package_results.py`, `verify_results.py`, `primary_family.py`, `report_tools/recompute_test_metrics.py`(plan의 정책만 계산하도록 고침). 합성 4-fold 실행에서 모두 확인: 166개 파일 묶음, 모든 검사 통과, 116개 비교, 네 fold 재계산 최대 차이 1e-16(`audit/v10protocol/check_tools_synthetic.log`) |
 | 회귀 테스트 | 커밋 전 작업 폴더 250/250 (v7 venv, `audit/v10protocol/precommit_pytest.txt`) |
+
+## 38. v10 결과: RetailRocket 메인 (repeat, F1–F4, 2026-11-02–03 실행)
+
+plan `7750924…`(`audit/results_v10/plan.json`), 코드 cc7d886(실행 중 hashed 코드 동일 확인), 기록 `audit/results_v10/`(170개 파일, `SHA256SUMS.txt`). NDCG@50, 사용자 단위 paired bootstrap 95% CI, sign-flip 검정, seed 3개 평균. 판정은 계획 §5대로 주 가설 묶음(네 fold 합친 Holm, 116개 비교, `audit/v10protocol/primary/`)을 씀.
+
+### 38.1 실행과 검증
+
+| 항목 | 결과 |
+|---|---|
+| 실행 | F1 13.3시간, F2 7.3시간, F3·F4 합쳐 약 4시간. F3 GNN 단계에서 한 번 멈춤(I-165): 실행 중 편집기에서 `rolling_protocol.py`·`guard_mutation_check.py`가 들여쓰기만 바뀐 채 저장됨(문법 오류, `git diff -w` 차이 없음). 실행의 코드 고정 검사가 다음 GNN 작업 시작 전에 이를 잡아 멈춤. 변경을 patch로 보관(`audit/v10protocol/accidental_dedent_20261103_1942.patch`)하고 커밋된 파일로 되돌린 뒤 코드 해시가 plan과 같음을 확인하고 같은 명령으로 재개 |
+| 재개 확인 | F1·F2는 저장된 산출물에서 같은 selection 해시(`4549d42…`, `19522ca…`)를 다시 만들고 시험을 다시 열지 않음(열람 기록 fold당 1개, 전체 4개). 끝난 F3 GNN 작업은 모두 변경 전에 시작됨. 끊긴 작업 3개는 처음부터 다시 실행됨 |
+| 독립 검증 (`audit/v10protocol/verify_results.txt`) | ALL CHECKS PASS: 모델 파일 해시, 사다리 분할 특징, 묶음별 Holm 재계산(차이 0), 사다리 표 재계산, 단계 순서(학습 ≤ 봉인 < 열람 < 평가), fold당 열람 1회 |
+| 원본 재계산 (`audit/v10protocol/recompute/`) | 네 fold 모두 원본 `events.csv`에서 정답·모집단을 다시 만들어 345행 비교, 모집단 일치, 최대 차이 1e-16, 중복 추천 0 |
+| 같은 구간 확인 | 네 fold의 원본 cutoff·fold 이벤트 해시·평가 모집단(854, 897, 628, 413명)이 v6(F1–F3)·v7(F4)와 같음. 결정적 baseline(Popularity, Recent, RecentPop)의 NDCG가 v6·v7과 정확히 같음(차이 0) |
+| 선택 | 모든 fold에서 `outer_test_used_for_selection: false`. 선택된 단독 GNN과 Hybrid backbone은 F2–F4에서 같고 F1에서 다름(층 2 대 3). grid 끝 선택이 여러 개 있음(I-167) |
+
+### 38.2 NDCG@50 (seed 평균)
+
+| 모델 | F1 | F2 | F3 | F4 |
+|---|---|---|---|---|
+| Popularity | 0.0138 | 0.0106 | 0.0097 | 0.0100 |
+| CoVisit | 0.0511 | 0.0476 | 0.0664 | 0.0826 |
+| Recent | 0.0938 | 0.1002 | 0.1188 | 0.1632 |
+| RecentPop | 0.0958 | 0.1034 | 0.1217 | 0.1647 |
+| ALS | 0.1093 | 0.1096 | 0.1315 | 0.1726 |
+| BPR | 0.1081 | 0.1121 | 0.1352 | 0.1901 |
+| GNN | 0.1081 | 0.1116 | 0.1307 | 0.1824 |
+| ALS+BPR | 0.1156 | 0.1150 | 0.1370 | 0.1868 |
+| Hybrid (v1, 서술용) | 0.1189 | 0.1146 | 0.1377 | 0.1942 |
+| Hybrid_LTR | 0.1186 | 0.1212 | 0.1396 | 0.1887 |
+| Hybrid_LTR_W | 0.1203 | 0.1204 | 0.1435 | 0.1937 |
+| Hybrid_v9_MF_Graph (L2) | 0.1176 | 0.1184 | 0.1403 | 0.1925 |
+| Hybrid_v9 (L3) | 0.1187 | 0.1233 | 0.1452 | 0.1959 |
+| Hybrid_v9_no_graph (ablation) | 0.1191 | 0.1222 | 0.1453 | 0.1975 |
+
+나머지 ablation(Hybrid_LTR*_mf, *_mf_gnn, *_no_history, Hybrid_ALS_only, Hybrid_v9_MF, Hybrid_v9_no_mf)은 `audit/results_v10/*/report/test_summary.csv`.
+
+### 38.3 주 가설 묶음 (116개 비교, 네 fold 합친 Holm)
+
+| 판단 | 결과 |
+|---|---|
+| Hybrid 3종 − 비개인화 baseline 4개(Popularity, Recent, RecentPop, CoVisit) | 네 fold, 세 모델 모두 유의하게 높음(48/48) |
+| Hybrid 3종 − 모든 baseline 8개 | F2의 Hybrid_v9만 8개 모두보다 유의하게 높음(ALS+BPR 대비 +0.0083 [0.0038, 0.0131], Holm 0.024). 나머지 11개(모델 × fold)는 하나 이상과 유의한 차이 없음 |
+| Hybrid 3종 − ALS+BPR | F2 Hybrid_v9 외에는 유의한 차이 없음. 차이 +0.0019 – +0.0091(모두 양수), Holm 뒤 유의하지 않음 |
+| Hybrid 3종 − ALS·BPR·GNN | fold마다 다름. F3·F4에서는 BPR과 유의한 차이 없음(F4 Hybrid_LTR − BPR −0.0015 [−0.0100, 0.0070]) |
+| 사다리 (계획 §5 기준) | 네 fold 모두 미충족. 10% 비율 기준을 넘은 단계 없음(L2/L1 1.017 – 1.031, L3/L2 1.009 – 1.041). L3−L2, L2−L1 모두 주 가설 묶음에서 유의한 차이 없음(가장 작은 Holm p는 F2 L3−L2 0.086). F4에서는 L1(ALS+BPR) < max(L0)(BPR) |
+
+### 38.4 서술용 묶음 (fold별 Holm, 주 판단 아님)
+
+- 그래프 모듈 제거(Hybrid_v9 − Hybrid_v9_no_graph): 네 fold 모두 유의한 차이 없음(−0.0016 – +0.0011). F1·F3·F4에서는 그래프를 뺀 쪽이 평균으로 같거나 높음. RetailRocket repeat에서 v9 그래프 모듈의 기여는 확인되지 않음(I-166).
+- MF 모듈만 쓴 Hybrid_v9_MF 대비 Hybrid_v9는 F1–F3에서 유의하게 높음, F4 유의한 차이 없음. Hybrid_v9 − Hybrid_v9_no_mf는 F1·F2 유의, F3·F4 유의한 차이 없음.
+- 재정렬 − 점수 결합 Hybrid(v1): F2에서만 두 재정렬이 유의하게 높음(+0.0066, +0.0058), F1·F3·F4 유의한 차이 없음.
+
+### 38.5 해석의 한계
+
+- 시험 구간은 v6·v7이 이미 연 구간(I-161). "봉인 시험"이 아님. v8·v9 설계에는 쓰이지 않았지만 v1 Hybrid와 baseline 구성은 이 구간의 이전 결과를 본 뒤 만들어짐.
+- repeat 결정 시점(I-162), Hybrid에만 들어가는 재고·이력·문맥 신호(baseline 없음), fold당 평가 사용자 413–897명이라 낮은 검정력(계획 §5: F4 MDE 약 0.012).
+- 네 fold 평균은 서술용. fold 간 합동 검정은 계획에 없어 하지 않음.

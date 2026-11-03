@@ -822,3 +822,10 @@
 - 계획(92c8561, 코드 작성 전): `audit/v10_rr_plan.md`. 시험 구간 재사용(I-161), 정책·설계 선택 시점(I-162)을 기록.
 - 실행 전 확인에서 찾은 것: 기존 보호 장치가 v6·v7 기록 때문에 네 fold를 모두 거부함 → v6·v7 plan만 v10 plan에 명시해 예외(I-161). 합성 4-fold 확인 중 `WinError 5` 재발 → `replace_with_retry`로 근본 수정(I-164). 가드 변이 H59 문자열이 v9 때부터 맞지 않던 것도 고침.
 - 구현: `rolling_protocol.py` `V10`(FUSION·LADDER_NAMES·ACKNOWLEDGED_TEST_RECORDS·POLICIES 전역, v6–v9 plan 해시 유지), `test_v10_protocol.py` 11개, 변이 Q1–Q14 모두 검출, 결과 도구 4개를 합성 4-fold 출력에서 확인, 전체 테스트 250/250.
+
+## v10 실행·결과 (2026-11-02 – 03 KST)
+
+- 실행: cc7d886, plan `7750924…`. F1 13.3시간, F2 7.3시간. F3 GNN 단계에서 편집기 조작으로 hashed 코드 두 파일의 들여쓰기가 바뀌어(문법 오류) 코드 고정 검사로 멈춤 → patch 보관, 되돌림, 해시 확인, 같은 명령으로 재개(I-165). 재개는 F1·F2 시험을 다시 열지 않음.
+- 검증: 독립 검증 ALL CHECKS PASS, 원본 재계산 네 fold 최대 차이 1e-16, 구간·모집단·결정적 baseline이 v6·v7과 정확히 같음.
+- 결과(주 가설 묶음 116개, 네 fold Holm): Hybrid 3종 > 비개인화 baseline(모든 fold). ALS+BPR 대비 유의한 것은 F2 Hybrid_v9 하나. 사다리 기준 네 fold 모두 미충족, 그래프 모듈 제거 ablation 유의한 차이 없음(I-166). grid 끝 선택 기록(I-167).
+- 결과를 보고 설정을 바꾸거나 다시 실행하지 않음.

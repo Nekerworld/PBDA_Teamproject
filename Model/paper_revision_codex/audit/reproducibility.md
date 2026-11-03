@@ -104,6 +104,8 @@ python audit/v10protocol/package_results.py audit_runs/v10_rr audit_runs/repro/r
 python audit/v10protocol/verify_results.py audit/results_v10
 python audit/v10protocol/primary_family.py audit/results_v10 audit_runs/repro/v10_primary   # 주 가설 묶음(116개 비교)
 python report_tools/recompute_test_metrics.py --root audit_runs/v10_rr --fold F1_hist --raw ../../data --output audit_runs/repro/v10_recompute_F1.json   # F2_mid, F3_early, F4_unseen도
+# 비교: audit/results_v10/SHA256SUMS.txt(결과 묶음), audit/v10protocol/verify_results.txt, audit/v10protocol/primary/, audit/v10protocol/recompute/
+# 실행 중 hashed 코드가 바뀌면 실행이 멈춤(I-165). 커밋된 코드로 되돌린 뒤 같은 명령으로 재개하면 끝난 fold는 시험을 다시 열지 않음
 ```
 
 - 3단계는 중간에 멈춰도 같은 명령으로 이어서 실행할 수 있음. 완료된 산출물은 다시 만들지 않음.
